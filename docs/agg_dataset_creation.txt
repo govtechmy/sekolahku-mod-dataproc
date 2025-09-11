@@ -1,0 +1,384 @@
+// Enrolment 
+db.schools.aggregate([
+    {
+        $group: {
+            _id: "$jenis_label",
+            totalEnrolment: { $sum: "$enrolment.enrolmen" },
+            totalPrasekolah: { $sum: "$enrolment.enrolmen_prasekolah" },
+            totalKhas: { $sum: "$enrolment.enrolmen_khas" },
+            totalSekolah: { $sum: 1 },
+
+            totalBandar: {
+                $sum: { $cond: [{ $eq: ["$lokasi", "Bandar"] }, 1, 0] }
+            },
+            totalLuarBandar: {
+                $sum: { $cond: [{ $eq: ["$lokasi", "Luar Bandar"] }, 1, 0] }
+            },
+
+            sesiList: {
+                $addToSet: {
+                    bilsesi: "$sessions.bilsesi",
+                    sesi: "$sessions.sesi"
+                }
+            },
+
+            totalSKM150: {
+                $sum: { $cond: ["$enrolment.skm_150", 1, 0] }
+            }
+        }
+    },
+    { $sort: { totalEnrolment: -1 } },
+    { $out: "Enrolment" }
+])
+
+
+// Teachers
+db.schools.aggregate([
+    {
+        $group: {
+            _id: {
+                jenis_label: "$jenis_label",
+                negeri: "$administration.negeri"
+            },
+
+            totalGuruRendah: {
+                $sum: { $cond: [{ $eq: ["$peringkat", "Rendah"] }, "$teachers.guru", 0] }
+            },
+            totalGuruMenengah: {
+                $sum: { $cond: [{ $eq: ["$peringkat", "Menengah"] }, "$teachers.guru", 0] }
+            },
+            totalGuruBandar: {
+                $sum: { $cond: [{ $eq: ["$lokasi", "Bandar"] }, "$teachers.guru", 0] }
+            },
+            totalGuruLuarBandar: {
+                $sum: { $cond: [{ $eq: ["$lokasi", "Luar Bandar"] }, "$teachers.guru", 0] }
+            },
+
+            totalPrasekolah: {
+                $sum: { $cond: [{ $eq: ["$teachers.prasekolah", "ADA"] }, 1, 0] }
+            },
+            totalIntegrasi: {
+                $sum: { $cond: [{ $eq: ["$teachers.integrasi", "ADA"] }, 1, 0] }
+            },
+
+            totalSekolah: { $sum: 1 }
+        }
+    },
+    {
+        $group: {
+            _id: "$_id.jenis_label",
+            totalGuruRendah: { $sum: "$totalGuruRendah" },
+            totalGuruMenengah: { $sum: "$totalGuruMenengah" },
+            totalGuruBandar: { $sum: "$totalGuruBandar" },
+            totalGuruLuarBandar: { $sum: "$totalGuruLuarBandar" },
+
+            totalPrasekolah: { $sum: "$totalPrasekolah" },
+            totalIntegrasi: { $sum: "$totalIntegrasi" },
+
+            totalSekolah: { $sum: "$totalSekolah" },
+            negeri: {
+                $push: {
+                    negeri: "$_id.negeri",
+                    totalGuruRendah: "$totalGuruRendah",
+                    totalGuruMenengah: "$totalGuruMenengah",
+                    totalGuruBandar: "$totalGuruBandar",
+                    totalGuruLuarBandar: "$totalGuruLuarBandar",
+                    totalPrasekolah: "$totalPrasekolah",
+                    totalIntegrasi: "$totalIntegrasi",
+                    totalSekolah: "$totalSekolah"
+                }
+            }
+        }
+    },
+    {
+        $project: {
+            _id: 1,
+            totalGuruRendah: 1,
+            totalGuruMenengah: 1,
+            totalGuruBandar: 1,
+            totalGuruLuarBandar: 1,
+            totalPrasekolah: 1,
+            totalIntegrasi: 1,
+            totalSekolah: 1,
+            negeri: { $sortArray: { input: "$negeri", sortBy: { negeri: 1 } } }
+        }
+    },
+    { $out: "Teachers" }
+])
+
+
+// Type of schools 
+db.schools.aggregate([
+    {
+        $group: {
+            _id: {
+                jenis_label: "$jenis_label",
+                negeri: "$administration.negeri"
+            },
+
+            totalRendah: {
+                $sum: { $cond: [{ $eq: ["$peringkat", "Rendah"] }, 1, 0] }
+            },
+            totalMenengah: {
+                $sum: { $cond: [{ $eq: ["$peringkat", "Menengah"] }, 1, 0] }
+            },
+
+            totalBandar: {
+                $sum: { $cond: [{ $eq: ["$lokasi", "Bandar"] }, 1, 0] }
+            },
+            totalLuarBandar: {
+                $sum: { $cond: [{ $eq: ["$lokasi", "Luar Bandar"] }, 1, 0] }
+            },
+
+            totalEnrolment: { $sum: "$enrolment.enrolmen" },
+
+            bantuanCounts: { $push: "$bantuan" },
+            sesiCounts: { $push: "$sessions.sesi" },
+            gredCounts: { $push: "$gred" },
+
+            totalSchools: { $sum: 1 }
+        }
+    },
+    {
+        $project: {
+            _id: 0,
+            jenis_label: "$_id.jenis_label",
+            negeri: "$_id.negeri",
+            totalRendah: 1,
+            totalMenengah: 1,
+            totalBandar: 1,
+            totalLuarBandar: 1,
+            totalEnrolment: 1,
+            totalSchools: 1,
+
+            bantuanCounts: {
+                $map: {
+                    input: { $setUnion: ["$bantuanCounts", []] },
+                    as: "b",
+                    in: {
+                        bantuan: "$$b",
+                        totalSchools: {
+                            $size: {
+                                $filter: {
+                                    input: "$bantuanCounts",
+                                    as: "bc",
+                                    cond: { $eq: ["$$bc", "$$b"] }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            sesiCounts: {
+                $map: {
+                    input: { $setUnion: ["$sesiCounts", []] },
+                    as: "s",
+                    in: {
+                        sesi: "$$s",
+                        totalSchools: {
+                            $size: {
+                                $filter: {
+                                    input: "$sesiCounts",
+                                    as: "sc",
+                                    cond: { $eq: ["$$sc", "$$s"] }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            gredCounts: {
+                $map: {
+                    input: { $setUnion: ["$gredCounts", []] },
+                    as: "g",
+                    in: {
+                        gred: "$$g",
+                        totalSchools: {
+                            $size: {
+                                $filter: {
+                                    input: "$gredCounts",
+                                    as: "gc",
+                                    cond: { $eq: ["$$gc", "$$g"] }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    {
+        $group: {
+            _id: "$jenis_label",
+            totalRendah: { $sum: "$totalRendah" },
+            totalMenengah: { $sum: "$totalMenengah" },
+            totalBandar: { $sum: "$totalBandar" },
+            totalLuarBandar: { $sum: "$totalLuarBandar" },
+            totalEnrolment: { $sum: "$totalEnrolment" },
+            totalSchools: { $sum: "$totalSchools" },
+
+            bantuanCounts: { $push: "$bantuanCounts" },
+            sesiCounts: { $push: "$sesiCounts" },
+            gredCounts: { $push: "$gredCounts" },
+
+            jenisCounts: {
+                $push: {
+                    negeri: "$negeri",
+                    peringkatRendah: "$totalRendah",
+                    peringkatMenengah: "$totalMenengah",
+                    totalBandar: "$totalBandar",
+                    totalLuarBandar: "$totalLuarBandar",
+                    totalSchools: "$totalSchools"
+                }
+            }
+        }
+    },
+    {
+        $project: {
+            _id: 1,
+            totalRendah: 1,
+            totalMenengah: 1,
+            totalBandar: 1,
+            totalLuarBandar: 1,
+            totalEnrolment: 1,
+            totalSchools: 1,
+
+            bantuanCounts: {
+                $reduce: {
+                    input: "$bantuanCounts", initialValue: [],
+                    in: { $concatArrays: ["$$value", "$$this"] }
+                }
+            },
+            sesiCounts: {
+                $reduce: {
+                    input: "$sesiCounts", initialValue: [],
+                    in: { $concatArrays: ["$$value", "$$this"] }
+                }
+            },
+            gredCounts: {
+                $reduce: {
+                    input: "$gredCounts", initialValue: [],
+                    in: { $concatArrays: ["$$value", "$$this"] }
+                }
+            },
+
+            jenisCounts: 1
+        }
+    },
+    { $out: "TypeOfSchools" }
+])
+
+
+// Location 
+db.schools.aggregate([
+    {
+        $group: {
+            _id: "$administration.negeri",
+
+            totalSchools: { $sum: 1 },
+            totalRendah: {
+                $sum: { $cond: [{ $eq: ["$peringkat", "Rendah"] }, 1, 0] }
+            },
+            totalMenengah: {
+                $sum: { $cond: [{ $eq: ["$peringkat", "Menengah"] }, 1, 0] }
+            },
+
+            totalGuru: { $sum: "$teachers.guru" },
+
+            sesiCounts: { $push: "$sessions.sesi" },
+            lokasiCounts: { $push: "$lokasi" },
+
+            totalSKM150: {
+                $sum: { $cond: ["$enrolment.skm_150", 1, 0] }
+            }
+        }
+    },
+    {
+        $project: {
+            _id: 1,
+            totalSchools: 1,
+            totalRendah: 1,
+            totalMenengah: 1,
+            totalGuru: 1,
+            totalSKM150: 1,
+
+            sesiCounts: {
+                $map: {
+                    input: { $setUnion: ["$sesiCounts", []] },
+                    as: "s",
+                    in: {
+                        sesi: "$$s",
+                        totalSchools: {
+                            $size: {
+                                $filter: {
+                                    input: "$sesiCounts",
+                                    as: "sc",
+                                    cond: { $eq: ["$$sc", "$$s"] }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+
+            lokasiCounts: {
+                $map: {
+                    input: { $setUnion: ["$lokasiCounts", []] },
+                    as: "l",
+                    in: {
+                        lokasi: "$$l",
+                        totalSchools: {
+                            $size: {
+                                $filter: {
+                                    input: "$lokasiCounts",
+                                    as: "lc",
+                                    cond: { $eq: ["$$lc", "$$l"] }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    },
+    { $out: "Location" }
+])
+
+
+// Summary
+db.schools.aggregate([
+    {
+        $group: {
+            _id: "$administration.negeri",
+
+            totalSekolah: { $sum: 1 },
+            totalGuru: { $sum: "$teachers.guru" },
+            totalEnrolmen: { $sum: "$enrolment.enrolmen" },
+
+            totalPrasekolahMurid: { $sum: "$enrolment.enrolmen_prasekolah" },
+            totalKhasMurid: { $sum: "$enrolment.enrolmen_khas" },
+
+            totalPrasekolahSekolah: {
+                $sum: { $cond: [{ $eq: ["$teachers.prasekolah", "ADA"] }, 1, 0] }
+            },
+            totalIntegrasiSekolah: {
+                $sum: { $cond: [{ $eq: ["$teachers.integrasi", "ADA"] }, 1, 0] }
+            },
+
+            totalBandar: {
+                $sum: { $cond: [{ $eq: ["$lokasi", "Bandar"] }, 1, 0] }
+            },
+            totalLuarBandar: {
+                $sum: { $cond: [{ $eq: ["$lokasi", "Luar Bandar"] }, 1, 0] }
+            },
+
+            totalSKM150: {
+                $sum: { $cond: [{ $eq: ["$enrolment.skm_150", true] }, 1, 0] }
+            }
+        }
+    },
+    { $out: "Summary" }
+])
+
+
+// 
