@@ -3,3 +3,4 @@ sekolahku-map-data-set/service_account.json
 venv/
 __pycache__/
 *.pyc
+.DS_Store
