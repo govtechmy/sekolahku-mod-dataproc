@@ -10,6 +10,7 @@ defs = Definitions(
         jobs.staging_job,
         jobs.promotion_job,
         jobs.analytics_job,
+        jobs.validation_job,
         jobs.full_pipeline_job,
     ],
 )
