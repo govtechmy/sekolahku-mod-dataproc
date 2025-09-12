@@ -15,17 +15,15 @@ GSHEET_ID = os.getenv("GSHEET_ID")
 WORKSHEET_NAME = os.getenv("WORKSHEET_NAME")
 
 RAW_COLLECTION = os.getenv("RAW_COLLECTION")
-STG_COLLECTION= os.getenv("STG_COLLECTION")
-PROD_COLLECTION= os.getenv("PROD_COLLECTION")
+STG_COLLECTION = os.getenv("STG_COLLECTION")
+PROD_COLLECTION = os.getenv("PROD_COLLECTION")
 
 rules = load_rules()
 
-# ---------- DB Helper ----------
 def get_db():
     client = MongoClient(MONGO_URI)
     return client[DB_NAME]
 
-# ---------- GSheet Helper ----------
 def get_gsheet_client():
     creds = Credentials.from_service_account_file(
         "service_account.json",
@@ -33,7 +31,6 @@ def get_gsheet_client():
     )
     return gspread.authorize(creds)
 
-# ---------- Assets ----------
 @asset
 def gsheet_data():
     client = get_gsheet_client()
@@ -65,7 +62,7 @@ def raw_collection(context, gsheet_schema_validated):
     coll.insert_many(gsheet_schema_validated)
     return f"{len(gsheet_schema_validated)} rows loaded"
 
-@asset(deps=[raw_collection])
+@asset(deps=["raw_collection"])
 def stg_collection(context):
     db = get_db()
     raw = db[RAW_COLLECTION].find()
