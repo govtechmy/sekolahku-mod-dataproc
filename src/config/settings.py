@@ -1,14 +1,11 @@
-"""Application configuration settings."""
 from __future__ import annotations
 
-from functools import lru_cache
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Central configuration for the ingestion app."""
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -33,7 +30,6 @@ class Settings(BaseSettings):
         return bool(self.dry_run_flag)
 
 
-@lru_cache
 def get_settings() -> Settings:
-    """Return cached environment settings."""
+    """Return environment settings."""
     return Settings()  # type: ignore[arg-type]

@@ -1,4 +1,3 @@
-"""Data ingestion pipeline."""
 from __future__ import annotations
 
 import csv
@@ -19,7 +18,7 @@ from pymongo.collection import Collection
 from pymongo.errors import OperationFailure
 
 from src.config import Settings, get_settings
-from src.models import School
+from src.models import Sekolah
 
 logger = logging.getLogger(__name__)
 
@@ -66,10 +65,10 @@ def _load_rows(settings: Settings) -> Iterable[Dict[str, Any]]:
     raise ValueError(f"Unsupported source '{settings.source}'")
 
 
-def _iter_schools(settings: Settings) -> Iterator[School]:
+def _iter_schools(settings: Settings) -> Iterator[Sekolah]:
     for index, row in enumerate(_load_rows(settings), start=1):
         try:
-            yield School.model_validate(row)
+            yield Sekolah.model_validate(row)
         except ValidationError as exc:  # pragma: no cover - logging aid
             logger.warning("Row %s failed validation: %s", index, exc)
 
@@ -110,7 +109,7 @@ def _replace_collection(
 def _get_collection(settings: Settings) -> Collection:
     client = MongoClient(settings.mongo_uri)
     database = client[settings.db_name]
-    return database[School.collection_name]
+    return database[Sekolah.collection_name]
 
 
 def run(settings: Settings) -> dict[str, int]:

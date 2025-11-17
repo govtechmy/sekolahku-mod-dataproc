@@ -1,4 +1,3 @@
-"""Domain model for school records."""
 from __future__ import annotations
 
 from typing import ClassVar, Optional
@@ -10,8 +9,8 @@ ADA_MAP = {"ADA": True, "TIADA": False, "": None}
 BOOL_YA_MAP = {"YA": True, "TIDAK": False, "": None}
 
 
-class School(BaseModel):
-    collection_name: ClassVar[str] = "schools"
+class Sekolah(BaseModel):
+    collection_name: ClassVar[str] = "Sekolah"
 
     negeri: Optional[str] = Field(default=None, alias="NEGERI")
     ppd: Optional[str] = Field(default=None, alias="PPD")

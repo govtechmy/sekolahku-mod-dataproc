@@ -1,4 +1,4 @@
 """Pipeline package entrypoints."""
-from .ingestion import run, run_with_overrides
+from .ingestion import run
 
-__all__ = ["run", "run_with_overrides"]
+__all__ = ["run"]

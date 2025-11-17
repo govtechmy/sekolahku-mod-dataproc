@@ -1,4 +1,4 @@
 """Models package exports."""
-from .school import School
+from .sekolah import Sekolah
 
-__all__ = ["School"]
+__all__ = ["Sekolah"]
