@@ -14,6 +14,8 @@ SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
 
 # Run ingestion and then statistics (writes Statistik* collections)
 SOURCE=csv python -m src.main --statistics
+# Show verbosity for a single run (flag expects a value)
+python -m src.main --log-level DEBUG
 ```
 
 ### Command-line flags
@@ -21,7 +23,7 @@ SOURCE=csv python -m src.main --statistics
 Configuration (source, paths, Mongo connection, etc.) is controlled entirely through environment variables. Define values in `.env` or export them before running the module. The CLI exposes a couple of runtime toggles:
 
 - `--statistics` triggers the post-ingestion statistics run.
-- `--log-level` adjusts logging verbosity for the current process.
+- `--log-level <LEVEL>` adjusts logging verbosity for the current process (choose from `DEBUG`, `INFO`, `WARNING`, `ERROR`).
 
 When the statistics flag is used, the pipeline rewrites the three Statistik collections.
 
@@ -54,9 +56,12 @@ SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
 
 # Run ingestion and statistics pipeline
 python -m src.main --statistics
+
+# Increase verbosity for a single run
+python -m src.main --log-level DEBUG
 ```
 
-The process reads configuration from environment variables. Only `--statistics` and `--log-level` affect runtime behavior.
+The process reads configuration from environment variables. Only `--statistics` and `--log-level <LEVEL>` affect runtime behavior.
 
 ## Data Model
 
