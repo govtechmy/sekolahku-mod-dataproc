@@ -9,7 +9,7 @@ src/
 	config/
 		settings.py             # Environment-driven configuration
 	models/
-		school.py               # Pydantic schema for school documents
+		sekolah.py              # Pydantic schema for school documents
 	pipeline/
 		ingestion.py            # Extract/validate/load implementation
 main.py                      # CLI entrypoint delegating to pipeline
