@@ -24,8 +24,8 @@ class Sekolah(BaseModel):
     poskodSurat: Optional[int] = Field(default=None, alias="POSKODSURAT")
     bandarSurat: Optional[str] = Field(default=None, alias="BANDARSURAT")
 
-    noTelefon: Optional[str] = Field(default=None, alias="noTelefon")
-    noFax: Optional[str] = Field(default=None, alias="noFax")
+    noTelefon: Optional[str] = Field(default=None, alias="NOTELEFON")
+    noFax: Optional[str] = Field(default=None, alias="NOFAX")
     email: Optional[EmailStr] = Field(default=None, alias="EMAIL")
 
     lokasi: Optional[str] = Field(default=None, alias="LOKASI")
