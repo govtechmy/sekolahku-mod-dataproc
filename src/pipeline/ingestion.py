@@ -50,7 +50,7 @@ def _load_rows(settings: Settings) -> Iterable[Dict[str, Any]]:
     if source == "csv":
         logger.info("Loading data from CSV: %s", settings.csv_path)
         return _read_csv(settings.csv_path)
-    if source in {"gsheet", "sheets", "google"}:
+    if source == "gsheet":
         if not settings.gsheet_id:
             raise ValueError("GSHEET_ID must be set when SOURCE is gsheet")
         logger.info(

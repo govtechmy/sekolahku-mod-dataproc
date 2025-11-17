@@ -1,32 +1,24 @@
 # sekolahku-mod-dataproc
 
-Data processing & ingestion module for the Sekolahku project. This service ingests school metadata (CSV / Google Sheets) into MongoDB using a validated Pydantic schema.
+Data processing & ingestion module for the Sekolahku project. This service ingests school metadata from both CSV files and Google Sheets into MongoDB using a validated Pydantic schema.
 
 ## Folder Structure
 
 ```
 src/
-	adapters/
-		csv.py                   # CSV loader (streaming)
-		sheets.py                # Google Sheets adapter
 	config/
 		settings.py             # Environment-driven configuration
-	db/
-		mongo.py                # Mongo client factory
-		operations.py           # Bulk write helpers (chunk & replace)
 	models/
-		schema.py               # Pydantic schema for school documents
-	pipelines/
-		ingest_pipeline.py      # High-level ingestion orchestration
-	services/
+		school.py               # Pydantic schema for school documents
+	pipeline/
 		ingestion.py            # Extract/validate/load implementation
 main.py                      # CLI entrypoint delegating to pipeline
-docs/                        # Source CSV + project docs
+docs/                        # Project documentation
 ```
 
 Flow overview:
-1. Adapters stream raw rows from CSV or Google Sheets.
-2. `School` Pydantic model validates and normalises the dataset.
+1. Data is streamed from either CSV files or Google Sheets.
+2. `School` Pydantic model validates and normalizes the dataset.
 3. Mongo helpers batch-replace the `schools` collection (supports dry-run).
 4. Pipeline logs a summary that the CLI prints to stdout.
 
@@ -46,20 +38,22 @@ Create a `.env` (or use shell exports):
 ```
 MONGO_URI=mongodb://localhost:27017
 DB_NAME=sekolahku
-GSHEET_ID=<optional-google-sheet-id>
-GSHEET_WORKSHEET_NAME=<optional-worksheet-name>
 SOURCE=csv   # or gsheet
 CSV_PATH=data/sekolah.csv
+GSHEET_ID=<google-sheet-id>
+GSHEET_WORKSHEET_NAME=<worksheet-name>
+GOOGLE_APPLICATION_CREDENTIALS=service_account.json
 ```
 
 If your Mongo instance requires authentication, embed the `username:password@` portion and any `authSource` query params directly in `MONGO_URI`.
 
-If using Google Sheets, place your `service_account.json` (not committed) in project root or set `GOOGLE_APPLICATION_CREDENTIALS`.
-
 ## Running Ingestion
 
 ```bash
-python main.py --source csv --dry-run
+# For CSV source
+python main.py --source csv --csv-path data/sekolah.csv --dry-run
+
+# For Google Sheets source
 python main.py --source gsheet --gsheet-id <ID> --google-credentials service_account.json
 ```
 
@@ -71,38 +65,38 @@ CLI Arguments:
 * `--dry-run` validate only (no DB writes)
 * `--log-level` adjust logging verbosity (default `INFO`)
 
-## Data Model (TBD)
+## Data Model
 
 | Field | Source Column | Type | Notes |
 |-------|---------------|------|-------|
-| `kodsekolah` | KODSEKOLAH | str | Primary key / unique index |
-| `namasekolah` | NAMASEKOLAH | str | |
-| `negeri` | NEGERI | str | |
-| `ppd` | PPD | str | |
-| `parlimen` | PARLIMEN | str | |
-| `dun` | DUN | str | |
-| `peringkat` | PERINGKAT | str | |
-| `jenis_label` | JENIS/LABEL | str | slash normalized |
-| `alamatsurat` | ALAMATSURAT | str | |
-| `poskodsurat` | POSKODSURAT | str | kept as string (leading zeros safe) |
-| `bandarsurat` | BANDARSURAT | str | |
-| `notelefon` | NOTELEFON | Optional[str] | "TIADA" → None |
-| `nofax` | NOFAX | Optional[str] | "TIADA" → None |
-| `email` | EMAIL | Optional[EmailStr] | |
-| `lokasi` | LOKASI | Optional[str] | Bandar/Luar Bandar |
+| `negeri` | NEGERI | Optional[str] | |
+| `ppd` | PPD | Optional[str] | |
+| `parlimen` | PARLIMEN | Optional[str] | |
+| `dun` | DUN | Optional[str] | |
+| `peringkat` | PERINGKAT | Optional[str] | |
+| `jenisLabel` | JENIS/LABEL | Optional[str] | |
+| `kodSekolah` | KODSEKOLAH | Optional[str] | School code |
+| `namaSekolah` | NAMASEKOLAH | Optional[str] | |
+| `alamatSurat` | ALAMATSURAT | Optional[str] | |
+| `poskodSurat` | POSKODSURAT | Optional[int] | |
+| `bandarSurat` | BANDARSURAT | Optional[str] | |
+| `noTelefon` | NOTELEFON | Optional[str] | "TIADA" → None |
+| `noFax` | NOFAX | Optional[str] | "TIADA" → None |
+| `email` | EMAIL | Optional[EmailStr] | Normalized |
+| `lokasi` | LOKASI | Optional[str] | |
 | `gred` | GRED | Optional[str] | |
-| `bantuan` | BANTUAN | Optional[str] | SK / etc |
-| `bilsesi` | BILSESI | Optional[str] | |
+| `bantuan` | BANTUAN | Optional[str] | |
+| `bilSesi` | BILSESI | Optional[str] | |
 | `sesi` | SESI | Optional[str] | |
-| `enrolmen_prasekolah` | ENROLMEN PRASEKOLAH | Optional[int] | blanks → None |
+| `enrolmenPrasekolah` | ENROLMEN PRASEKOLAH | Optional[int] | |
 | `enrolmen` | ENROLMEN | Optional[int] | |
-| `enrolmen_khas` | ENROLMEN KHAS | Optional[int] | |
+| `enrolmenKhas` | ENROLMEN KHAS | Optional[int] | |
 | `guru` | GURU | Optional[int] | |
 | `prasekolah` | PRASEKOLAH | Optional[bool] | ADA/TIADA |
 | `integrasi` | INTEGRASI | Optional[bool] | ADA/TIADA |
-| `koordinat_x` | KOORDINATXX | Optional[float] | |
-| `koordinat_y` | KOORDINATYY | Optional[float] | |
-| `skm_leq_150` | SKM<=150 | Optional[bool] | YA → True |
+| `koordinatXX` | KOORDINATXX | Optional[float] | |
+| `koordinatYY` | KOORDINATYY | Optional[float] | |
+| `skmLEQ150` | SKM<=150 | Optional[bool] | YA → True |
 
 
 ## License
