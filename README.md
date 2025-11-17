@@ -1,26 +1,29 @@
 # sekolahku-mod-dataproc
 
-Data processing & ingestion module for the Sekolahku project. This service ingests school metadata from both CSV files and Google Sheets into MongoDB using a validated Pydantic schema.
+```bash
+# Run the ingestion pipeline
+python -m src.main
 
-## Folder Structure
+# Inline override example
+# For source: csv
+SOURCE=csv python -m src.main
 
+# For source: Google Sheets
+SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
+	GOOGLE_APPLICATION_CREDENTIALS=docs/service_account.json python -m src.main
+
+# Run ingestion and then statistics (writes Statistik* collections)
+SOURCE=csv python -m src.main --statistics
 ```
-src/
-	config/
-		settings.py             # Environment-driven configuration
-	models/
-		sekolah.py              # Pydantic schema for school documents
-	pipeline/
-		ingestion.py            # Extract/validate/load implementation
-main.py                      # CLI entrypoint delegating to pipeline
-docs/                        # Project documentation
-```
 
-Flow overview:
-1. Data is streamed from either CSV files or Google Sheets.
-2. `School` Pydantic model validates and normalizes the dataset.
-3. Mongo helpers batch-replace the `schools` collection (supports dry-run).
-4. Pipeline logs a summary that the CLI prints to stdout.
+### Command-line flags
+
+Configuration (source, paths, Mongo connection, etc.) is controlled entirely through environment variables. Define values in `.env` or export them before running the module. The CLI exposes a couple of runtime toggles:
+
+- `--statistics` triggers the post-ingestion statistics run.
+- `--log-level` adjusts logging verbosity for the current process.
+
+When the statistics flag is used, the pipeline rewrites the three Statistik collections.
 
 ## Requirements
 
@@ -33,37 +36,27 @@ pip install -r requirements.txt
 
 ## Environment Variables
 
-Create a `.env` (or use shell exports):
-
-```
-MONGO_URI=mongodb://localhost:27017
-DB_NAME=sekolahku
-SOURCE=csv   # or gsheet
-CSV_PATH=data/sekolah.csv
-GSHEET_ID=<google-sheet-id>
-GSHEET_WORKSHEET_NAME=<worksheet-name>
-GOOGLE_APPLICATION_CREDENTIALS=service_account.json
-```
+Refer to .env.example.
+Create a `.env`.
 
 If your Mongo instance requires authentication, embed the `username:password@` portion and any `authSource` query params directly in `MONGO_URI`.
 
 ## Running Ingestion
 
-```bash
-# For CSV source
-python main.py --source csv --csv-path data/sekolah.csv --dry-run
+Set the required variables through `.env` or inline exports, then launch the module:
 
-# For Google Sheets source
-python main.py --source gsheet --gsheet-id <ID> --google-credentials service_account.json
+```bash
+python -m src.main
+
+# Inline override example
+SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
+	GOOGLE_APPLICATION_CREDENTIALS=docs/service_account.json python -m src.main
+
+# Run ingestion and statistics pipeline
+python -m src.main --statistics
 ```
 
-CLI Arguments:
-* `--source` csv|gsheet (override configured source)
-* `--csv-path` override CSV location when `--source csv`
-* `--gsheet-id` / `--gsheet-worksheet` select worksheet when `--source gsheet`
-* `--mongo-uri`, `--db-name`, `--batch-size` tune database writes (URI can include credentials)
-* `--dry-run` validate only (no DB writes)
-* `--log-level` adjust logging verbosity (default `INFO`)
+The process reads configuration from environment variables. Only `--statistics` and `--log-level` affect runtime behavior.
 
 ## Data Model
 
