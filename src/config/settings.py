@@ -1,15 +1,22 @@
+"""Application configuration settings."""
+from __future__ import annotations
+
 from functools import lru_cache
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 class Settings(BaseSettings):
+    """Central configuration for the ingestion app."""
+
     model_config = SettingsConfigDict(
         env_file=".env",
         case_sensitive=False,
         populate_by_name=True,
         extra="ignore",
     )
+
     mongo_uri: str = Field(default="mongodb://localhost:27017", alias="MONGO_URI")
     db_name: str = Field(default="sekolahku", alias="DB_NAME")
     source: str = Field(default="csv", alias="SOURCE")
@@ -18,12 +25,15 @@ class Settings(BaseSettings):
     gsheet_worksheet_name: str = Field(default="Sheet1", alias="GSHEET_WORKSHEET_NAME")
     google_credentials_path: str = Field(default="service_account.json", alias="GOOGLE_APPLICATION_CREDENTIALS")
     batch_size: int = Field(default=500, alias="BATCH_SIZE")
-    dry_run_env: int = Field(default=0, alias="DRY_RUN")
+    dry_run_flag: int = Field(default=0, alias="DRY_RUN")
 
     @property
     def dry_run(self) -> bool:
-        return bool(self.dry_run_env)
+        """Expose dry-run flag as bool for readability."""
+        return bool(self.dry_run_flag)
+
 
 @lru_cache
 def get_settings() -> Settings:
+    """Return cached environment settings."""
     return Settings()  # type: ignore[arg-type]

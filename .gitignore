@@ -165,3 +165,6 @@ data/tmp/
 
 # Google API auth cache
 token.json
+
+
+data/

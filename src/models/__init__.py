@@ -1,5 +1,4 @@
-"""Pydantic models for sekolahku domain."""
-
-from .schema import School
+"""Models package exports."""
+from .school import School
 
 __all__ = ["School"]

@@ -1,19 +1,25 @@
-from typing import Optional, ClassVar
-from pydantic import BaseModel, Field, EmailStr, field_validator
+"""Domain model for school records."""
+from __future__ import annotations
+
+from typing import ClassVar, Optional
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 TIADA_VALUES = {"TIADA", "", "NONE", "-", "--", "BELUM ADA"}
 ADA_MAP = {"ADA": True, "TIADA": False, "": None}
 BOOL_YA_MAP = {"YA": True, "TIDAK": False, "": None}
 
+
 class School(BaseModel):
     collection_name: ClassVar[str] = "schools"
+
     negeri: Optional[str] = Field(default=None, alias="NEGERI")
     ppd: Optional[str] = Field(default=None, alias="PPD")
     parlimen: Optional[str] = Field(default=None, alias="PARLIMEN")
     dun: Optional[str] = Field(default=None, alias="DUN")
     peringkat: Optional[str] = Field(default=None, alias="PERINGKAT")
     jenisLabel: Optional[str] = Field(alias="JENIS/LABEL")
-    kodSekolah: Optional[str] = Field(..., alias="KODSEKOLAH", description="Primary code of the school")
+    kodSekolah: Optional[str] = Field(..., alias="KODSEKOLAH", description="School code")
     namaSekolah: Optional[str] = Field(default=None, alias="NAMASEKOLAH")
     alamatSurat: Optional[str] = Field(default=None, alias="ALAMATSURAT")
     poskodSurat: Optional[int] = Field(default=None, alias="POSKODSURAT")
@@ -29,77 +35,79 @@ class School(BaseModel):
     bilSesi: Optional[str] = Field(default=None, alias="BILSESI")
     sesi: Optional[str] = Field(default=None, alias="SESI")
 
-    enrolmenPrasekolah: Optional[int] = Field(alias="ENROLMEN PRASEKOLAH", default=None)
-    enrolmen: Optional[int] = Field(alias="ENROLMEN", default=None)
-    enrolmenKhas: Optional[int] = Field(alias="ENROLMEN KHAS", default=None)
-    guru: Optional[int] = Field(alias="GURU", default=None)
+    enrolmenPrasekolah: Optional[int] = Field(default=None, alias="ENROLMEN PRASEKOLAH")
+    enrolmen: Optional[int] = Field(default=None, alias="ENROLMEN")
+    enrolmenKhas: Optional[int] = Field(default=None, alias="ENROLMEN KHAS")
+    guru: Optional[int] = Field(default=None, alias="GURU")
 
-    prasekolah: Optional[bool] = Field(alias="PRASEKOLAH", default=None)
-    integrasi: Optional[bool] = Field(alias="INTEGRASI", default=None)
+    prasekolah: Optional[bool] = Field(default=None, alias="PRASEKOLAH")
+    integrasi: Optional[bool] = Field(default=None, alias="INTEGRASI")
 
-    koordinatXX: Optional[float] = Field(alias="KOORDINATXX", default=None)
-    koordinatYY: Optional[float] = Field(alias="KOORDINATYY", default=None)
+    koordinatXX: Optional[float] = Field(default=None, alias="KOORDINATXX")
+    koordinatYY: Optional[float] = Field(default=None, alias="KOORDINATYY")
 
-    skmLEQ150: Optional[bool] = Field(alias="SKM<=150", default=None)
+    skmLEQ150: Optional[bool] = Field(default=None, alias="SKM<=150")
 
     @field_validator("noTelefon", "noFax", mode="before")
-    def empty_to_none(cls, v):
-        if v is None:
+    def empty_to_none(cls, value):
+        if value is None:
             return None
-        v_str = str(v).strip().upper()
-        return None if v_str in TIADA_VALUES else v
+        text = str(value).strip().upper()
+        return None if text in TIADA_VALUES else value
 
     @field_validator("email", mode="before")
-    def normalize_email(cls, v):
-        if v is None:
+    def normalize_email(cls, value):
+        if value is None:
             return None
-        v_str = str(v).strip()
-        if not v_str:
+        text = str(value).strip()
+        if not text or text.upper() in TIADA_VALUES:
             return None
-        if v_str.upper() in TIADA_VALUES:
-            return None
-        # Remove trailing punctuation that commonly appears in the source dataset.
-        v_str = v_str.rstrip(".")
-        while "@@" in v_str:
-            v_str = v_str.replace("@@", "@")
-        return v_str or None
+        text = text.rstrip(".")
+        while "@@" in text:
+            text = text.replace("@@", "@")
+        return text or None
 
     @field_validator("parlimen", "dun", mode="before")
-    def parse_str(cls, v):
-        if v is None:
+    def clean_string(cls, value):
+        if value is None:
             return None
-        v_str = str(v).strip()
-        return v_str or None
+        text = str(value).strip()
+        return text or None
 
-    @field_validator("poskodSurat", "enrolmenPrasekolah", "enrolmen", "enrolmenKhas", "guru", mode="before")
-    def parse_ints(cls, v):
-        if v is None or str(v).strip() == "":
+    @field_validator(
+        "poskodSurat",
+        "enrolmenPrasekolah",
+        "enrolmen",
+        "enrolmenKhas",
+        "guru",
+        mode="before",
+    )
+    def parse_ints(cls, value):
+        if value is None or str(value).strip() == "":
             return None
         try:
-            return int(str(v).strip())
+            return int(str(value).strip())
         except ValueError:
             return None
 
     @field_validator("prasekolah", "integrasi", mode="before")
-    def parse_ada_tiada(cls, v):
-        if v is None:
+    def parse_ada_tiada(cls, value):
+        if value is None:
             return None
-        v_up = str(v).strip().upper()
-        return ADA_MAP.get(v_up, None)
+        return ADA_MAP.get(str(value).strip().upper(), None)
 
     @field_validator("skmLEQ150", mode="before")
-    def parse_bool_ya(cls, v):
-        if v is None:
+    def parse_bool_ya(cls, value):
+        if value is None:
             return None
-        v_up = str(v).strip().upper()
-        return BOOL_YA_MAP.get(v_up, None)
+        return BOOL_YA_MAP.get(str(value).strip().upper(), None)
 
     @field_validator("koordinatXX", "koordinatYY", mode="before")
-    def parse_float(cls, v):
-        if v is None or str(v).strip() == "":
+    def parse_float(cls, value):
+        if value is None or str(value).strip() == "":
             return None
         try:
-            return float(str(v).strip())
+            return float(str(value).strip())
         except ValueError:
             return None
 
@@ -109,10 +117,10 @@ class School(BaseModel):
     }
 
     def to_document(self) -> dict:
-        doc = self.model_dump(exclude_none=True)
+        data = self.model_dump(exclude_none=True)
         if self.koordinatXX is not None and self.koordinatYY is not None:
-            doc["location"] = {
+            data["location"] = {
                 "type": "Point",
                 "coordinates": [self.koordinatXX, self.koordinatYY],
             }
-        return doc
+        return data

@@ -6,7 +6,7 @@ import logging
 from typing import Any, Dict
 
 from src.config.settings import Settings, get_settings
-from src.pipelines.ingest_pipeline import run as run_pipeline
+from src.pipeline import run as run_pipeline
 
 
 def parse_args() -> argparse.Namespace:
@@ -43,7 +43,7 @@ def _collect_overrides(args: argparse.Namespace) -> Dict[str, Any]:
     if args.batch_size is not None:
         overrides["batch_size"] = args.batch_size
     if args.dry_run:
-        overrides["dry_run_env"] = 1
+        overrides["dry_run_flag"] = 1
     return overrides
 
 
