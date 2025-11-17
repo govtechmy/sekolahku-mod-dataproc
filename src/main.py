@@ -1,9 +1,7 @@
-"""CLI entrypoint for data ingestion."""
 from __future__ import annotations
 
 import argparse
 import logging
-from typing import Any, Dict
 
 from src.config.settings import Settings, get_settings
 from src.pipeline import run as run_pipeline
@@ -24,35 +22,9 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _collect_overrides(args: argparse.Namespace) -> Dict[str, Any]:
-    overrides: Dict[str, Any] = {}
-    if args.source:
-        overrides["source"] = args.source
-    if args.csv_path:
-        overrides["csv_path"] = args.csv_path
-    if args.gsheet_id:
-        overrides["gsheet_id"] = args.gsheet_id
-    if args.gsheet_worksheet:
-        overrides["gsheet_worksheet_name"] = args.gsheet_worksheet
-    if args.google_credentials:
-        overrides["google_credentials_path"] = args.google_credentials
-    if args.mongo_uri:
-        overrides["mongo_uri"] = args.mongo_uri
-    if args.db_name:
-        overrides["db_name"] = args.db_name
-    if args.batch_size is not None:
-        overrides["batch_size"] = args.batch_size
-    if args.dry_run:
-        overrides["dry_run_flag"] = 1
-    return overrides
-
-
-def configure_settings(args: argparse.Namespace) -> Settings:
-    base = get_settings()
-    overrides = _collect_overrides(args)
-    if overrides:
-        base = base.model_copy(update=overrides)
-    return base
+def configure_settings(_: argparse.Namespace) -> Settings:
+    """Return settings from environment."""
+    return get_settings()
 
 
 def main() -> None:
@@ -61,7 +33,6 @@ def main() -> None:
     settings = configure_settings(args)
     result = run_pipeline(settings)
     print("Ingestion summary:", result)
-
 
 if __name__ == "__main__":
     main()
