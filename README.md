@@ -63,6 +63,8 @@ python -m src.main --log-level DEBUG
 
 The process reads configuration from environment variables. Only `--statistics` and `--log-level <LEVEL>` affect runtime behavior.
 
+Each run prints a summary dictionary, for example `{"processed": 1234, "inserted": 1234, "dry_run": 0}`. In dry-run mode, `processed` still reflects the number of documents that would be written, while `inserted` remains `0`.
+
 ## Data Model
 
 | Field | Source Column | Type | Notes |

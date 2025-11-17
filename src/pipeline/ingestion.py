@@ -93,17 +93,19 @@ def _replace_collection(
     batch_size: int,
     dry_run: bool,
 ) -> dict[str, int]:
+    processed = 0
     inserted = 0
     if not dry_run:
         collection.delete_many({})
 
     for chunk in _chunked(documents, batch_size):
-        inserted += len(chunk)
+        processed += len(chunk)
         if dry_run or not chunk:
             continue
         collection.insert_many(chunk, ordered=False)
+        inserted += len(chunk)
 
-    return {"inserted": inserted, "dry_run": int(dry_run)}
+    return {"processed": processed, "inserted": inserted, "dry_run": int(dry_run)}
 
 
 def _get_collection(settings: Settings) -> Collection:
