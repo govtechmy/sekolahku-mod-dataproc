@@ -1,0 +1,145 @@
+from __future__ import annotations
+
+from typing import ClassVar, Optional, TYPE_CHECKING
+
+from datetime import datetime
+
+from pydantic import BaseModel, EmailStr, Field
+from pydantic import ConfigDict
+from typing_extensions import Literal
+
+
+if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
+    from src.models.sekolah import Sekolah
+
+
+class GeoJSONPoint(BaseModel):
+    """Minimal GeoJSON point structure used for school coordinates."""
+
+    type: Literal["Point"] = Field(default="Point", description="GeoJSON geometry type")
+    coordinates: tuple[float, float] = Field(..., description="(longitude, latitude) coordinate pair")
+
+class InfoSekolah(BaseModel):
+    jumlahMurid: int = Field(default=0, description="Total students (enrolmenPrasekolah + enrolmen + enrolmenKhas)")
+    jumlahGuru: int = Field(default=0, description="Total number of teachers")
+
+class InfoPerhubungan(BaseModel):
+    noTelefon: Optional[str] = Field(default=None, description="Primary contact number")
+    noFax: Optional[str] = Field(default=None, description="Fax number")
+    email: Optional[EmailStr] = Field(default=None, description="General contact email")
+    alamatSurat: Optional[str] = Field(default=None, description="Mailing address")
+    poskodSurat: Optional[str] = Field(default=None, description="Mailing postcode")
+    bandarSurat: Optional[str] = Field(default=None, description="Mailing city")
+
+class infoPentadbiran(BaseModel):
+    kodSekolah: Optional[str] = Field(default=None, description="Unique school code identifier")
+    negeri: Optional[str] = Field(default=None, description="State the school is located in")
+    ppd: Optional[str] = Field(default=None, description="Pejabat Pendidikan Daerah (district office)")
+    parlimen: Optional[str] = Field(default=None, description="Parliament constituency")
+    bantuan: Optional[str] = Field(default=None, description="Bantuan classification")
+    bilSesi: Optional[str] = Field(default=None, description="Number of school sessions")
+    sesi: Optional[str] = Field(default=None, description="School session")
+    prasekolah: Optional[bool] = Field(default=None, description="Has preschool programme")
+    integrasi: Optional[bool] = Field(default=None, description="Runs integration programme")
+
+class InfoLokasi(BaseModel):
+    koordinatXX: Optional[float] = Field(default=None, description="Longitude value")
+    koordinatYY: Optional[float] = Field(default=None, description="Latitude value")
+    location: Optional[GeoJSONPoint] = Field(default=None, description="GeoJSON point for geospatial queries")
+
+
+class EntitiSekolahData(BaseModel):
+    infoSekolah: InfoSekolah
+    infoPerhubungan: InfoPerhubungan
+    infoPentadbiran: infoPentadbiran
+    infoLokasi: InfoLokasi
+
+
+class EntitiSekolah(BaseModel):
+    """Aggregated entity view for a school document."""
+
+    collection_name: ClassVar[str] = "EntitiSekolah"
+
+    namaSekolah: Optional[str] = Field(default=None, description="Name of the school")
+    kodSekolah: Optional[str] = Field(default=None, description="Unique school code identifier")
+    data: EntitiSekolahData
+    updatedAt: datetime = Field(default_factory=datetime.utcnow, description="UTC timestamp when the document was last generated",)
+
+    @classmethod
+    def from_sekolah(cls, sekolah: "Sekolah", *, tahun_penubuhan: Optional[int] = None) -> "EntitiSekolah":
+        """Create an entity snapshot from a validated ``Sekolah`` model."""
+
+        jumlah_murid = sum(
+            value
+            for value in (
+                sekolah.enrolmenPrasekolah,
+                sekolah.enrolmen,
+                sekolah.enrolmenKhas,
+            )
+            if value is not None
+        )
+
+        location = None
+        if sekolah.koordinatXX is not None and sekolah.koordinatYY is not None:
+            location = GeoJSONPoint(coordinates=(sekolah.koordinatXX, sekolah.koordinatYY))
+
+        info_sekolah = InfoSekolah(
+            jumlahMurid=jumlah_murid,
+            jumlahGuru=sekolah.guru or 0,
+        )
+
+        info_perhubungan = InfoPerhubungan(
+            noTelefon=sekolah.noTelefon,
+            noFax=sekolah.noFax,
+            email=sekolah.email,
+            alamatSurat=sekolah.alamatSurat,
+            poskodSurat=str(sekolah.poskodSurat) if sekolah.poskodSurat is not None else None,
+            bandarSurat=sekolah.bandarSurat,
+        )
+
+        profil_pentadbiran = infoPentadbiran(
+            kodSekolah=sekolah.kodSekolah,
+            negeri=sekolah.negeri,
+            ppd=sekolah.ppd,
+            parlimen=sekolah.parlimen,
+            bantuan=sekolah.bantuan,
+            bilSesi=sekolah.bilSesi,
+            sesi=sekolah.sesi,
+            prasekolah=sekolah.prasekolah,
+            integrasi=sekolah.integrasi,
+        )
+
+        info_lokasi = InfoLokasi(
+            koordinatXX=sekolah.koordinatXX,
+            koordinatYY=sekolah.koordinatYY,
+            location=location,
+        )
+
+        data = EntitiSekolahData(
+            infoSekolah=info_sekolah,
+            infoPerhubungan=info_perhubungan,
+            infoPentadbiran=profil_pentadbiran,
+            infoLokasi=info_lokasi,
+        )
+
+        return cls(
+            namaSekolah=sekolah.namaSekolah,
+            kodSekolah=sekolah.kodSekolah,
+            data=data,
+            updatedAt=datetime.utcnow(),
+        )
+
+    def to_document(self) -> dict:
+        """Convert the entity to a Mongo-ready document, omitting ``None`` fields."""
+        return self.model_dump(exclude_none=True, by_alias=True)
+
+
+__all__ = [
+    "EntitiSekolah",
+    "EntitiSekolahData",
+    "InfoSekolah",
+    "InfoPerhubungan",
+    "infoPentadbiran",
+    "InfoLokasi",
+    "GeoJSONPoint",
+]

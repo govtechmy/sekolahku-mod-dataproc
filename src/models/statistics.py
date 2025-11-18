@@ -1,8 +1,3 @@
-"""Pydantic models for statistics collections and summaries.
-
-Adds an `updatedAt` timestamp to each persisted Statistik* document to
-indicate when the aggregation was last computed. The timestamp is in UTC.
-"""
 from __future__ import annotations
 
 from typing import Dict

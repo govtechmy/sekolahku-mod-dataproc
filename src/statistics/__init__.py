@@ -9,6 +9,10 @@ from .aggregations import (
     STATISTIK_GURU_COLLECTION,
     STATISTIK_MURID_COLLECTION,
 )
+from .aggEntitiSekolah import (
+    compute_entiti_sekolah,
+    ENTITI_SEKOLAH_COLLECTION,
+)
 
 __all__ = [
     "compute_all_statistics",
@@ -19,4 +23,6 @@ __all__ = [
     "STATISTIK_SEKOLAH_COLLECTION",
     "STATISTIK_GURU_COLLECTION",
     "STATISTIK_MURID_COLLECTION",
+    "compute_entiti_sekolah",
+    "ENTITI_SEKOLAH_COLLECTION",
 ]

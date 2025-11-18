@@ -14,6 +14,10 @@ SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
 
 # Run ingestion and then statistics (writes Statistik* collections)
 SOURCE=csv python -m src.main --statistics
+
+# Run ingestion and EntitiSekolah aggregation
+SOURCE=csv python -m src.main --entiti
+
 # Show verbosity for a single run (flag expects a value)
 python -m src.main --log-level DEBUG
 ```
@@ -23,9 +27,10 @@ python -m src.main --log-level DEBUG
 Configuration (source, paths, Mongo connection, etc.) is controlled entirely through environment variables. Define values in `.env` or export them before running the module. The CLI exposes a couple of runtime toggles:
 
 - `--statistics` triggers the post-ingestion statistics run.
+- `--entiti` triggers the EntitiSekolah aggregation pipeline.
 - `--log-level <LEVEL>` adjusts logging verbosity for the current process (choose from `DEBUG`, `INFO`, `WARNING`, `ERROR`).
 
-When the statistics flag is used, the pipeline rewrites the three Statistik collections.
+When the statistics flag is used, the pipeline rewrites the three Statistik collections. The entiti flag writes to the `EntitiSekolah` collection.
 
 ## Requirements
 
@@ -57,11 +62,14 @@ SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
 # Run ingestion and statistics pipeline
 python -m src.main --statistics
 
+# Run ingestion and EntitiSekolah pipeline
+python -m src.main --entiti
+
 # Increase verbosity for a single run
 python -m src.main --log-level DEBUG
 ```
 
-The process reads configuration from environment variables. Only `--statistics` and `--log-level <LEVEL>` affect runtime behavior.
+The process reads configuration from environment variables. Only `--statistics`, `--entiti`, and `--log-level <LEVEL>` affect runtime behavior.
 
 Each run prints a summary dictionary, for example `{"processed": 1234, "inserted": 1234, "dry_run": 0}`. In dry-run mode, `processed` still reflects the number of documents that would be written, while `inserted` remains `0`.
 

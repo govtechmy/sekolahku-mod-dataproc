@@ -3,6 +3,8 @@ from __future__ import annotations
 from typing import ClassVar, Optional
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
+from datetime import datetime
+
 
 TIADA_VALUES = {"TIADA", "", "NONE", "-", "--", "BELUM ADA"}
 ADA_MAP = {"ADA": True, "TIADA": False, "": None}
@@ -46,6 +48,8 @@ class Sekolah(BaseModel):
     koordinatYY: Optional[float] = Field(default=None, alias="KOORDINATYY")
 
     skmLEQ150: Optional[bool] = Field(default=None, alias="SKM<=150")
+
+    updatedAt: datetime = Field(default_factory=datetime.utcnow, description="UTC timestamp when the document was last generated",)
 
     @field_validator("noTelefon", "noFax", mode="before")
     def empty_to_none(cls, value):
@@ -93,13 +97,19 @@ class Sekolah(BaseModel):
     def parse_ada_tiada(cls, value):
         if value is None:
             return None
-        return ADA_MAP.get(str(value).strip().upper(), None)
+        if isinstance(value, bool):
+            return value
+        text = str(value).strip().upper()
+        return ADA_MAP.get(text, None)
 
     @field_validator("skmLEQ150", mode="before")
     def parse_bool_ya(cls, value):
         if value is None:
             return None
-        return BOOL_YA_MAP.get(str(value).strip().upper(), None)
+        if isinstance(value, bool):
+            return value
+        text = str(value).strip().upper()
+        return BOOL_YA_MAP.get(text, None)
 
     @field_validator("koordinatXX", "koordinatYY", mode="before")
     def parse_float(cls, value):

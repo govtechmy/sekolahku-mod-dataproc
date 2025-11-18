@@ -1,5 +1,6 @@
 """Models package exports."""
 from .sekolah import Sekolah
+from .entitiSekolah import EntitiSekolah
 from .statistics import (
 	StatistikSekolah,
 	StatistikGuru,
@@ -12,6 +13,7 @@ from .statistics import (
 
 __all__ = [
 	"Sekolah",
+	"EntitiSekolah",
 	"StatistikSekolah",
 	"StatistikGuru",
 	"StatistikMurid",

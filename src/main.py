@@ -4,7 +4,11 @@ import argparse
 import logging
 
 from src.config.settings import Settings, get_settings
-from src.pipeline import run as run_pipeline, run_statistics_dict
+from src.pipeline import (
+    run as run_pipeline,
+    run_statistics_dict,
+    run_entiti_sekolah_dict,
+)
 
 
 def parse_args() -> argparse.Namespace:
@@ -19,7 +23,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, help="Insert batch size")
     parser.add_argument("--dry-run", action="store_true", help="Process without writing to database")
     parser.add_argument("--log-level", default="INFO", help="Logging level (e.g., INFO, DEBUG)")
-    parser.add_argument("--statistics", action="store_true", help="Compute statistics collections after ingestion",)
+    parser.add_argument("--statistics", action="store_true", help="Compute statistics collections after ingestion")
+    parser.add_argument("--entiti", action="store_true", help="Compute EntitiSekolah aggregation after ingestion")
     return parser.parse_args()
 
 
@@ -38,6 +43,10 @@ def main() -> None:
     if args.statistics:
         stats = run_statistics_dict(settings)
         print("Statistics summary:", stats)
+
+    if args.entiti:
+        entiti = run_entiti_sekolah_dict(settings)
+        print("Entiti summary:", entiti)
 
 
 if __name__ == "__main__":
