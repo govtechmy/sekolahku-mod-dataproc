@@ -84,7 +84,7 @@ Each run prints a summary dictionary, for example `{"processed": 1234, "inserted
 | `dun` | DUN | Optional[str] | |
 | `peringkat` | PERINGKAT | Optional[str] | |
 | `jenisLabel` | JENIS/LABEL | Optional[str] | |
-| `kodSekolah` | KODSEKOLAH | Optional[str] | School code |
+| `kodSekolah` | KODSEKOLAH | str | School code |
 | `namaSekolah` | NAMASEKOLAH | Optional[str] | |
 | `alamatSurat` | ALAMATSURAT | Optional[str] | |
 | `poskodSurat` | POSKODSURAT | Optional[int] | |
