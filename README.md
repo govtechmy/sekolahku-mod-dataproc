@@ -1,6 +1,5 @@
-# sekolahku-mo# Run ingestion and then statistik (writes Stati# Run ingestion and statistik pipeline
-python -m src.main --statistik* collections)
-SOURCE=csv python -m src.main --statistikdataproc
+# sekolahku-mod-dataproc
+
 
 ```bash
 # Run the ingestion pipeline
