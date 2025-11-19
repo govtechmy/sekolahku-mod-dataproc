@@ -28,7 +28,7 @@ class StatistikSekolahDocument(BaseModel):
     data: StatistikSekolah
     updatedAt: datetime = Field(
         default_factory=datetime.utcnow,
-        description="UTC timestamp when statistics were last updated",
+        description="UTC timestamp when statistik were last updated",
     )
 
 class StatistikGuruDocument(BaseModel):
@@ -37,7 +37,7 @@ class StatistikGuruDocument(BaseModel):
     data: StatistikGuru
     updatedAt: datetime = Field(
         default_factory=datetime.utcnow,
-        description="UTC timestamp when statistics were last updated",
+        description="UTC timestamp when statistik were last updated",
     )
 
 class StatistikMuridDocument(BaseModel):
@@ -46,7 +46,7 @@ class StatistikMuridDocument(BaseModel):
     data: StatistikMurid
     updatedAt: datetime = Field(
         default_factory=datetime.utcnow,
-        description="UTC timestamp when statistics were last updated",
+        description="UTC timestamp when statistik were last updated",
     )
 
 class StatistikSummary(BaseModel):

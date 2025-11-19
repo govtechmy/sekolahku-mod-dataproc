@@ -1,4 +1,6 @@
-# sekolahku-mod-dataproc
+# sekolahku-mo# Run ingestion and then statistik (writes Stati# Run ingestion and statistik pipeline
+python -m src.main --statistikik* collections)
+SOURCE=csv python -m src.main --statistikdataproc
 
 ```bash
 # Run the ingestion pipeline
@@ -13,7 +15,7 @@ SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
 	GOOGLE_APPLICATION_CREDENTIALS=docs/service_account.json python -m src.main
 
 # Run ingestion and then statistics (writes Statistik* collections)
-SOURCE=csv python -m src.main --statistics
+SOURCE=csv python -m src.main --statistik
 
 # Run ingestion and EntitiSekolah aggregation
 SOURCE=csv python -m src.main --entiti
@@ -26,11 +28,11 @@ python -m src.main --log-level DEBUG
 
 Configuration (source, paths, Mongo connection, etc.) is controlled entirely through environment variables. Define values in `.env` or export them before running the module. The CLI exposes a couple of runtime toggles:
 
-- `--statistics` triggers the post-ingestion statistics run.
+- `--statistik` triggers the post-ingestion statistik run.
 - `--entiti` triggers the EntitiSekolah aggregation pipeline.
 - `--log-level <LEVEL>` adjusts logging verbosity for the current process (choose from `DEBUG`, `INFO`, `WARNING`, `ERROR`).
 
-When the statistics flag is used, the pipeline rewrites the three Statistik collections. The entiti flag writes to the `EntitiSekolah` collection.
+When the statistik flag is used, the pipeline rewrites the three Statistik collections. The entiti flag writes to the `EntitiSekolah` collection.
 
 ## Requirements
 
@@ -60,7 +62,7 @@ SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
 	GOOGLE_APPLICATION_CREDENTIALS=docs/service_account.json python -m src.main
 
 # Run ingestion and statistics pipeline
-python -m src.main --statistics
+python -m src.main --statistik
 
 # Run ingestion and EntitiSekolah pipeline
 python -m src.main --entiti
@@ -69,7 +71,7 @@ python -m src.main --entiti
 python -m src.main --log-level DEBUG
 ```
 
-The process reads configuration from environment variables. Only `--statistics`, `--entiti`, and `--log-level <LEVEL>` affect runtime behavior.
+The process reads configuration from environment variables. Only `--statistik`, `--entiti`, and `--log-level <LEVEL>` affect runtime behavior.
 
 Each run prints a summary dictionary, for example `{"processed": 1234, "inserted": 1234, "dry_run": 0}`. In dry-run mode, `processed` still reflects the number of documents that would be written, while `inserted` remains `0`.
 

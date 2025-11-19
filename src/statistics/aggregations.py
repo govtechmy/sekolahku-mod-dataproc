@@ -2,7 +2,7 @@ from __future__ import annotations
 from typing import Any, Dict
 from pymongo.collection import Collection
 
-from src.models.statistics import (
+from src.models.statistik import (
     StatistikGuruDocument,
     StatistikMuridDocument,
     StatistikSekolahDocument,

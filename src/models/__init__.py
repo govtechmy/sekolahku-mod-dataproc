@@ -1,7 +1,7 @@
 """Models package exports."""
 from .sekolah import Sekolah
 from .entitiSekolah import EntitiSekolah
-from .statistics import (
+from .statistik import (
 	StatistikSekolah,
 	StatistikGuru,
 	StatistikMurid,

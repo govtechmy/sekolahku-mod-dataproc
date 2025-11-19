@@ -9,7 +9,7 @@ from pymongo import MongoClient
 from pymongo.database import Database
 from src.config.settings import Settings, get_settings
 from src.models import Sekolah
-from src.models.statistics import StatistikSummary, StatistikSekolah, StatistikGuru, StatistikMurid
+from src.models.statistik import StatistikSummary, StatistikSekolah, StatistikGuru, StatistikMurid
 from src.statistics.aggregations import (
     STATISTIK_GURU_COLLECTION,
     STATISTIK_MURID_COLLECTION,
