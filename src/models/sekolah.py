@@ -6,8 +6,9 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
 
 
-MISSING_VALUES = {"", "NONE", "-", "--"}
-ADA_MAP = {"ADA": True, "TIADA": False, "": None}
+MISSING_VALUES = {"TIADA", "", "NONE", "-", "--", "BELUM ADA"}
+BOOL_ADA_MAP = {"ADA": True, "TIADA": False, "": None}
+BOOL_YA_MAP = {"YA": True, "TIDAK": False, "": None}
 
 
 class Sekolah(BaseModel):
@@ -93,13 +94,13 @@ class Sekolah(BaseModel):
             return None
 
     @field_validator("prasekolah", "integrasi", mode="before")
-    def parse_ada_tiada(cls, value):
+    def parse_bool_ada_tiada(cls, value):
         if value is None:
             return None
         if isinstance(value, bool):
             return value
         text = str(value).strip().upper()
-        return ADA_MAP.get(text, None)
+        return BOOL_ADA_MAP.get(text, None)
 
     @field_validator("skmLEQ150", mode="before")
     def parse_bool_ya(cls, value):
@@ -108,7 +109,7 @@ class Sekolah(BaseModel):
         if isinstance(value, bool):
             return value
         text = str(value).strip().upper()
-        return ADA_MAP.get(text, None)
+        return BOOL_YA_MAP.get(text, None)
 
     @field_validator("koordinatXX", "koordinatYY", mode="before")
     def parse_float(cls, value):

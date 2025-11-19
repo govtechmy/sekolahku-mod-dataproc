@@ -20,8 +20,8 @@ class GeoJSONPoint(BaseModel):
     coordinates: tuple[float, float] = Field(..., description="(longitude, latitude) coordinate pair")
 
 class InfoSekolah(BaseModel):
-    jumlahMurid: int = Field(default=0, description="Total students (enrolmenPrasekolah + enrolmen + enrolmenKhas)")
-    jumlahGuru: int = Field(default=0, description="Total number of teachers")
+    jumlahMurid: Optional[int] = Field(default=0, description="Total students (enrolmenPrasekolah + enrolmen + enrolmenKhas)")
+    jumlahGuru: Optional[int] = Field(default=0, description="Total number of teachers")
 
 class InfoPerhubungan(BaseModel):
     noTelefon: Optional[str] = Field(default=None, description="Primary contact number")
@@ -61,7 +61,7 @@ class EntitiSekolah(BaseModel):
     collection_name: ClassVar[str] = "EntitiSekolah"
 
     namaSekolah: Optional[str] = Field(default=None, description="Name of the school")
-    kodSekolah: Optional[str] = Field(default=None, description="Unique school code identifier")
+    kodSekolah: str = Field(default=None, description="Unique school code identifier")
     data: EntitiSekolahData
     updatedAt: datetime = Field(default_factory=datetime.utcnow, description="UTC timestamp when the document was last generated",)
 
@@ -85,7 +85,7 @@ class EntitiSekolah(BaseModel):
 
         info_sekolah = InfoSekolah(
             jumlahMurid=jumlah_murid,
-            jumlahGuru=sekolah.guru or 0,
+            jumlahGuru=sekolah.guru,
         )
 
         info_perhubungan = InfoPerhubungan(
