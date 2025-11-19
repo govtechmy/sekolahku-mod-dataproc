@@ -6,9 +6,8 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 from datetime import datetime
 
 
-TIADA_VALUES = {"TIADA", "", "NONE", "-", "--", "BELUM ADA"}
+MISSING_VALUES = {"", "NONE", "-", "--"}
 ADA_MAP = {"ADA": True, "TIADA": False, "": None}
-BOOL_YA_MAP = {"YA": True, "TIDAK": False, "": None}
 
 
 class Sekolah(BaseModel):
@@ -20,7 +19,7 @@ class Sekolah(BaseModel):
     dun: Optional[str] = Field(default=None, alias="DUN")
     peringkat: Optional[str] = Field(default=None, alias="PERINGKAT")
     jenisLabel: Optional[str] = Field(default=None, alias="JENIS/LABEL")
-    kodSekolah: Optional[str] = Field(default=None, alias="KODSEKOLAH", description="School code")
+    kodSekolah: str = Field(default=None, alias="KODSEKOLAH", description="School code")
     namaSekolah: Optional[str] = Field(default=None, alias="NAMASEKOLAH")
     alamatSurat: Optional[str] = Field(default=None, alias="ALAMATSURAT")
     poskodSurat: Optional[int] = Field(default=None, alias="POSKODSURAT")
@@ -56,14 +55,14 @@ class Sekolah(BaseModel):
         if value is None:
             return None
         text = str(value).strip().upper()
-        return None if text in TIADA_VALUES else value
+        return None if text in MISSING_VALUES else value
 
     @field_validator("email", mode="before")
     def normalize_email(cls, value):
         if value is None:
             return None
         text = str(value).strip()
-        if not text or text.upper() in TIADA_VALUES:
+        if not text or text.upper() in MISSING_VALUES:
             return None
         text = text.rstrip(".")
         while "@@" in text:
@@ -109,7 +108,7 @@ class Sekolah(BaseModel):
         if isinstance(value, bool):
             return value
         text = str(value).strip().upper()
-        return BOOL_YA_MAP.get(text, None)
+        return ADA_MAP.get(text, None)
 
     @field_validator("koordinatXX", "koordinatYY", mode="before")
     def parse_float(cls, value):
@@ -126,10 +125,12 @@ class Sekolah(BaseModel):
     }
 
     def to_document(self) -> dict:
-        data = self.model_dump(exclude_none=True)
+        data = self.model_dump(exclude_none=False)
         if self.koordinatXX is not None and self.koordinatYY is not None:
             data["location"] = {
                 "type": "Point",
                 "coordinates": [self.koordinatXX, self.koordinatYY],
             }
+        else:
+            data["location"] = None
         return data
