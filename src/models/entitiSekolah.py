@@ -26,7 +26,6 @@ class InfoKomunikasi(BaseModel):
     bandarSurat: Optional[str] = Field(default=None, description="Mailing city")
 
 class InfoPentadbiran(BaseModel):
-    kodSekolah: Optional[str] = Field(default=None, description="Unique school code identifier")
     negeri: Optional[str] = Field(default=None, description="State the school is located in")
     ppd: Optional[str] = Field(default=None, description="Pejabat Pendidikan Daerah (district office)")
     parlimen: Optional[str] = Field(default=None, description="Parliament constituency")
@@ -44,7 +43,7 @@ class InfoLokasi(BaseModel):
 
 class SekolahBerdekatanItem(BaseModel):
     namaSekolah: Optional[str] = Field(default=None, description="Name of the nearby school")
-    kodSekolah: str = Field(description="Unique school code identifier for the nearby school")
+    kodSekolah: str = Field(..., description="Unique school code identifier for the nearby school")
     bandarSurat: Optional[str] = Field(default=None, description="Mailing city of the nearby school")
     negeri: Optional[str] = Field(default=None, description="State of the nearby school")
 
@@ -73,7 +72,7 @@ class EntitiSekolah(BaseModel):
     collection_name: ClassVar[str] = "EntitiSekolah"
 
     namaSekolah: Optional[str] = Field(default=None, description="Name of the school")
-    kodSekolah: str = Field(default=None, description="Unique school code identifier")
+    kodSekolah: str = Field(..., description="Unique school code identifier")
     data: EntitiSekolahData
     updatedAt: datetime = Field(default_factory=datetime.utcnow, description="UTC timestamp when the document was last generated",)
 
@@ -116,7 +115,6 @@ class EntitiSekolah(BaseModel):
         )
 
         profil_pentadbiran = InfoPentadbiran(
-            kodSekolah=sekolah.kodSekolah,
             negeri=sekolah.negeri,
             ppd=sekolah.ppd,
             parlimen=sekolah.parlimen,

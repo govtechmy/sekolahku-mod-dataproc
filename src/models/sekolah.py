@@ -20,7 +20,7 @@ class Sekolah(BaseModel):
     dun: Optional[str] = Field(default=None, alias="DUN")
     peringkat: Optional[str] = Field(default=None, alias="PERINGKAT")
     jenisLabel: Optional[str] = Field(default=None, alias="JENIS/LABEL")
-    kodSekolah: str = Field(default=None, alias="KODSEKOLAH", description="School code")
+    kodSekolah: str = Field(..., alias="KODSEKOLAH")
     namaSekolah: Optional[str] = Field(default=None, alias="NAMASEKOLAH")
     alamatSurat: Optional[str] = Field(default=None, alias="ALAMATSURAT")
     poskodSurat: Optional[int] = Field(default=None, alias="POSKODSURAT")
@@ -69,6 +69,13 @@ class Sekolah(BaseModel):
         while "@@" in text:
             text = text.replace("@@", "@")
         return text or None
+
+    @field_validator("kodSekolah", mode="before")
+    def validate_kod_sekolah(cls, value: str | None) -> str:
+        text = "" if value is None else str(value).strip()
+        if not text or text.upper() in MISSING_VALUES:
+            raise ValueError("kodSekolah is required")
+        return text
 
     @field_validator("parlimen", "dun", mode="before")
     def clean_string(cls, value):
