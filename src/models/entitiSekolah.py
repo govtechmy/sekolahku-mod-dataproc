@@ -42,11 +42,26 @@ class InfoLokasi(BaseModel):
     location: Optional[GeoJSONPoint] = Field(default=None, description="GeoJSON point for geospatial queries")
 
 
+class SekolahBerdekatanItem(BaseModel):
+    namaSekolah: Optional[str] = Field(default=None, description="Name of the nearby school")
+    kodSekolah: str = Field(description="Unique school code identifier for the nearby school")
+    bandarSurat: Optional[str] = Field(default=None, description="Mailing city of the nearby school")
+    negeri: Optional[str] = Field(default=None, description="State of the nearby school")
+
+
+class SekolahBerdekatan(BaseModel):
+    senarai: list[SekolahBerdekatanItem] = Field(default_factory=list, description="Ordered list of nearby schools")
+
+
 class EntitiSekolahData(BaseModel):
     infoSekolah: InfoSekolah
     infoKomunikasi: InfoKomunikasi
     infoPentadbiran: InfoPentadbiran
     infoLokasi: InfoLokasi
+    sekolahBerdekatan: SekolahBerdekatan = Field(
+        default_factory=SekolahBerdekatan,
+        description="Nearby schools derived from spatial proximity",
+    )
 
 class GeoJSONPoint(BaseModel):
     """Minimal GeoJSON point structure used for school coordinates."""
@@ -66,7 +81,12 @@ class EntitiSekolah(BaseModel):
     updatedAt: datetime = Field(default_factory=datetime.utcnow, description="UTC timestamp when the document was last generated",)
 
     @classmethod
-    def from_sekolah(cls, sekolah: "Sekolah", *, tahun_penubuhan: Optional[int] = None) -> "EntitiSekolah":
+    def from_sekolah(
+        cls,
+        sekolah: "Sekolah",
+        *,
+        sekolah_berdekatan: Optional[SekolahBerdekatan] = None,
+    ) -> "EntitiSekolah":
         """Create an entity snapshot from a validated ``Sekolah`` model."""
 
         jumlah_pelajar = sum(
@@ -121,6 +141,7 @@ class EntitiSekolah(BaseModel):
             infoKomunikasi=info_perhubungan,
             infoPentadbiran=profil_pentadbiran,
             infoLokasi=info_lokasi,
+            sekolahBerdekatan=sekolah_berdekatan or SekolahBerdekatan(),
         )
 
         return cls(
@@ -143,4 +164,6 @@ __all__ = [
     "InfoPentadbiran",
     "InfoLokasi",
     "GeoJSONPoint",
+    "SekolahBerdekatan",
+    "SekolahBerdekatanItem",
 ]
