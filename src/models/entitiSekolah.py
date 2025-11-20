@@ -12,18 +12,11 @@ from typing_extensions import Literal
 if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
     from src.models.sekolah import Sekolah
 
-
-class GeoJSONPoint(BaseModel):
-    """Minimal GeoJSON point structure used for school coordinates."""
-
-    type: Literal["Point"] = Field(default="Point", description="GeoJSON geometry type")
-    coordinates: tuple[float, float] = Field(..., description="(longitude, latitude) coordinate pair")
-
 class InfoSekolah(BaseModel):
-    jumlahMurid: Optional[int] = Field(default=0, description="Total students (enrolmenPrasekolah + enrolmen + enrolmenKhas)")
+    jumlahPelajar: Optional[int] = Field(default=0, description="Total students (enrolmenPrasekolah + enrolmen + enrolmenKhas)")
     jumlahGuru: Optional[int] = Field(default=0, description="Total number of teachers")
 
-class InfoPerhubungan(BaseModel):
+class infoKomunikasi(BaseModel):
     noTelefon: Optional[str] = Field(default=None, description="Primary contact number")
     noFax: Optional[str] = Field(default=None, description="Fax number")
     email: Optional[EmailStr] = Field(default=None, description="General contact email")
@@ -50,9 +43,15 @@ class InfoLokasi(BaseModel):
 
 class EntitiSekolahData(BaseModel):
     infoSekolah: InfoSekolah
-    infoPerhubungan: InfoPerhubungan
+    infoKomunikasi: infoKomunikasi
     infoPentadbiran: infoPentadbiran
     infoLokasi: InfoLokasi
+
+class GeoJSONPoint(BaseModel):
+    """Minimal GeoJSON point structure used for school coordinates."""
+
+    type: Literal["Point"] = Field(default="Point", description="GeoJSON geometry type")
+    coordinates: tuple[float, float] = Field(..., description="(longitude, latitude) coordinate pair")
 
 
 class EntitiSekolah(BaseModel):
@@ -69,7 +68,7 @@ class EntitiSekolah(BaseModel):
     def from_sekolah(cls, sekolah: "Sekolah", *, tahun_penubuhan: Optional[int] = None) -> "EntitiSekolah":
         """Create an entity snapshot from a validated ``Sekolah`` model."""
 
-        jumlah_murid = sum(
+        jumlah_pelajar = sum(
             value
             for value in (
                 sekolah.enrolmenPrasekolah,
@@ -84,11 +83,11 @@ class EntitiSekolah(BaseModel):
             location = GeoJSONPoint(coordinates=(sekolah.koordinatXX, sekolah.koordinatYY))
 
         info_sekolah = InfoSekolah(
-            jumlahMurid=jumlah_murid,
+            jumlahPelajar=jumlah_pelajar,
             jumlahGuru=sekolah.guru,
         )
 
-        info_perhubungan = InfoPerhubungan(
+        info_perhubungan = infoKomunikasi(
             noTelefon=sekolah.noTelefon,
             noFax=sekolah.noFax,
             email=sekolah.email,
@@ -117,7 +116,7 @@ class EntitiSekolah(BaseModel):
 
         data = EntitiSekolahData(
             infoSekolah=info_sekolah,
-            infoPerhubungan=info_perhubungan,
+            infoKomunikasi=info_perhubungan,
             infoPentadbiran=profil_pentadbiran,
             infoLokasi=info_lokasi,
         )
@@ -138,7 +137,7 @@ __all__ = [
     "EntitiSekolah",
     "EntitiSekolahData",
     "InfoSekolah",
-    "InfoPerhubungan",
+    "infoKomunikasi",
     "infoPentadbiran",
     "InfoLokasi",
     "GeoJSONPoint",
