@@ -50,7 +50,7 @@ class SekolahBerdekatanItem(BaseModel):
 
 
 class SekolahBerdekatan(BaseModel):
-    senarai: list[SekolahBerdekatanItem] = Field(default_factory=list, description="Ordered list of nearby schools")
+    senarai: list[SekolahBerdekatanItem] = Field(default_factory=list, description="List of nearby schools")
 
 
 class EntitiSekolahData(BaseModel):
@@ -58,10 +58,7 @@ class EntitiSekolahData(BaseModel):
     infoKomunikasi: InfoKomunikasi
     infoPentadbiran: InfoPentadbiran
     infoLokasi: InfoLokasi
-    sekolahBerdekatan: SekolahBerdekatan = Field(
-        default_factory=SekolahBerdekatan,
-        description="Nearby schools derived from spatial proximity",
-    )
+    sekolahBerdekatan: SekolahBerdekatan = Field(default_factory=SekolahBerdekatan, description="Nearby schools derived from order priority: bandarSurat -> dun -> parlimen -> ppd -> negeri")
 
 class GeoJSONPoint(BaseModel):
     """Minimal GeoJSON point structure used for school coordinates."""
