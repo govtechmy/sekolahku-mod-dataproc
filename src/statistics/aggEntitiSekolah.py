@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import ValidationError
 from pymongo.collection import Collection
@@ -14,95 +14,99 @@ logger = logging.getLogger(__name__)
 ENTITI_SEKOLAH_COLLECTION = EntitiSekolah.collection_name
 
 
+_MAX_NEARBY = 5
+_NEARBY_PROJECTION = {
+    "_id": 0,
+    "kodSekolah": 1,
+    "namaSekolah": 1,
+    "bandarSurat": 1,
+    "negeri": 1,
+    "dun": 1,
+    "ppd": 1,
+    "parlimen": 1,
+}
+
+
+def _normalize_upper(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip().upper()
+    return text or None
+
+
+def _clean_string(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
 def _build_nearby_schools(
+    collection: Collection,
     sekolah: Sekolah,
-    all_schools: Iterable[Sekolah],
 ) -> SekolahBerdekatan:
-    def _normalize(value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        text = str(value).strip().upper()
-        return text or None
+    negeri = _normalize_upper(sekolah.negeri)
+    if negeri is None:
+        return SekolahBerdekatan()
 
-    target_negeri = _normalize(sekolah.negeri)
-    target_bandar = _normalize(sekolah.bandarSurat)
-    target_dun = _normalize(sekolah.dun)
-    target_ppd = _normalize(sekolah.ppd)
+    bandar = _normalize_upper(sekolah.bandarSurat)
+    dun = _normalize_upper(sekolah.dun)
+    ppd = _normalize_upper(sekolah.ppd)
+    parlimen = _normalize_upper(sekolah.parlimen)
 
-    candidates: list[tuple[Sekolah, dict[str, Optional[str]]]] = []
-    for other in all_schools:
-        if other.kodSekolah == sekolah.kodSekolah:
-            continue
-        candidates.append(
-            (
-                other,
-                {
-                    "negeri": _normalize(other.negeri),
-                    "bandarSurat": _normalize(other.bandarSurat),
-                    "dun": _normalize(other.dun),
-                    "ppd": _normalize(other.ppd),
-                },
-            )
-        )
-
-    selected: list[Sekolah] = []
+    results: list[SekolahBerdekatanItem] = []
     seen: set[str] = set()
 
-    def add_matches(*, require_negeri: bool, match_field: Optional[str]) -> None:
-        if len(selected) >= 5:
+    def add_candidates(extra_filter: Dict[str, Any]) -> None:
+        remaining = _MAX_NEARBY - len(results)
+        if remaining <= 0:
             return
-        target_value = None
-        if match_field:
-            target_value = {
-                "bandarSurat": target_bandar,
-                "dun": target_dun,
-                "ppd": target_ppd,
-            }[match_field]
-            if target_value is None:
-                return
 
-        for other, attrs in candidates:
-            if len(selected) >= 5:
-                break
-            if other.kodSekolah in seen:
-                continue
+        query: Dict[str, Any] = {
+            "negeri": negeri,
+            **extra_filter,
+            "kodSekolah": {"$ne": sekolah.kodSekolah},
+        }
 
-            if require_negeri:
-                if target_negeri is None:
-                    continue
-                if attrs["negeri"] != target_negeri:
+        cursor = collection.find(query, projection=_NEARBY_PROJECTION).limit(remaining)
+        try:
+            for doc in cursor:
+                raw_code = doc.get("kodSekolah")
+                code = _normalize_upper(raw_code)
+                if not code or code in seen:
                     continue
 
-            if match_field:
-                if attrs[match_field] != target_value:
-                    continue
+                results.append(
+                    SekolahBerdekatanItem(
+                        namaSekolah=_clean_string(doc.get("namaSekolah")),
+                        kodSekolah=code,
+                        bandarSurat=_clean_string(doc.get("bandarSurat")),
+                        negeri=_clean_string(doc.get("negeri")),
+                    )
+                )
+                seen.add(code)
 
-            selected.append(other)
-            seen.add(other.kodSekolah)
+                if len(results) >= _MAX_NEARBY:
+                    break
+        finally:
+            cursor.close()
 
-    # Step 1: same negeri + bandarSurat
-    add_matches(require_negeri=True, match_field="bandarSurat")
+    if bandar is not None:
+        add_candidates({"bandarSurat": bandar})
 
-    # Step 2: same negeri + DUN
-    add_matches(require_negeri=True, match_field="dun")
+    if len(results) < _MAX_NEARBY and dun is not None:
+        add_candidates({"dun": dun})
 
-    # Step 3: same negeri + PPD
-    add_matches(require_negeri=True, match_field="ppd")
+    if len(results) < _MAX_NEARBY and parlimen is not None:
+        add_candidates({"parlimen": parlimen})
 
-    # Step 4: same negeri (any)
-    add_matches(require_negeri=True, match_field=None)
+    if len(results) < _MAX_NEARBY and ppd is not None:
+        add_candidates({"ppd": ppd})
 
-    senarai = [
-        SekolahBerdekatanItem(
-            namaSekolah=other.namaSekolah,
-            kodSekolah=other.kodSekolah,
-            bandarSurat=other.bandarSurat,
-            negeri=other.negeri,
-        )
-        for other in selected[:5]
-    ]
+    if len(results) < _MAX_NEARBY:
+        add_candidates({})
 
-    return SekolahBerdekatan(senarai=senarai)
+    return SekolahBerdekatan(senarai=results[:_MAX_NEARBY])
 
 
 def _build_entiti_document(
@@ -125,22 +129,14 @@ def _build_entiti_document(
 def compute_entiti_sekolah(collection: Collection) -> List[Dict[str, Any]]:
     """Project sekolah collection into the EntitiSekolah aggregation view."""
 
-    raw_docs = list(collection.find({}))
-    records: list[tuple[Dict[str, Any], Sekolah]] = []
-
-    for raw in raw_docs:
+    documents: List[Dict[str, Any]] = []
+    for raw in collection.find({}):
         try:
             sekolah = Sekolah.model_validate(raw)
         except ValidationError as exc:  # pragma: no cover - defensive logging
             logger.warning("Skipping sekolah document due to validation error: %s", exc)
             continue
-        records.append((raw, sekolah))
-
-    all_schools = [sekolah for _, sekolah in records]
-
-    documents: List[Dict[str, Any]] = []
-    for raw, sekolah in records:
-        nearby = _build_nearby_schools(sekolah, all_schools)
+        nearby = _build_nearby_schools(collection, sekolah)
         document = _build_entiti_document(raw, sekolah, nearby)
         documents.append(document)
     return documents
