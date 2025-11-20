@@ -13,10 +13,11 @@ if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
     from src.models.sekolah import Sekolah
 
 class InfoSekolah(BaseModel):
+    jenisLabel: Optional[str] = Field(default=None, description="Type of school label e.g SK, SMK, SMKA, etc.")
     jumlahPelajar: Optional[int] = Field(default=0, description="Total students (enrolmenPrasekolah + enrolmen + enrolmenKhas)")
     jumlahGuru: Optional[int] = Field(default=0, description="Total number of teachers")
 
-class infoKomunikasi(BaseModel):
+class InfoKomunikasi(BaseModel):
     noTelefon: Optional[str] = Field(default=None, description="Primary contact number")
     noFax: Optional[str] = Field(default=None, description="Fax number")
     email: Optional[EmailStr] = Field(default=None, description="General contact email")
@@ -24,7 +25,7 @@ class infoKomunikasi(BaseModel):
     poskodSurat: Optional[str] = Field(default=None, description="Mailing postcode")
     bandarSurat: Optional[str] = Field(default=None, description="Mailing city")
 
-class infoPentadbiran(BaseModel):
+class InfoPentadbiran(BaseModel):
     kodSekolah: Optional[str] = Field(default=None, description="Unique school code identifier")
     negeri: Optional[str] = Field(default=None, description="State the school is located in")
     ppd: Optional[str] = Field(default=None, description="Pejabat Pendidikan Daerah (district office)")
@@ -43,8 +44,8 @@ class InfoLokasi(BaseModel):
 
 class EntitiSekolahData(BaseModel):
     infoSekolah: InfoSekolah
-    infoKomunikasi: infoKomunikasi
-    infoPentadbiran: infoPentadbiran
+    infoKomunikasi: InfoKomunikasi
+    infoPentadbiran: InfoPentadbiran
     infoLokasi: InfoLokasi
 
 class GeoJSONPoint(BaseModel):
@@ -83,11 +84,12 @@ class EntitiSekolah(BaseModel):
             location = GeoJSONPoint(coordinates=(sekolah.koordinatXX, sekolah.koordinatYY))
 
         info_sekolah = InfoSekolah(
+            jenisLabel=sekolah.jenisLabel,
             jumlahPelajar=jumlah_pelajar,
             jumlahGuru=sekolah.guru,
         )
 
-        info_perhubungan = infoKomunikasi(
+        info_perhubungan = InfoKomunikasi(
             noTelefon=sekolah.noTelefon,
             noFax=sekolah.noFax,
             email=sekolah.email,
@@ -96,7 +98,7 @@ class EntitiSekolah(BaseModel):
             bandarSurat=sekolah.bandarSurat,
         )
 
-        profil_pentadbiran = infoPentadbiran(
+        profil_pentadbiran = InfoPentadbiran(
             kodSekolah=sekolah.kodSekolah,
             negeri=sekolah.negeri,
             ppd=sekolah.ppd,
@@ -137,8 +139,8 @@ __all__ = [
     "EntitiSekolah",
     "EntitiSekolahData",
     "InfoSekolah",
-    "infoKomunikasi",
-    "infoPentadbiran",
+    "InfoKomunikasi",
+    "InfoPentadbiran",
     "InfoLokasi",
     "GeoJSONPoint",
 ]
