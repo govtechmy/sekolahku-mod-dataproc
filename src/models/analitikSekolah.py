@@ -13,11 +13,16 @@ if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
 class AnalitikSekolahData(BaseModel):
     """Dynamic analytics container that captures all categories found in data."""
     
-    byPeringkat: dict[str, int] = Field(default_factory=dict, description="Education level breakdown with JUMLAH total")
-    byJenisLabel: dict[str, int] = Field(default_factory=dict, description="Sekolah type breakdown with JUMLAH total") 
-    bySesi: dict[str, int] = Field(default_factory=dict, description="Session type breakdown with JUMLAH total")
-    byBantuan: dict[str, int] = Field(default_factory=dict, description="Aid type breakdown with JUMLAH total")
-    byLokasi: dict[str, int] = Field(default_factory=dict, description="Location type breakdown with JUMLAH total")
+    byPeringkat: dict[str, int] = Field(default_factory=dict, description="Peringkat pendidikan dengan jumlah")
+    byPeringkatPeratus: dict[str, float] = Field(default_factory=dict, description="Peratusan peringkat pendidikan")
+    byJenisLabel: dict[str, int] = Field(default_factory=dict, description="Pecahan jenis sekolah dengan jumlah") 
+    byJenisLabelPeratus: dict[str, float] = Field(default_factory=dict, description="Peratusan jenis sekolah")
+    bySesi: dict[str, int] = Field(default_factory=dict, description="Pecahan jenis sesi dengan jumlah")
+    bySesiPeratus: dict[str, float] = Field(default_factory=dict, description="Peratusan jenis sesi")
+    byBantuan: dict[str, int] = Field(default_factory=dict, description="Pecahan jenis bantuan dengan jumlah")
+    byBantuanPeratus: dict[str, float] = Field(default_factory=dict, description="Peratusan jenis bantuan")
+    byLokasi: dict[str, int] = Field(default_factory=dict, description="Pecahan jenis lokasi dengan jumlah")
+    byLokasiPeratus: dict[str, float] = Field(default_factory=dict, description="Peratusan jenis lokasi")
 
 
 class AnalitikSekolah(BaseModel):
@@ -51,13 +56,18 @@ class AnalitikSekolah(BaseModel):
             cls._increment_count(bantuan_counts, sekolah.bantuan)
             cls._increment_count(lokasi_counts, sekolah.lokasi)
 
-        # Convert defaultdict to regular dict and add JUMLAH totals
+        # Convert defaultdict to regular dict and add JUMLAH totals with percentages
         data = AnalitikSekolahData(
             byPeringkat=cls._finalize_counts(peringkat_counts, jumlah_sekolah),
+            byPeringkatPeratus=cls._calculate_percentages(peringkat_counts, jumlah_sekolah),
             byJenisLabel=cls._finalize_counts(jenis_counts, jumlah_sekolah),
+            byJenisLabelPeratus=cls._calculate_percentages(jenis_counts, jumlah_sekolah),
             bySesi=cls._finalize_counts(sesi_counts, jumlah_sekolah),
+            bySesiPeratus=cls._calculate_percentages(sesi_counts, jumlah_sekolah),
             byBantuan=cls._finalize_counts(bantuan_counts, jumlah_sekolah),
+            byBantuanPeratus=cls._calculate_percentages(bantuan_counts, jumlah_sekolah),
             byLokasi=cls._finalize_counts(lokasi_counts, jumlah_sekolah),
+            byLokasiPeratus=cls._calculate_percentages(lokasi_counts, jumlah_sekolah),
         )
 
         return cls(
@@ -86,6 +96,28 @@ class AnalitikSekolah(BaseModel):
         final_counts["JUMLAH"] = total
         
         return final_counts
+
+    @staticmethod
+    def _calculate_percentages(counter: defaultdict, total: int) -> dict[str, float]:
+        """Kira peratusan untuk setiap kategori."""
+        percentages = {}
+        
+        # Count existing categories and calculate percentages
+        for category, count in counter.items():
+            if total > 0:
+                percentage = round((count / total) * 100, 2)
+            else:
+                percentage = 0.0
+            percentages[category] = percentage
+        
+        # Ensure TIADA MAKLUMAT exists even if percentage is 0.0
+        if "TIADA MAKLUMAT" not in percentages:
+            percentages["TIADA MAKLUMAT"] = 0.0
+
+        # Add JUMLAH as 100.0%
+        percentages["JUMLAH"] = 100.0
+        
+        return percentages
 
     @staticmethod
     def _normalize_value(value: Optional[str]) -> str:
