@@ -24,7 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, help="Insert batch size")
     parser.add_argument("--dry-run", action="store_true", help="Process without writing to database")
     parser.add_argument("--log-level", default="INFO", help="Logging level (e.g., INFO, DEBUG)")
-    parser.add_argument("--entiti", action="store_true", help="Compute EntitiSekolah aggregation after ingestion")
+    parser.add_argument("--entiti", action="store_true", help="Compute EntitiSekolah aggregation into separate collection")
     return parser.parse_args()
 
 
@@ -37,13 +37,14 @@ def main() -> None:
     args = parse_args()
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
     settings = configure_settings(args)
-    result = run_pipeline(settings)
-    logger.info("Ingestion summary: %s", result)
-
 
     if args.entiti:
         entiti = run_entiti_sekolah_dict(settings)
-        print("Entiti summary:", entiti)
+        logger.info("Entiti summary: %s", entiti)
+        return
+
+    result = run_pipeline(settings)
+    logger.info("Ingestion summary: %s", result)
 
 
 if __name__ == "__main__":
