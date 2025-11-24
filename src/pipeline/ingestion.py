@@ -108,7 +108,6 @@ def _collect_documents(
             messages_list = _format_validation_messages(exc)
             messages = "; ".join(messages_list)
             errors.append({"row": index, "error": messages})
-            # logger.warning("Row %s failed validation: %s", index, messages)
             continue
 
         documents.append(sekolah.to_document())
