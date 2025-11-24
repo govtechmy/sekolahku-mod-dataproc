@@ -40,11 +40,6 @@ def main() -> None:
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
     settings = configure_settings(args)
     
-    # Only run ingestion if no specific aggregation flags are provided
-    if not args.entiti and not args.analitik:
-        result = run_pipeline(settings)
-        print("Ingestion summary:", result)
-
     if args.entiti:
         entiti = run_entiti_sekolah_dict(settings)
         logger.info("Entiti summary: %s", entiti)
@@ -55,8 +50,10 @@ def main() -> None:
         logger.info("Analitik summary: %s", analitik)
         return
 
+    # Run ingestion pipeline if no specific aggregation flags are provided
     result = run_pipeline(settings)
     logger.info("Ingestion summary: %s", result)
+
 
 if __name__ == "__main__":
     main()

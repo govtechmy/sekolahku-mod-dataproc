@@ -2,12 +2,17 @@ from __future__ import annotations
 
 from typing import ClassVar, Optional, TYPE_CHECKING
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
     from src.models.sekolah import Sekolah
+
+
+def _utc_now() -> datetime:
+    """Return timezone-aware UTC datetime."""
+    return datetime.now(timezone.utc)
 
 
 class AnalitikItem(BaseModel):
@@ -34,7 +39,7 @@ class AnalitikSekolah(BaseModel):
     jumlahGuru: int = Field(default=0, description="Jumlah keseluruhan guru")
     jumlahPelajar: int = Field(default=0, description="Jumlah keseluruhan pelajar")
     data: AnalitikSekolahData
-    updatedAt: datetime = Field(default_factory=datetime.utcnow, description="Masa analisis dikemas kini")
+    updatedAt: datetime = Field(default_factory=_utc_now, description="Masa analisis dikemas kini")
 
     @classmethod
     def from_sekolah_list(cls, sekolah_list: list["Sekolah"], *, region: str = "ALL") -> "AnalitikSekolah":
@@ -47,12 +52,14 @@ class AnalitikSekolah(BaseModel):
         total_pelajar = 0
         
         # Initialize analytics containers with defaultdicts for dynamic counting
+        peringkat_counts = defaultdict(int)
         jenis_counts = defaultdict(int)
         bantuan_counts = defaultdict(int)
 
         # Process each sekolah to build analytics dynamically
         for sekolah in sekolah_list:
             # Count categories
+            cls._increment_count(peringkat_counts, sekolah.peringkat)
             cls._increment_count(jenis_counts, sekolah.jenisLabel)
             cls._increment_count(bantuan_counts, sekolah.bantuan)
             
@@ -72,6 +79,7 @@ class AnalitikSekolah(BaseModel):
 
         # Convert counts to AnalitikItem arrays
         data = AnalitikSekolahData(
+            peringkat=cls._convert_to_analitik_items(peringkat_counts, jumlah_sekolah),
             jenisLabel=cls._convert_to_analitik_items(jenis_counts, jumlah_sekolah),
             bantuan=cls._convert_to_analitik_items(bantuan_counts, jumlah_sekolah),
         )
@@ -81,7 +89,7 @@ class AnalitikSekolah(BaseModel):
             jumlahGuru=total_guru,
             jumlahPelajar=total_pelajar,
             data=data,
-            updatedAt=datetime.utcnow(),
+            updatedAt=_utc_now(),
         )
 
     @staticmethod

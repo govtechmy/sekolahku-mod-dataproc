@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, TypedDict
 
 from pymongo import MongoClient
 from pymongo.collection import Collection
@@ -15,28 +15,35 @@ from src.statistics import ANALITIK_SEKOLAH_COLLECTION, compute_analitik_sekolah
 logger = logging.getLogger(__name__)
 
 
+class PersistAnalitikResult(TypedDict):
+    processed: int
+    inserted: int
+    dry_run: bool
+    collection: str
+
+
 def _get_db(settings: Settings) -> Database:
     client = MongoClient(settings.mongo_uri)
     return client[settings.db_name]
 
 
-def _persist_analitik(collection: Collection, documents: list[dict], dry_run: bool) -> Dict[str, int]:
+def _persist_analitik(collection: Collection, documents: list[dict], dry_run: bool) -> PersistAnalitikResult:
     processed = len(documents)
     inserted = 0
 
     if dry_run:
         logger.info("Dry run enabled; skipping write to collection %s", collection.name)
-        return {"processed": processed, "inserted": inserted, "dry_run": 1}
+        return {"processed": processed, "inserted": inserted, "dry_run": True, "collection": collection.name}
 
     collection.delete_many({})
     if documents:
         collection.insert_many(documents, ordered=False)
         inserted = len(documents)
 
-    return {"processed": processed, "inserted": inserted, "dry_run": 0}
+    return {"processed": processed, "inserted": inserted, "dry_run": False, "collection": collection.name}
 
 
-def run_analitik_sekolah(settings: Optional[Settings] = None) -> Dict[str, int]:
+def run_analitik_sekolah(settings: Optional[Settings] = None) -> PersistAnalitikResult:
     """Generate and persist the AnalitikSekolah aggregation output."""
 
     settings = settings or get_settings()
@@ -52,11 +59,10 @@ def run_analitik_sekolah(settings: Optional[Settings] = None) -> Dict[str, int]:
     )
 
     result = _persist_analitik(analitik_collection, documents, settings.dry_run)
-    result["collection"] = ANALITIK_SEKOLAH_COLLECTION
     return result
 
 
-def run_analitik_dict(settings: Optional[Settings] = None) -> Dict[str, Dict[str, int]]:
+def run_analitik_dict(settings: Optional[Settings] = None) -> Dict[str, PersistAnalitikResult]:
     """Convenience helper returning pipeline output as a serialisable dict."""
 
     return {"analitik": run_analitik_sekolah(settings)}
