@@ -52,14 +52,12 @@ class AnalitikSekolah(BaseModel):
         total_pelajar = 0
         
         # Initialize analytics containers with defaultdicts for dynamic counting
-        peringkat_counts = defaultdict(int)
         jenis_counts = defaultdict(int)
         bantuan_counts = defaultdict(int)
 
         # Process each sekolah to build analytics dynamically
         for sekolah in sekolah_list:
             # Count categories
-            cls._increment_count(peringkat_counts, sekolah.peringkat)
             cls._increment_count(jenis_counts, sekolah.jenisLabel)
             cls._increment_count(bantuan_counts, sekolah.bantuan)
             
@@ -79,7 +77,6 @@ class AnalitikSekolah(BaseModel):
 
         # Convert counts to AnalitikItem arrays
         data = AnalitikSekolahData(
-            peringkat=cls._convert_to_analitik_items(peringkat_counts, jumlah_sekolah),
             jenisLabel=cls._convert_to_analitik_items(jenis_counts, jumlah_sekolah),
             bantuan=cls._convert_to_analitik_items(bantuan_counts, jumlah_sekolah),
         )
