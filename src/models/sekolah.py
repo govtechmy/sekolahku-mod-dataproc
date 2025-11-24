@@ -2,13 +2,18 @@ from __future__ import annotations
 
 from typing import ClassVar, Optional
 
+from datetime import datetime, timezone
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
-from datetime import datetime
 
 
 MISSING_VALUES = {"TIADA", "", "NONE", "-", "--", "BELUM ADA"}
 BOOL_ADA_MAP = {"ADA": True, "TIADA": False, "": None}
 BOOL_YA_MAP = {"YA": True, "TIDAK": False, "": None}
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class Sekolah(BaseModel):
@@ -49,7 +54,7 @@ class Sekolah(BaseModel):
 
     skmLEQ150: Optional[bool] = Field(default=None, alias="SKM<=150")
 
-    updatedAt: datetime = Field(default_factory=datetime.utcnow, description="UTC timestamp when the document was last generated",)
+    updatedAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was last generated",)
 
     @field_validator("noTelefon", "noFax", mode="before")
     def empty_to_none(cls, value):

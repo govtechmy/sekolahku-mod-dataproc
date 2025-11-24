@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import ClassVar, Optional, TYPE_CHECKING
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pydantic import BaseModel, EmailStr, Field
 from pydantic import ConfigDict
@@ -11,6 +11,9 @@ from typing_extensions import Literal
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
     from src.models.sekolah import Sekolah
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 class InfoSekolah(BaseModel):
     jenisLabel: Optional[str] = Field(default=None, description="Type of school label e.g SK, SMK, SMKA, etc.")
@@ -65,7 +68,6 @@ class GeoJSONPoint(BaseModel):
     type: Literal["Point"] = Field(default="Point", description="GeoJSON geometry type")
     coordinates: tuple[float, float] = Field(..., description="(longitude, latitude) coordinate pair")
 
-
 class EntitiSekolah(BaseModel):
     """Aggregated entity view for a school document."""
 
@@ -74,7 +76,7 @@ class EntitiSekolah(BaseModel):
     namaSekolah: Optional[str] = Field(default=None, description="Name of the school")
     kodSekolah: str = Field(..., description="Unique school code identifier")
     data: EntitiSekolahData
-    updatedAt: datetime = Field(default_factory=datetime.utcnow, description="UTC timestamp when the document was last generated",)
+    updatedAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was last generated",)
 
     @classmethod
     def from_sekolah(
@@ -143,13 +145,12 @@ class EntitiSekolah(BaseModel):
             namaSekolah=sekolah.namaSekolah,
             kodSekolah=sekolah.kodSekolah,
             data=data,
-            updatedAt=datetime.utcnow(),
+            updatedAt=_utc_now(),
         )
 
     def to_document(self) -> dict:
         """Convert the entity to a Mongo-ready document, omitting ``None`` fields."""
         return self.model_dump(exclude_none=True, by_alias=True)
-
 
 __all__ = [
     "EntitiSekolah",
