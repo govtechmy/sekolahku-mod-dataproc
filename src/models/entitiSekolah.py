@@ -38,6 +38,13 @@ class InfoPentadbiran(BaseModel):
     prasekolah: Optional[bool] = Field(default=None, description="Has preschool programme")
     integrasi: Optional[bool] = Field(default=None, description="Runs integration programme")
 
+class GeoJSONPoint(BaseModel):
+    """Minimal GeoJSON point structure used for school coordinates."""
+
+    type: Literal["Point"] = Field(default="Point", description="GeoJSON geometry type")
+    coordinates: tuple[float, float] = Field(..., description="(longitude, latitude) coordinate pair")
+
+
 class InfoLokasi(BaseModel):
     koordinatXX: Optional[float] = Field(default=None, description="Longitude value")
     koordinatYY: Optional[float] = Field(default=None, description="Latitude value")
@@ -61,12 +68,6 @@ class EntitiSekolahData(BaseModel):
     infoPentadbiran: InfoPentadbiran
     infoLokasi: InfoLokasi
     sekolahBerdekatan: SekolahBerdekatan = Field(default_factory=SekolahBerdekatan, description="Nearby schools derived from order priority: bandarSurat -> dun -> parlimen -> ppd -> negeri")
-
-class GeoJSONPoint(BaseModel):
-    """Minimal GeoJSON point structure used for school coordinates."""
-
-    type: Literal["Point"] = Field(default="Point", description="GeoJSON geometry type")
-    coordinates: tuple[float, float] = Field(..., description="(longitude, latitude) coordinate pair")
 
 class EntitiSekolah(BaseModel):
     """Aggregated entity view for a school document."""
