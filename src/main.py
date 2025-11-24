@@ -9,6 +9,8 @@ from src.pipeline import (
     run_entiti_sekolah_dict,
 )
 
+logger = logging.getLogger(__name__)
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Ingest school data into MongoDB")
@@ -36,7 +38,8 @@ def main() -> None:
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
     settings = configure_settings(args)
     result = run_pipeline(settings)
-    print("Ingestion summary:", result)
+    logger.info("Ingestion summary: %s", result)
+
 
     if args.entiti:
         entiti = run_entiti_sekolah_dict(settings)
