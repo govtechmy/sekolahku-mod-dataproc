@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, TypedDict
 
 from pymongo import MongoClient
 from pymongo.collection import Collection
@@ -15,12 +15,18 @@ from src.statistics import ENTITI_SEKOLAH_COLLECTION, compute_entiti_sekolah
 logger = logging.getLogger(__name__)
 
 
+class PersistEntitiResult(TypedDict):
+    processed: int
+    inserted: int
+    dry_run: bool
+
+
 def _get_db(settings: Settings) -> Database:
     client = MongoClient(settings.mongo_uri)
     return client[settings.db_name]
 
 
-def _persist_entiti(collection: Collection, documents: list[dict], dry_run: bool) -> Dict[str, int | bool]:
+def _persist_entiti(collection: Collection, documents: list[dict], dry_run: bool) -> PersistEntitiResult:
     processed = len(documents)
     inserted = 0
 
