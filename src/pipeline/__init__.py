@@ -7,9 +7,6 @@ __all__ = [
     "run",
     "run_entiti_sekolah",
     "run_entiti_sekolah_dict",
-	"run",
-	"run_entiti_sekolah",
-	"run_entiti_sekolah_dict",
-	"run_analitik_sekolah",
-	"run_analitik_dict",
+    "run_analitik_sekolah",
+    "run_analitik_dict",
 ]
