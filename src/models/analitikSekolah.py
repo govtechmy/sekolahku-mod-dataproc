@@ -10,19 +10,19 @@ if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
     from src.models.sekolah import Sekolah
 
 
-class AnalitikSekolahData(BaseModel):
-    """Dynamic analytics container that captures all categories found in data."""
+class AnalitikItem(BaseModel):
+    """Individual analytics item with type, percentage, and total."""
     
-    byPeringkat: dict[str, int] = Field(default_factory=dict, description="Peringkat pendidikan dengan jumlah")
-    byPeringkatPeratus: dict[str, float] = Field(default_factory=dict, description="Peratusan peringkat pendidikan")
-    byJenisLabel: dict[str, int] = Field(default_factory=dict, description="Pecahan jenis sekolah dengan jumlah") 
-    byJenisLabelPeratus: dict[str, float] = Field(default_factory=dict, description="Peratusan jenis sekolah")
-    bySesi: dict[str, int] = Field(default_factory=dict, description="Pecahan jenis sesi dengan jumlah")
-    bySesiPeratus: dict[str, float] = Field(default_factory=dict, description="Peratusan jenis sesi")
-    byBantuan: dict[str, int] = Field(default_factory=dict, description="Pecahan jenis bantuan dengan jumlah")
-    byBantuanPeratus: dict[str, float] = Field(default_factory=dict, description="Peratusan jenis bantuan")
-    byLokasi: dict[str, int] = Field(default_factory=dict, description="Pecahan jenis lokasi dengan jumlah")
-    byLokasiPeratus: dict[str, float] = Field(default_factory=dict, description="Peratusan jenis lokasi")
+    jenis: str = Field(..., description="Kategori atau jenis")
+    peratus: float = Field(..., description="Peratusan daripada jumlah keseluruhan")
+    total: int = Field(..., description="Jumlah bilangan untuk kategori ini")
+
+
+class AnalitikSekolahData(BaseModel):
+    """Container for all analytics dimensions in array format."""
+    
+    jenisLabel: list[AnalitikItem] = Field(default_factory=list, description="Analisis mengikut jenis/label sekolah") 
+    bantuan: list[AnalitikItem] = Field(default_factory=list, description="Analisis mengikut jenis bantuan")
 
 
 class AnalitikSekolah(BaseModel):
@@ -30,50 +30,57 @@ class AnalitikSekolah(BaseModel):
 
     collection_name: ClassVar[str] = "AnalitikSekolah"
 
-    region: Optional[str] = Field(default="ALL", description="Region scope for analytics (e.g., state, district, or ALL for national)")
+    jumlahSekolah: int = Field(default=0, description="Jumlah keseluruhan sekolah yang diproses")
+    jumlahGuru: int = Field(default=0, description="Jumlah keseluruhan guru")
+    jumlahPelajar: int = Field(default=0, description="Jumlah keseluruhan pelajar")
     data: AnalitikSekolahData
-    jumlahSekolah: int = Field(default=0, description="Total number of Sekolah processed")
-    updatedAt: datetime = Field(default_factory=datetime.utcnow, description="UTC timestamp when the analytics were computed")
+    updatedAt: datetime = Field(default_factory=datetime.utcnow, description="Masa analisis dikemas kini")
 
     @classmethod
     def from_sekolah_list(cls, sekolah_list: list["Sekolah"], *, region: str = "ALL") -> "AnalitikSekolah":
-        """Create an analytics snapshot from a list of validated ``Sekolah`` models."""
+        """Create an analytics snapshot from a list of validated Sekolah models."""
         
         jumlah_sekolah = len(sekolah_list)
         
+        # Calculate totals
+        total_guru = 0
+        total_pelajar = 0
+        
         # Initialize analytics containers with defaultdicts for dynamic counting
-        peringkat_counts = defaultdict(int)
         jenis_counts = defaultdict(int)
-        sesi_counts = defaultdict(int)
         bantuan_counts = defaultdict(int)
-        lokasi_counts = defaultdict(int)
 
         # Process each sekolah to build analytics dynamically
         for sekolah in sekolah_list:
-            cls._increment_count(peringkat_counts, sekolah.peringkat)
+            # Count categories
             cls._increment_count(jenis_counts, sekolah.jenisLabel)
-            cls._increment_count(sesi_counts, sekolah.sesi)
             cls._increment_count(bantuan_counts, sekolah.bantuan)
-            cls._increment_count(lokasi_counts, sekolah.lokasi)
+            
+            # Sum totals
+            if sekolah.guru is not None:
+                total_guru += sekolah.guru
+                
+            # Calculate total students (enrolmen + enrolmenPrasekolah + enrolmenKhas)
+            student_count = 0
+            if sekolah.enrolmen is not None:
+                student_count += sekolah.enrolmen
+            if sekolah.enrolmenPrasekolah is not None:
+                student_count += sekolah.enrolmenPrasekolah
+            if sekolah.enrolmenKhas is not None:
+                student_count += sekolah.enrolmenKhas
+            total_pelajar += student_count
 
-        # Convert defaultdict to regular dict and add JUMLAH totals with percentages
+        # Convert counts to AnalitikItem arrays
         data = AnalitikSekolahData(
-            byPeringkat=cls._finalize_counts(peringkat_counts, jumlah_sekolah),
-            byPeringkatPeratus=cls._calculate_percentages(peringkat_counts, jumlah_sekolah),
-            byJenisLabel=cls._finalize_counts(jenis_counts, jumlah_sekolah),
-            byJenisLabelPeratus=cls._calculate_percentages(jenis_counts, jumlah_sekolah),
-            bySesi=cls._finalize_counts(sesi_counts, jumlah_sekolah),
-            bySesiPeratus=cls._calculate_percentages(sesi_counts, jumlah_sekolah),
-            byBantuan=cls._finalize_counts(bantuan_counts, jumlah_sekolah),
-            byBantuanPeratus=cls._calculate_percentages(bantuan_counts, jumlah_sekolah),
-            byLokasi=cls._finalize_counts(lokasi_counts, jumlah_sekolah),
-            byLokasiPeratus=cls._calculate_percentages(lokasi_counts, jumlah_sekolah),
+            jenisLabel=cls._convert_to_analitik_items(jenis_counts, jumlah_sekolah),
+            bantuan=cls._convert_to_analitik_items(bantuan_counts, jumlah_sekolah),
         )
 
         return cls(
-            region=region,
-            data=data,
             jumlahSekolah=jumlah_sekolah,
+            jumlahGuru=total_guru,
+            jumlahPelajar=total_pelajar,
+            data=data,
             updatedAt=datetime.utcnow(),
         )
 
@@ -84,40 +91,35 @@ class AnalitikSekolah(BaseModel):
         counter[key] = counter.get(key, 0) + 1
 
     @staticmethod
-    def _finalize_counts(counter: defaultdict, total: int) -> dict[str, int]:
-        """Convert defaultdict to regular dict and add JUMLAH total."""
-        final_counts = dict(counter)
+    def _convert_to_analitik_items(counter: defaultdict, total: int) -> list[AnalitikItem]:
+        """Convert defaultdict to list of AnalitikItem objects."""
+        items = []
         
-        # Ensure TIADA MAKLUMAT exists even if count is 0
-        if "TIADA MAKLUMAT" not in final_counts:
-            final_counts["TIADA MAKLUMAT"] = 0
-            
-        # Add JUMLAH total
-        final_counts["JUMLAH"] = total
-        
-        return final_counts
-
-    @staticmethod
-    def _calculate_percentages(counter: defaultdict, total: int) -> dict[str, float]:
-        """Kira peratusan untuk setiap kategori."""
-        percentages = {}
-        
-        # Count existing categories and calculate percentages
-        for category, count in counter.items():
+        # Add existing categories
+        for jenis, count in counter.items():
             if total > 0:
-                percentage = round((count / total) * 100, 2)
+                peratus = round((count / total) * 100, 1)
             else:
-                percentage = 0.0
-            percentages[category] = percentage
+                peratus = 0.0
+            
+            items.append(AnalitikItem(
+                jenis=jenis,
+                peratus=peratus,
+                total=count
+            ))
         
-        # Ensure TIADA MAKLUMAT exists even if percentage is 0.0
-        if "TIADA MAKLUMAT" not in percentages:
-            percentages["TIADA MAKLUMAT"] = 0.0
-
-        # Add JUMLAH as 100.0%
-        percentages["JUMLAH"] = 100.0
+        # Ensure "Tiada Maklumat" exists even if count is 0
+        tiada_maklumat_exists = any(item.jenis == "TIADA MAKLUMAT" for item in items)
+        if not tiada_maklumat_exists:
+            items.append(AnalitikItem(
+                jenis="TIADA MAKLUMAT",
+                peratus=0.0,
+                total=0
+            ))
         
-        return percentages
+        # Sort by total count descending
+        items.sort(key=lambda x: x.total, reverse=True)
+        return items
 
     @staticmethod
     def _normalize_value(value: Optional[str]) -> str:
@@ -127,11 +129,12 @@ class AnalitikSekolah(BaseModel):
         return str(value).strip().upper()
 
     def to_document(self) -> dict:
-        """Convert the analytics to a Mongo-ready document, omitting ``None`` fields."""
+        """Convert the analytics to a Mongo-ready document, omitting None fields."""
         return self.model_dump(exclude_none=True, by_alias=True)
 
 
 __all__ = [
     "AnalitikSekolah",
     "AnalitikSekolahData",
+    "AnalitikItem",
 ]
