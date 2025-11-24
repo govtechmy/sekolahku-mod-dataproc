@@ -65,14 +65,6 @@ def _load_rows(settings: Settings) -> Iterable[Dict[str, Any]]:
     raise ValueError(f"Unsupported source '{settings.source}'")
 
 
-def _iter_schools(settings: Settings) -> Iterator[Sekolah]:
-    for index, row in enumerate(_load_rows(settings), start=1):
-        try:
-            yield Sekolah.model_validate(row)
-        except ValidationError as exc:  # pragma: no cover - logging aid
-            logger.warning("Row %s failed validation: %s", index, exc)
-
-
 def _chunked(rows: Iterable[Dict[str, Any]], size: int) -> Iterator[list[Dict[str, Any]]]:
     if size <= 0:
         raise ValueError("batch size must be positive")
@@ -84,6 +76,43 @@ def _chunked(rows: Iterable[Dict[str, Any]], size: int) -> Iterator[list[Dict[st
             batch = []
     if batch:
         yield batch
+
+
+def _format_validation_messages(exc: ValidationError) -> list[str]:
+    messages: list[str] = []
+    for error in exc.errors():
+        message = error.get("msg")
+        if not message:
+            continue
+        prefix = "value error, "
+        if message.lower().startswith(prefix):
+            message = message[len(prefix):]
+        messages.append(message)
+    if not messages:
+        messages.append(str(exc))
+    return messages
+
+
+def _collect_documents(
+    settings: Settings,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
+    documents: list[dict[str, Any]] = []
+    errors: list[dict[str, Any]] = []
+    total = 0
+
+    for index, row in enumerate(_load_rows(settings), start=1):
+        total += 1
+        try:
+            sekolah = Sekolah.model_validate(row)
+        except ValidationError as exc:  # pragma: no cover - logging aid
+            messages_list = _format_validation_messages(exc)
+            messages = "; ".join(messages_list)
+            errors.append({"row": index, "error": messages})
+            continue
+
+        documents.append(sekolah.to_document())
+
+    return documents, errors, total
 
 
 def _replace_collection(
@@ -105,7 +134,7 @@ def _replace_collection(
         collection.insert_many(chunk, ordered=False)
         inserted += len(chunk)
 
-    return {"processed": processed, "inserted": inserted, "dry_run": int(dry_run)}
+    return {"processed": processed, "inserted": inserted, "dry_run": dry_run}
 
 
 def _get_collection(settings: Settings) -> Collection:
@@ -114,10 +143,10 @@ def _get_collection(settings: Settings) -> Collection:
     return database[Sekolah.collection_name]
 
 
-def run(settings: Settings) -> dict[str, int]:
+def run(settings: Settings) -> dict[str, Any]:
     logger.info("Starting ingestion (dry_run=%s)", settings.dry_run)
     collection = _get_collection(settings)
-    documents = (school.to_document() for school in _iter_schools(settings))
+    documents, errors, total = _collect_documents(settings)
 
     try:
         result = _replace_collection(
@@ -134,10 +163,18 @@ def run(settings: Settings) -> dict[str, int]:
         logger.error("MongoDB operation failed: %s", exc)
         raise
 
-    logger.info("Ingestion finished: %s", result)
-    return result
+    summary = {
+        "collection": Sekolah.collection_name,
+        "total": total,
+        "processed": result["processed"],
+        "failed": len(errors),
+        "errors": errors,
+        "inserted": result["inserted"],
+        "dry_run": result["dry_run"],
+    }
+    return summary
 
 
-def run_with_overrides(**overrides: Any) -> dict[str, int]:
+def run_with_overrides(**overrides: Any) -> dict[str, Any]:
     settings = get_settings().model_copy(update=overrides)
     return run(settings)

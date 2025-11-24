@@ -4,7 +4,12 @@ import argparse
 import logging
 
 from src.config.settings import Settings, get_settings
-from src.pipeline import run as run_pipeline
+from src.pipeline import (
+    run as run_pipeline,
+    run_entiti_sekolah_dict,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def parse_args() -> argparse.Namespace:
@@ -19,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, help="Insert batch size")
     parser.add_argument("--dry-run", action="store_true", help="Process without writing to database")
     parser.add_argument("--log-level", default="INFO", help="Logging level (e.g., INFO, DEBUG)")
+    parser.add_argument("--entiti", action="store_true", help="Compute EntitiSekolah aggregation into separate collection")
     return parser.parse_args()
 
 
@@ -31,8 +37,15 @@ def main() -> None:
     args = parse_args()
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
     settings = configure_settings(args)
+
+    if args.entiti:
+        entiti = run_entiti_sekolah_dict(settings)
+        logger.info("Entiti summary: %s", entiti)
+        return
+
     result = run_pipeline(settings)
-    print("Ingestion summary:", result)
+    logger.info("Ingestion summary: %s", result)
+
 
 if __name__ == "__main__":
     main()

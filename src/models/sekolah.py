@@ -2,11 +2,18 @@ from __future__ import annotations
 
 from typing import ClassVar, Optional
 
+from datetime import datetime, timezone
+
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-TIADA_VALUES = {"TIADA", "", "NONE", "-", "--", "BELUM ADA"}
-ADA_MAP = {"ADA": True, "TIADA": False, "": None}
+
+MISSING_VALUES = {"TIADA", "", "NONE", "-", "--", "BELUM ADA"}
+BOOL_ADA_MAP = {"ADA": True, "TIADA": False, "": None}
 BOOL_YA_MAP = {"YA": True, "TIDAK": False, "": None}
+
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class Sekolah(BaseModel):
@@ -18,7 +25,7 @@ class Sekolah(BaseModel):
     dun: Optional[str] = Field(default=None, alias="DUN")
     peringkat: Optional[str] = Field(default=None, alias="PERINGKAT")
     jenisLabel: Optional[str] = Field(default=None, alias="JENIS/LABEL")
-    kodSekolah: Optional[str] = Field(default=None, alias="KODSEKOLAH", description="School code")
+    kodSekolah: str = Field(..., alias="KODSEKOLAH")
     namaSekolah: Optional[str] = Field(default=None, alias="NAMASEKOLAH")
     alamatSurat: Optional[str] = Field(default=None, alias="ALAMATSURAT")
     poskodSurat: Optional[int] = Field(default=None, alias="POSKODSURAT")
@@ -47,24 +54,33 @@ class Sekolah(BaseModel):
 
     skmLEQ150: Optional[bool] = Field(default=None, alias="SKM<=150")
 
+    updatedAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was last generated",)
+
     @field_validator("noTelefon", "noFax", mode="before")
     def empty_to_none(cls, value):
         if value is None:
             return None
         text = str(value).strip().upper()
-        return None if text in TIADA_VALUES else value
+        return None if text in MISSING_VALUES else value
 
     @field_validator("email", mode="before")
     def normalize_email(cls, value):
         if value is None:
             return None
         text = str(value).strip()
-        if not text or text.upper() in TIADA_VALUES:
+        if not text or text.upper() in MISSING_VALUES:
             return None
         text = text.rstrip(".")
         while "@@" in text:
             text = text.replace("@@", "@")
         return text or None
+
+    @field_validator("kodSekolah", mode="before")
+    def validate_kod_sekolah(cls, value: str | None) -> str:
+        text = "" if value is None else str(value).strip()
+        if not text or text.upper() in MISSING_VALUES:
+            raise ValueError("kodSekolah is required")
+        return text
 
     @field_validator("parlimen", "dun", mode="before")
     def clean_string(cls, value):
@@ -90,16 +106,22 @@ class Sekolah(BaseModel):
             return None
 
     @field_validator("prasekolah", "integrasi", mode="before")
-    def parse_ada_tiada(cls, value):
+    def parse_bool_ada_tiada(cls, value):
         if value is None:
             return None
-        return ADA_MAP.get(str(value).strip().upper(), None)
+        if isinstance(value, bool):
+            return value
+        text = str(value).strip().upper()
+        return BOOL_ADA_MAP.get(text, None)
 
     @field_validator("skmLEQ150", mode="before")
     def parse_bool_ya(cls, value):
         if value is None:
             return None
-        return BOOL_YA_MAP.get(str(value).strip().upper(), None)
+        if isinstance(value, bool):
+            return value
+        text = str(value).strip().upper()
+        return BOOL_YA_MAP.get(text, None)
 
     @field_validator("koordinatXX", "koordinatYY", mode="before")
     def parse_float(cls, value):
@@ -116,10 +138,12 @@ class Sekolah(BaseModel):
     }
 
     def to_document(self) -> dict:
-        data = self.model_dump(exclude_none=True)
+        data = self.model_dump(exclude_none=False)
         if self.koordinatXX is not None and self.koordinatYY is not None:
             data["location"] = {
                 "type": "Point",
                 "coordinates": [self.koordinatXX, self.koordinatYY],
             }
+        else:
+            data["location"] = None
         return data

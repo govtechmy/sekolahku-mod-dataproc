@@ -1,5 +1,6 @@
 # sekolahku-mod-dataproc
 
+
 ```bash
 # Run the ingestion pipeline
 python -m src.main
@@ -12,8 +13,9 @@ SOURCE=csv python -m src.main
 SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
 	GOOGLE_APPLICATION_CREDENTIALS=docs/service_account.json python -m src.main
 
-# Run ingestion and then statistics (writes Statistik* collections)
-SOURCE=csv python -m src.main --statistics
+# Run ingestion and EntitiSekolah aggregation
+SOURCE=csv python -m src.main --entiti
+
 # Show verbosity for a single run (flag expects a value)
 python -m src.main --log-level DEBUG
 ```
@@ -22,10 +24,10 @@ python -m src.main --log-level DEBUG
 
 Configuration (source, paths, Mongo connection, etc.) is controlled entirely through environment variables. Define values in `.env` or export them before running the module. The CLI exposes a couple of runtime toggles:
 
-- `--statistics` triggers the post-ingestion statistics run.
+- `--entiti` triggers the EntitiSekolah aggregation pipeline.
 - `--log-level <LEVEL>` adjusts logging verbosity for the current process (choose from `DEBUG`, `INFO`, `WARNING`, `ERROR`).
 
-When the statistics flag is used, the pipeline rewrites the three Statistik collections.
+The entiti flag writes to the `EntitiSekolah` collection.
 
 ## Requirements
 
@@ -54,18 +56,29 @@ python -m src.main
 SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
 	GOOGLE_APPLICATION_CREDENTIALS=docs/service_account.json python -m src.main
 
-# Run ingestion and statistics pipeline
-python -m src.main --statistics
+# Run EntitiSekolah pipeline
+python -m src.main --entiti
 
 # Increase verbosity for a single run
 python -m src.main --log-level DEBUG
 ```
 
-The process reads configuration from environment variables. Only `--statistics` and `--log-level <LEVEL>` affect runtime behavior.
+The process reads configuration from environment variables.
 
-Each run prints a summary dictionary, for example `{"processed": 1234, "inserted": 1234, "dry_run": 0}`. In dry-run mode, `processed` still reflects the number of documents that would be written, while `inserted` remains `0`.
+Each run prints a summary dictionary, for example :
 
+```bash
+python -m src.main
+```
+`Ingestion summary: {'collection': 'Sekolah', 'total': 10245, 'processed': 10244, 'failed': 1, 'errors': [{'row': 1, 'error': 'kodSekolah is required'}], 'inserted': 10244, 'dry_run': False}`
+
+```bash
+python -m src.main --entiti
+```
+`Entiti summary: {'entiti': {'collection': 'EntitiSekolah', 'total': 10244, 'processed': 10244, 'failed': 0, 'errors': [], 'inserted': 10244, 'dry_run': False}}`. 
 ## Data Model
+
+### Sekolah (source dataset)
 
 | Field | Source Column | Type | Notes |
 |-------|---------------|------|-------|
@@ -75,7 +88,7 @@ Each run prints a summary dictionary, for example `{"processed": 1234, "inserted
 | `dun` | DUN | Optional[str] | |
 | `peringkat` | PERINGKAT | Optional[str] | |
 | `jenisLabel` | JENIS/LABEL | Optional[str] | |
-| `kodSekolah` | KODSEKOLAH | Optional[str] | School code |
+| `kodSekolah` | KODSEKOLAH | str | School code |
 | `namaSekolah` | NAMASEKOLAH | Optional[str] | |
 | `alamatSurat` | ALAMATSURAT | Optional[str] | |
 | `poskodSurat` | POSKODSURAT | Optional[int] | |
@@ -97,6 +110,72 @@ Each run prints a summary dictionary, for example `{"processed": 1234, "inserted
 | `koordinatXX` | KOORDINATXX | Optional[float] | |
 | `koordinatYY` | KOORDINATYY | Optional[float] | |
 | `skmLEQ150` | SKM<=150 | Optional[bool] | YA → True |
+
+### EntitiSekolah (aggregation output)
+
+Each aggregated document is stored in the `EntitiSekolah` collection with the shape below.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `namaSekolah` | Optional[str] | Mirrors `Sekolah.namaSekolah` |
+| `kodSekolah` | str | Primary identifier (matches source `kodSekolah`) |
+| `data` | object | Structured aggregates and derived attributes (see tables below) |
+| `updatedAt` | datetime | UTC timestamp when the entity snapshot was generated |
+
+#### `data.infoSekolah`
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `jenisLabel` | Optional[str] | School type/label carried over from source |
+| `jumlahPelajar` | Optional[int] | Sum of `enrolmenPrasekolah + enrolmen + enrolmenKhas` |
+| `jumlahGuru` | Optional[int] | Mirrors source `guru` |
+
+#### `data.infoKomunikasi`
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `noTelefon` | Optional[str] | Primary contact number |
+| `noFax` | Optional[str] | Fax number |
+| `email` | Optional[EmailStr] | General contact email |
+| `alamatSurat` | Optional[str] | Mailing address |
+| `poskodSurat` | Optional[str] | Postal code (stored as string) |
+| `bandarSurat` | Optional[str] | Mailing city |
+
+#### `data.infoPentadbiran`
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `negeri` | Optional[str] | State |
+| `ppd` | Optional[str] | District education office |
+| `parlimen` | Optional[str] | Parliament constituency |
+| `bantuan` | Optional[str] | Assistance classification |
+| `bilSesi` | Optional[str] | Number of sessions |
+| `sesi` | Optional[str] | Session descriptor |
+| `prasekolah` | Optional[bool] | Indicates preschool programme |
+| `integrasi` | Optional[bool] | Indicates integration programme |
+
+#### `data.infoLokasi`
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `koordinatXX` | Optional[float] | Longitude |
+| `koordinatYY` | Optional[float] | Latitude |
+| `location` | Optional[object] | GeoJSON `Point` with `[longitude, latitude]` |
+
+#### `data.sekolahBerdekatan`
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `senarai` | list[object] | Nearby schools ordered by `bandarSurat → dun → parlimen → ppd → negeri` |
+
+Each `senarai` item contains:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `namaSekolah` | Optional[str] | Name of the nearby school |
+| `kodSekolah` | str | Unique code of the nearby school |
+| `bandarSurat` | Optional[str] | Nearby school's mailing city |
+| `negeri` | Optional[str] | Nearby school's state |
 
 
 ## License
