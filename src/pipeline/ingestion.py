@@ -139,7 +139,7 @@ def _replace_collection(
 
 def _get_collection(settings: Settings) -> Collection:
     client = MongoClient(settings.mongo_uri)
-    database = client[settings.db_name]
+    database = client[settings.sekolah_collection]
     return database[Sekolah.collection_name]
 
 

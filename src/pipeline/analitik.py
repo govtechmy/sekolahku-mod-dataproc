@@ -24,7 +24,7 @@ class PersistAnalitikResult(TypedDict):
 
 def _get_db(settings: Settings) -> Database:
     client = MongoClient(settings.mongo_uri)
-    return client[settings.db_name]
+    return client[settings.sekolah_collection]
 
 
 def _persist_analitik(collection: Collection, documents: list[dict], dry_run: bool) -> PersistAnalitikResult:
