@@ -59,6 +59,9 @@ SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
 # Run EntitiSekolah pipeline
 python -m src.main --entiti
 
+# Run AnalitikSekolah pipeline
+python -m src.main --analitik
+
 # Increase verbosity for a single run
 python -m src.main --log-level DEBUG
 ```
@@ -76,6 +79,13 @@ python -m src.main
 python -m src.main --entiti
 ```
 `Entiti summary: {'entiti': {'collection': 'EntitiSekolah', 'total': 10244, 'processed': 10244, 'failed': 0, 'errors': [], 'inserted': 10244, 'dry_run': False}}`. 
+
+```bash
+python -m src.main --analitik
+```
+`Analitik summary: {'analitik': {'processed': 1, 'inserted': 1, 'dry_run': False, 'collection': 'AnalitikSekolah'}}`
+
+
 ## Data Model
 
 ### Sekolah (source dataset)
@@ -176,6 +186,38 @@ Each `senarai` item contains:
 | `kodSekolah` | str | Unique code of the nearby school |
 | `bandarSurat` | Optional[str] | Nearby school's mailing city |
 | `negeri` | Optional[str] | Nearby school's state |
+
+### AnalitikSekolah (aggregation output)
+
+Each aggregated document is stored in the `AnalitikSekolah` collection with the shape below.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `jumlahSekolah` | int | Total number of `sekolah` in the dataset |
+| `jumlahGuru` | int | Total number of `guru` across all schools |
+| `jumlahPelajar` | int | Total number of `pelajar` across all schools |
+| `data` | object | Structured analytics and statistics (see tables below) |
+| `updatedAt` | datetime | UTC timestamp when the analytics snapshot was generated |
+
+#### `data.jenisLabel`
+
+Array of school type statistics, each containing:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `jenis` | str | School type/label (e.g., "SK", "SMK", "SJKC", "SJKT") |
+| `peratus` | float | Percentage of total `sekolah` |
+| `total` | int | Absolute count of `sekolah` of this type |
+
+#### `data.bantuan`
+
+Array of assistance/funding type statistics, each containing:
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `jenis` | str | `Bantuan` type (e.g., "SK", "SBK") |
+| `peratus` | float | Percentage of total `sekolah` |
+| `total` | int | Absolute count of `sekolah` with this assistance type |
 
 
 ## License
