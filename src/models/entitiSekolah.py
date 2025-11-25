@@ -52,23 +52,11 @@ class InfoLokasi(BaseModel):
     location: Optional[GeoJSONPoint] = Field(default=None, description="GeoJSON point for geospatial queries")
 
 
-class SekolahBerdekatanItem(BaseModel):
-    namaSekolah: Optional[str] = Field(default=None, description="Name of the nearby school")
-    kodSekolah: str = Field(..., description="Unique school code identifier for the nearby school")
-    bandarSurat: Optional[str] = Field(default=None, description="Mailing city of the nearby school")
-    negeri: Optional[str] = Field(default=None, description="State of the nearby school")
-
-
-class SekolahBerdekatan(BaseModel):
-    senarai: list[SekolahBerdekatanItem] = Field(default_factory=list, description="List of nearby schools")
-
-
 class EntitiSekolahData(BaseModel):
     infoSekolah: InfoSekolah
     infoKomunikasi: InfoKomunikasi
     infoPentadbiran: InfoPentadbiran
     infoLokasi: InfoLokasi
-    sekolahBerdekatan: SekolahBerdekatan = Field(default_factory=SekolahBerdekatan, description="Nearby schools derived from order priority: bandarSurat -> dun -> parlimen -> ppd -> negeri")
 
 _settings = get_settings()
 
@@ -87,8 +75,6 @@ class EntitiSekolah(BaseModel):
     def from_sekolah(
         cls,
         sekolah: "Sekolah",
-        *,
-        sekolah_berdekatan: Optional[SekolahBerdekatan] = None,
     ) -> "EntitiSekolah":
         """Create an entity snapshot from a validated ``Sekolah`` model."""
 
@@ -143,7 +129,6 @@ class EntitiSekolah(BaseModel):
             infoKomunikasi=info_perhubungan,
             infoPentadbiran=profil_pentadbiran,
             infoLokasi=info_lokasi,
-            sekolahBerdekatan=sekolah_berdekatan or SekolahBerdekatan(),
         )
 
         return cls(
@@ -165,6 +150,4 @@ __all__ = [
     "InfoPentadbiran",
     "InfoLokasi",
     "GeoJSONPoint",
-    "SekolahBerdekatan",
-    "SekolahBerdekatanItem",
 ]
