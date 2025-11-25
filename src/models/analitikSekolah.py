@@ -5,6 +5,7 @@ from collections import defaultdict
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
+from src.config.settings import get_settings
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
     from src.models.sekolah import Sekolah
@@ -30,10 +31,13 @@ class AnalitikSekolahData(BaseModel):
     bantuan: list[AnalitikItem] = Field(default_factory=list, description="Analisis mengikut jenis bantuan")
 
 
+_settings = get_settings()
+
+
 class AnalitikSekolah(BaseModel):
     """Analytics aggregation snapshot created from Sekolah collection data."""
 
-    collection_name: ClassVar[str] = "AnalitikSekolah"
+    collection_name: ClassVar[str] = _settings.analitik_sekolah_collection
 
     jumlahSekolah: int = Field(default=0, description="Jumlah keseluruhan sekolah yang diproses")
     jumlahGuru: int = Field(default=0, description="Jumlah keseluruhan guru")

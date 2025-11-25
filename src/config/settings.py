@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,7 +15,9 @@ class Settings(BaseSettings):
     )
 
     mongo_uri: str = Field(default="mongodb://localhost:27017", alias="MONGO_URI")
-    db_name: str = Field(default="sekolahku", alias="DB_NAME")
+    sekolah_collection: str = Field(default="sekolahku", alias="SEKOLAH_COLLECTION")
+    entiti_sekolah_collection: str = Field(default="EntitiSekolah", alias="ENTITI_SEKOLAH_COLLECTION")
+    analitik_sekolah_collection: str = Field(default="AnalitikSekolah", alias="ANALITIK_SEKOLAH_COLLECTION")
     source: str = Field(default="csv", alias="SOURCE")
     csv_path: str = Field(default="data/sekolah.csv", alias="CSV_PATH")
     gsheet_id: str | None = Field(default=None, alias="GSHEET_ID")

@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from pydantic import BaseModel, EmailStr, Field
 from pydantic import ConfigDict
 from typing_extensions import Literal
+from src.config.settings import get_settings
 
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
@@ -69,10 +70,13 @@ class EntitiSekolahData(BaseModel):
     infoLokasi: InfoLokasi
     sekolahBerdekatan: SekolahBerdekatan = Field(default_factory=SekolahBerdekatan, description="Nearby schools derived from order priority: bandarSurat -> dun -> parlimen -> ppd -> negeri")
 
+_settings = get_settings()
+
+
 class EntitiSekolah(BaseModel):
     """Aggregated entity view for a school document."""
 
-    collection_name: ClassVar[str] = "EntitiSekolah"
+    collection_name: ClassVar[str] = _settings.entiti_sekolah_collection
 
     namaSekolah: Optional[str] = Field(default=None, description="Name of the school")
     kodSekolah: str = Field(..., description="Unique school code identifier")
