@@ -4,8 +4,7 @@ from typing import ClassVar, Optional, TYPE_CHECKING
 
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, EmailStr, Field
-from pydantic import ConfigDict
+from pydantic import BaseModel, EmailStr, Field, model_validator
 from typing_extensions import Literal
 from src.config.settings import get_settings
 
@@ -69,7 +68,14 @@ class EntitiSekolah(BaseModel):
     namaSekolah: Optional[str] = Field(default=None, description="Name of the school")
     kodSekolah: str = Field(..., description="Unique school code identifier")
     data: EntitiSekolahData
-    updatedAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was last generated",)
+    createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
+    updatedAt: Optional[datetime] = Field(default=None, description="UTC timestamp when the document was last updated")
+
+    @model_validator(mode="after")
+    def ensure_updated_at(cls, model: "EntitiSekolah") -> "EntitiSekolah":
+        if model.updatedAt is None:
+            model.updatedAt = model.createdAt
+        return model
 
     @classmethod
     def from_sekolah(
@@ -135,7 +141,6 @@ class EntitiSekolah(BaseModel):
             namaSekolah=sekolah.namaSekolah,
             kodSekolah=sekolah.kodSekolah,
             data=data,
-            updatedAt=_utc_now(),
         )
 
     def to_document(self) -> dict:

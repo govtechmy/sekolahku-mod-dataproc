@@ -4,7 +4,7 @@ from typing import ClassVar, Optional, TYPE_CHECKING
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from src.config.settings import get_settings
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
@@ -43,7 +43,14 @@ class AnalitikSekolah(BaseModel):
     jumlahGuru: int = Field(default=0, description="Jumlah keseluruhan guru")
     jumlahPelajar: int = Field(default=0, description="Jumlah keseluruhan pelajar")
     data: AnalitikSekolahData
-    updatedAt: datetime = Field(default_factory=_utc_now, description="Masa analisis dikemas kini")
+    createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
+    updatedAt: Optional[datetime] = Field(default=None, description="UTC timestamp when the document was last updated")
+
+    @model_validator(mode="after")
+    def ensure_updated_at(cls, model: "AnalitikSekolah") -> "AnalitikSekolah":
+        if model.updatedAt is None:
+            model.updatedAt = model.createdAt
+        return model
 
     @classmethod
     def from_sekolah_list(cls, sekolah_list: list["Sekolah"], *, region: str = "ALL") -> "AnalitikSekolah":
@@ -90,7 +97,6 @@ class AnalitikSekolah(BaseModel):
             jumlahGuru=total_guru,
             jumlahPelajar=total_pelajar,
             data=data,
-            updatedAt=_utc_now(),
         )
 
     @staticmethod

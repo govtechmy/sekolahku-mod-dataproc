@@ -4,7 +4,7 @@ from typing import ClassVar, Optional
 
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 MISSING_VALUES = {"TIADA", "", "NONE", "-", "--", "BELUM ADA"}
@@ -54,7 +54,14 @@ class Sekolah(BaseModel):
 
     skmLEQ150: Optional[bool] = Field(default=None, alias="SKM<=150")
 
-    updatedAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was last generated",)
+    createdAt: Optional[datetime] = Field(default_factory=_utc_now, description="UTC timestamp when the document was first generated",)
+    updatedAt: Optional[datetime] = Field(default=None, description="UTC timestamp when the document was last generated",)
+
+    @model_validator(mode="after")
+    def ensure_updated_at(cls, model: "Sekolah") -> "Sekolah":
+        if model.updatedAt is None:
+            model.updatedAt = model.createdAt
+        return model
 
     @field_validator("noTelefon", "noFax", mode="before")
     def empty_to_none(cls, value):
@@ -137,8 +144,9 @@ class Sekolah(BaseModel):
         "extra": "ignore",
     }
 
-    def to_document(self) -> dict:
+    def to_document(self, *, include_timestamps: bool = True) -> dict:
         data = self.model_dump(exclude_none=False)
+
         if self.koordinatXX is not None and self.koordinatYY is not None:
             data["location"] = {
                 "type": "Point",
@@ -146,4 +154,8 @@ class Sekolah(BaseModel):
             }
         else:
             data["location"] = None
+
+        if not include_timestamps:
+            data.pop("updatedAt", None)
+
         return data

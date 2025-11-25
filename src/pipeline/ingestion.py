@@ -3,7 +3,8 @@ from __future__ import annotations
 import csv
 import logging
 import os
-from typing import Any, Dict, Iterable, Iterator
+from datetime import datetime, timezone
+from typing import Any, Dict, Iterable
 
 try:  # pragma: no cover - optional dependency
     import gspread  # type: ignore
@@ -65,19 +66,6 @@ def _load_rows(settings: Settings) -> Iterable[Dict[str, Any]]:
     raise ValueError(f"Unsupported source '{settings.source}'")
 
 
-def _chunked(rows: Iterable[Dict[str, Any]], size: int) -> Iterator[list[Dict[str, Any]]]:
-    if size <= 0:
-        raise ValueError("batch size must be positive")
-    batch: list[Dict[str, Any]] = []
-    for item in rows:
-        batch.append(item)
-        if len(batch) >= size:
-            yield batch
-            batch = []
-    if batch:
-        yield batch
-
-
 def _format_validation_messages(exc: ValidationError) -> list[str]:
     messages: list[str] = []
     for error in exc.errors():
@@ -93,48 +81,148 @@ def _format_validation_messages(exc: ValidationError) -> list[str]:
     return messages
 
 
-def _collect_documents(
-    settings: Settings,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
-    documents: list[dict[str, Any]] = []
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _canonicalise_document(doc: Dict[str, Any], *, reference_keys: Iterable[str] | None = None) -> Dict[str, Any]:
+    canonical = {key: value for key, value in doc.items() if key not in {"_id", "createdAt", "updatedAt"}}
+    if reference_keys is not None:
+        for key in reference_keys:
+            canonical.setdefault(key, None)
+    return canonical
+
+
+def _build_filter(existing: Dict[str, Any] | None, kod_sekolah: str) -> Dict[str, Any]:
+    if existing and "_id" in existing:
+        return {"_id": existing["_id"]}
+    return {"kodSekolah": kod_sekolah}
+
+
+def _merge_document(
+    existing: Dict[str, Any] | None,
+    prepared: Dict[str, Any],
+    *,
+    timestamp: datetime,
+) -> Dict[str, Any]:
+    if existing is None:
+        document = dict(prepared)
+        document["createdAt"] = timestamp
+        document["updatedAt"] = timestamp
+        return {"action": "insert", "document": document}
+
+    existing_signature = _canonicalise_document(existing, reference_keys=prepared.keys())
+    data_changed = existing_signature != prepared
+    created_at = existing.get("createdAt")
+    filter_query = _build_filter(existing, str(prepared["kodSekolah"]))
+
+    if data_changed:
+        return {
+            "action": "update",
+            "filter": filter_query,
+            "set": dict(prepared),
+        }
+
+    if not created_at:
+        repair_created_at = existing.get("updatedAt") or timestamp
+        return {
+            "action": "repair",
+            "filter": filter_query,
+            "set": {"createdAt": repair_created_at},
+        }
+
+    return {"action": "noop"}
+
+
+def _index_existing_documents(collection: Collection) -> Dict[str, Dict[str, Any]]:
+    existing: Dict[str, Dict[str, Any]] = {}
+    for doc in collection.find({}):
+        kod = doc.get("kodSekolah")
+        if not kod:
+            continue
+        existing[str(kod)] = doc
+    return existing
+
+
+def _sync_sekolah_collection(settings: Settings, collection: Collection) -> dict[str, Any]:
     errors: list[dict[str, Any]] = []
-    total = 0
+    inserted = updated = repaired = unchanged = 0
+
+    existing_index = _index_existing_documents(collection)
+    seen: set[str] = set()
 
     for index, row in enumerate(_load_rows(settings), start=1):
-        total += 1
         try:
             sekolah = Sekolah.model_validate(row)
-        except ValidationError as exc:  # pragma: no cover - logging aid
+        except ValidationError as exc:
             messages_list = _format_validation_messages(exc)
             messages = "; ".join(messages_list)
             errors.append({"row": index, "error": messages})
             continue
 
-        documents.append(sekolah.to_document())
-
-    return documents, errors, total
-
-
-def _replace_collection(
-    collection: Collection,
-    documents: Iterable[Dict[str, Any]],
-    *,
-    batch_size: int,
-    dry_run: bool,
-) -> dict[str, int]:
-    processed = 0
-    inserted = 0
-    if not dry_run:
-        collection.delete_many({})
-
-    for chunk in _chunked(documents, batch_size):
-        processed += len(chunk)
-        if dry_run or not chunk:
+        prepared = sekolah.to_document(include_timestamps=False)
+        kod = str(prepared["kodSekolah"])
+        if kod in seen:
+            errors.append({"row": index, "error": f"Duplicate kodSekolah '{kod}' in source data"})
             continue
-        collection.insert_many(chunk, ordered=False)
-        inserted += len(chunk)
+        seen.add(kod)
 
-    return {"processed": processed, "inserted": inserted, "dry_run": dry_run}
+        existing = existing_index.pop(kod, None)
+        plan = _merge_document(existing, prepared, timestamp=_utc_now())
+        action = plan["action"]
+
+        if action == "insert":
+            inserted += 1
+            if not settings.dry_run:
+                collection.insert_one(plan["document"])
+            continue
+
+        if action == "update":
+            updated += 1
+            if not settings.dry_run:
+                collection.update_one(
+                    plan["filter"],
+                    {"$set": plan["set"], "$currentDate": {"updatedAt": True}},
+                    upsert=False,
+                )
+            continue
+
+        if action == "repair":
+            repaired += 1
+            if not settings.dry_run:
+                collection.update_one(
+                    plan["filter"],
+                    {"$set": plan["set"], "$currentDate": {"updatedAt": True}},
+                    upsert=False,
+                )
+            continue
+
+        if action == "noop":
+            unchanged += 1
+            continue
+
+    deleted = 0
+    if existing_index:
+        ids_to_delete = [doc["_id"] for doc in existing_index.values() if isinstance(doc, dict) and "_id" in doc]
+        if ids_to_delete:
+            deleted = len(ids_to_delete)
+            if not settings.dry_run:
+                collection.delete_many({"_id": {"$in": ids_to_delete}})
+
+    processed = inserted + updated + repaired + unchanged
+    total = processed + len(errors)
+
+    return {
+        "total": total,
+        "processed": processed,
+        "failed": len(errors),
+        "errors": errors,
+        "inserted": inserted,
+        "updated": updated,
+        "repaired": repaired,
+        "unchanged": unchanged,
+        "deleted": deleted,
+    }
 
 
 def _get_collection(settings: Settings) -> Collection:
@@ -146,15 +234,9 @@ def _get_collection(settings: Settings) -> Collection:
 def run(settings: Settings) -> dict[str, Any]:
     logger.info("Starting ingestion (dry_run=%s)", settings.dry_run)
     collection = _get_collection(settings)
-    documents, errors, total = _collect_documents(settings)
 
     try:
-        result = _replace_collection(
-            collection,
-            documents,
-            batch_size=settings.batch_size,
-            dry_run=settings.dry_run,
-        )
+        result = _sync_sekolah_collection(settings, collection)
     except OperationFailure as exc:
         if exc.code == 13:
             logger.error(
@@ -163,16 +245,13 @@ def run(settings: Settings) -> dict[str, Any]:
         logger.error("MongoDB operation failed: %s", exc)
         raise
 
-    summary = {
-        "collection": Sekolah.collection_name,
-        "total": total,
-        "processed": result["processed"],
-        "failed": len(errors),
-        "errors": errors,
-        "inserted": result["inserted"],
-        "dry_run": result["dry_run"],
-    }
-    return summary
+    result.update(
+        {
+            "collection": Sekolah.collection_name,
+            "dry_run": settings.dry_run,
+        }
+    )
+    return result
 
 
 def run_with_overrides(**overrides: Any) -> dict[str, Any]:
