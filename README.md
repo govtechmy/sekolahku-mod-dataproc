@@ -125,6 +125,13 @@ python -m src.main --analitik
 
 Each aggregated document is stored in the `EntitiSekolah` collection with the shape below.
 
+`data` currently groups derived attributes into the following sub-documents:
+
+- `infoSekolah`
+- `infoKomunikasi`
+- `infoPentadbiran`
+- `infoLokasi`
+
 | Field | Type | Notes |
 |-------|------|-------|
 | `namaSekolah` | Optional[str] | Mirrors `Sekolah.namaSekolah` |
@@ -171,21 +178,6 @@ Each aggregated document is stored in the `EntitiSekolah` collection with the sh
 | `koordinatXX` | Optional[float] | Longitude |
 | `koordinatYY` | Optional[float] | Latitude |
 | `location` | Optional[object] | GeoJSON `Point` with `[longitude, latitude]` |
-
-#### `data.sekolahBerdekatan`
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `senarai` | list[object] | Nearby schools ordered by `bandarSurat → dun → parlimen → ppd → negeri` |
-
-Each `senarai` item contains:
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `namaSekolah` | Optional[str] | Name of the nearby school |
-| `kodSekolah` | str | Unique code of the nearby school |
-| `bandarSurat` | Optional[str] | Nearby school's mailing city |
-| `negeri` | Optional[str] | Nearby school's state |
 
 ### AnalitikSekolah (aggregation output)
 

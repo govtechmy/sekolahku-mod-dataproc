@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 
-from pydantic import AliasChoices, Field
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
