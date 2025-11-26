@@ -24,7 +24,7 @@ class PersistAnalitikResult(TypedDict):
 
 def _get_db(settings: Settings) -> Database:
     client = MongoClient(settings.mongo_uri)
-    return client[settings.sekolah_collection]
+    return client[settings.db_name]
 
 
 def _persist_analitik(collection: Collection, documents: list[dict], dry_run: bool) -> PersistAnalitikResult:
@@ -48,10 +48,10 @@ def run_analitik_sekolah(settings: Optional[Settings] = None) -> PersistAnalitik
 
     settings = settings or get_settings()
     db = _get_db(settings)
-    sekolah_collection = db[Sekolah.collection_name]
+    db_name = db[Sekolah.collection_name]
     analitik_collection = db[ANALITIK_SEKOLAH_COLLECTION]
 
-    documents = compute_analitik_sekolah(sekolah_collection)
+    documents = compute_analitik_sekolah(db_name)
     logger.info(
         "Computed %s AnalitikSekolah documents from collection %s",
         len(documents),

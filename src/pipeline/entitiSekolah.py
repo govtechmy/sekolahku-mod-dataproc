@@ -23,7 +23,7 @@ class PersistEntitiResult(TypedDict):
 
 def _get_db(settings: Settings) -> Database:
     client = MongoClient(settings.mongo_uri)
-    return client[settings.sekolah_collection]
+    return client[settings.db_name]
 
 
 def _persist_entiti(collection: Collection, documents: list[dict], dry_run: bool) -> PersistEntitiResult:
@@ -47,10 +47,10 @@ def run_entiti_sekolah(settings: Settings | None = None) -> Dict[str, Any]:
 
     settings = settings or get_settings()
     db = _get_db(settings)
-    sekolah_collection = db[Sekolah.collection_name]
+    db_name = db[Sekolah.collection_name]
     entiti_collection = db[ENTITI_SEKOLAH_COLLECTION]
 
-    documents = compute_entiti_sekolah(sekolah_collection)
+    documents = compute_entiti_sekolah(db_name)
     logger.info(
         "Computed %s EntitiSekolah documents from collection %s",
         len(documents),

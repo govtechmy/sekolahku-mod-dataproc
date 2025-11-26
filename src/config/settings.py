@@ -15,7 +15,8 @@ class Settings(BaseSettings):
     )
 
     mongo_uri: str = Field(default="mongodb://localhost:27017", alias="MONGO_URI")
-    sekolah_collection: str = Field(default="sekolahku", alias="SEKOLAH_COLLECTION")
+    db_name: str = Field(default="sekolahku", alias="DB_NAME")
+    sekolah_collection: str = Field(default="Sekolah", alias="SEKOLAH_COLLECTION")
     entiti_sekolah_collection: str = Field(default="EntitiSekolah", alias="ENTITI_SEKOLAH_COLLECTION")
     analitik_sekolah_collection: str = Field(default="AnalitikSekolah", alias="ANALITIK_SEKOLAH_COLLECTION")
     source: str = Field(default="csv", alias="SOURCE")

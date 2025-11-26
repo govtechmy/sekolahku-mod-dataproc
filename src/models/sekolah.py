@@ -5,6 +5,7 @@ from typing import ClassVar, Optional
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
+from src.config.settings import get_settings
 
 
 MISSING_VALUES = {"TIADA", "", "NONE", "-", "--", "BELUM ADA"}
@@ -16,8 +17,11 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+_settings = get_settings()
+
+
 class Sekolah(BaseModel):
-    collection_name: ClassVar[str] = "Sekolah"
+    collection_name: ClassVar[str] = _settings.sekolah_collection
 
     negeri: Optional[str] = Field(default=None, alias="NEGERI")
     ppd: Optional[str] = Field(default=None, alias="PPD")
