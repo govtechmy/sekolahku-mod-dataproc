@@ -14,7 +14,7 @@ except Exception:  # pragma: no cover - fallback when gspread unavailable
     Credentials = None
 
 from pydantic import ValidationError
-from pymongo import MongoClient
+from pymongo import MongoClient, UpdateOne
 from pymongo.collection import Collection
 from pymongo.errors import OperationFailure
 
@@ -165,19 +165,93 @@ def _replace_collection(
     batch_size: int,
     dry_run: bool,
 ) -> dict[str, int]:
+    if batch_size <= 0:
+        raise ValueError("batch size must be positive")
+
     processed = 0
     inserted = 0
-    if not dry_run:
-        collection.delete_many({})
+    updated = 0
+    skipped = 0
 
     for chunk in _chunked(documents, batch_size):
-        processed += len(chunk)
-        if dry_run or not chunk:
-            continue
-        collection.insert_many(chunk, ordered=False)
-        inserted += len(chunk)
+        identifiers: list[Any] = []
+        chunk_documents: list[tuple[Any, Dict[str, Any]]] = []
 
-    return {"processed": processed, "inserted": inserted, "dry_run": dry_run}
+        for document in chunk:
+            identifier = document.get("_id") or document.get("kodSekolah")
+            if identifier is None:
+                skipped += 1
+                logger.warning("Skipping document without identifier: %s", document)
+                continue
+
+            processed += 1
+            identifiers.append(identifier)
+            chunk_documents.append((identifier, document))
+
+        if not chunk_documents:
+            continue
+
+        existing_map: dict[Any, dict[str, Any]] = {}
+        if identifiers:
+            existing_cursor = collection.find({"_id": {"$in": identifiers}})
+            existing_map = {doc["_id"]: doc for doc in existing_cursor}
+
+        operations: list[UpdateOne] = []
+        for identifier, document in chunk_documents:
+            existing = existing_map.get(identifier)
+
+            comparable_fields = {
+                key: value
+                for key, value in document.items()
+                if key not in {"_id", "createdAt", "updatedAt"}
+            }
+
+            if existing is None:
+                changes = comparable_fields
+            else:
+                changes = {
+                    key: value
+                    for key, value in comparable_fields.items()
+                    if existing.get(key) != value
+                }
+
+            if existing is not None and not changes:
+                continue
+
+            created_at_on_insert = (
+                (existing.get("createdAt") if existing else None)
+                or document.get("createdAt")
+                or _utc_now()
+            )
+
+            update_document: dict[str, Any] = {
+                "$set": changes,
+                "$setOnInsert": {"createdAt": created_at_on_insert},
+                "$currentDate": {"updatedAt": True},
+            }
+
+            operations.append(
+                UpdateOne(
+                    {"_id": identifier},
+                    update_document,
+                    upsert=True,
+                )
+            )
+
+        if dry_run or not operations:
+            continue
+
+        result = collection.bulk_write(operations, ordered=False)
+        inserted += getattr(result, "upserted_count", 0) or 0
+        updated += getattr(result, "modified_count", 0) or 0
+
+    return {
+        "processed": processed,
+        "inserted": inserted,
+        "updated": updated,
+        "skipped": skipped,
+        "dry_run": dry_run,
+    }
 
 
 def _get_collection(settings: Settings) -> Collection:
@@ -213,6 +287,8 @@ def run(settings: Settings) -> dict[str, Any]:
         "failed": len(errors),
         "errors": errors,
         "inserted": result["inserted"],
+        "updated": result["updated"],
+        "skipped": result["skipped"],
         "dry_run": result["dry_run"],
     }
     return summary

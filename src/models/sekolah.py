@@ -59,7 +59,6 @@ class Sekolah(BaseModel):
     skmLEQ150: Optional[bool] = Field(default=None, alias="SKM<=150")
 
     createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
-    updatedAt: Optional[datetime] = Field(default=None, description="UTC timestamp when the document was last updated")
 
     @field_validator("noTelefon", "noFax", mode="before")
     def empty_to_none(cls, value):
@@ -145,7 +144,6 @@ class Sekolah(BaseModel):
     def to_document(self) -> dict:
         data = self.model_dump(exclude_none=False)
         data["_id"] = data.get("kodSekolah", self.kodSekolah)
-        data["updatedAt"] = self.updatedAt or self.createdAt
         if self.koordinatXX is not None and self.koordinatYY is not None:
             data["location"] = {
                 "type": "Point",
