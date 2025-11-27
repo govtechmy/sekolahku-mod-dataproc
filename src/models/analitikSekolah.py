@@ -39,11 +39,12 @@ class AnalitikSekolah(BaseModel):
 
     collection_name: ClassVar[str] = _settings.analitik_sekolah_collection
 
+    id: str = Field(default="ALL", alias="_id", description="Primary key for the analytics snapshot")
     jumlahSekolah: int = Field(default=0, description="Jumlah keseluruhan sekolah yang diproses")
     jumlahGuru: int = Field(default=0, description="Jumlah keseluruhan guru")
     jumlahPelajar: int = Field(default=0, description="Jumlah keseluruhan pelajar")
     data: AnalitikSekolahData
-    updatedAt: datetime = Field(default_factory=_utc_now, description="Masa analisis dikemas kini")
+    createdAt: datetime = Field(default_factory=_utc_now, description="Masa analisis dijana")
 
     @classmethod
     def from_sekolah_list(cls, sekolah_list: list["Sekolah"], *, region: str = "ALL") -> "AnalitikSekolah":
@@ -86,11 +87,12 @@ class AnalitikSekolah(BaseModel):
         )
 
         return cls(
+            id=region,
             jumlahSekolah=jumlah_sekolah,
             jumlahGuru=total_guru,
             jumlahPelajar=total_pelajar,
             data=data,
-            updatedAt=_utc_now(),
+            createdAt=_utc_now(),
         )
 
     @staticmethod

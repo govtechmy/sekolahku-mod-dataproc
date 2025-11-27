@@ -11,6 +11,7 @@ from pymongo.database import Database
 from src.config.settings import Settings, get_settings
 from src.models import Sekolah
 from src.statistics import ENTITI_SEKOLAH_COLLECTION, compute_entiti_sekolah
+from src.pipeline.ingestion import _replace_collection
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,8 @@ logger = logging.getLogger(__name__)
 class PersistEntitiResult(TypedDict):
     processed: int
     inserted: int
+    updated: int
+    skipped: int
     dry_run: bool
 
 
@@ -26,24 +29,36 @@ def _get_db(settings: Settings) -> Database:
     return client[settings.db_name]
 
 
-def _persist_entiti(collection: Collection, documents: list[dict], dry_run: bool) -> PersistEntitiResult:
-    processed = len(documents)
-    inserted = 0
+def _persist_entiti(
+    collection: Collection,
+    documents: list[dict],
+    *,
+    batch_size: int,
+    dry_run: bool,
+) -> PersistEntitiResult:
+    if not documents:
+        logger.info("No entiti documents to persist to collection %s", collection.name)
+        outcome = {"processed": 0, "inserted": 0, "updated": 0, "skipped": 0, "dry_run": dry_run}
+    else:
+        # Ensure identifiers are populated for upsert comparison.
+        for document in documents:
+            if "_id" not in document and document.get("kodSekolah"):
+                document["_id"] = document["kodSekolah"]
 
-    if dry_run:
-        logger.info("Dry run enabled; skipping write to collection %s", collection.name)
-        return {"processed": processed, "inserted": inserted, "dry_run": True}
+        outcome = _replace_collection(
+            collection,
+            documents,
+            batch_size=batch_size,
+            dry_run=dry_run,
+        )
 
-    collection.delete_many({})
-
-    # to_document() ensures _id is included (id → _id)
-    if documents:
-        for doc in documents:
-            doc["_id"] = doc.get("kodSekolah", doc.get("_id"))
-        collection.insert_many(documents, ordered=False)
-        inserted = len(documents)
-
-    return {"processed": processed, "inserted": inserted, "dry_run": False}
+    return {
+        "processed": outcome["processed"],
+        "inserted": outcome["inserted"],
+        "updated": outcome["updated"],
+        "skipped": outcome["skipped"],
+        "dry_run": outcome["dry_run"],
+    }
 
 
 def run_entiti_sekolah(settings: Settings | None = None) -> Dict[str, Any]:
@@ -61,7 +76,12 @@ def run_entiti_sekolah(settings: Settings | None = None) -> Dict[str, Any]:
         Sekolah.collection_name,
     )
 
-    result = _persist_entiti(entiti_collection, documents, settings.dry_run)
+    result = _persist_entiti(
+        entiti_collection,
+        documents,
+        batch_size=settings.batch_size,
+        dry_run=settings.dry_run,
+    )
     summary = {
         "collection": ENTITI_SEKOLAH_COLLECTION,
         "total": result["processed"],
@@ -69,6 +89,8 @@ def run_entiti_sekolah(settings: Settings | None = None) -> Dict[str, Any]:
         "failed": 0,
         "errors": [],
         "inserted": result["inserted"],
+        "updated": result["updated"],
+        "skipped": result["skipped"],
         "dry_run": result["dry_run"],
     }
     logger.info("Entiti summary: %s", summary)

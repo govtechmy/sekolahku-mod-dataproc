@@ -40,8 +40,6 @@ class InfoPentadbiran(BaseModel):
     integrasi: Optional[bool] = Field(default=None, description="Runs integration programme")
 
 class GeoJSONPoint(BaseModel):
-    """Minimal GeoJSON point structure used for school coordinates."""
-
     type: Literal["Point"] = Field(default="Point", description="GeoJSON geometry type")
     coordinates: tuple[float, float] = Field(..., description="(longitude, latitude) coordinate pair")
 
@@ -66,11 +64,10 @@ class EntitiSekolah(BaseModel):
 
     collection_name: ClassVar[str] = _settings.entiti_sekolah_collection
 
-    id: str = Field(..., alias="_id", description="Primary key equivalent to kodSekolah")
     namaSekolah: Optional[str] = Field(default=None, description="Name of the school")
     kodSekolah: str = Field(..., description="Unique school code identifier")
     data: EntitiSekolahData
-    updatedAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was last generated",)
+    createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -135,16 +132,27 @@ class EntitiSekolah(BaseModel):
         )
 
         return cls(
-            id=sekolah.kodSekolah,
             namaSekolah=sekolah.namaSekolah,
             kodSekolah=sekolah.kodSekolah,
             data=data,
-            updatedAt=_utc_now(),
+            createdAt=_utc_now(),
         )
 
     def to_document(self) -> dict:
         """Convert the entity to a Mongo-ready document, omitting ``None`` fields."""
-        return self.model_dump(exclude_none=True)
+        document = self.model_dump(exclude_none=True, by_alias=True)
+
+        try:
+            location = document["data"]["infoLokasi"]["location"]
+        except KeyError:
+            location = None
+
+        if location and "coordinates" in location:
+            coords = location["coordinates"]
+            if isinstance(coords, tuple):
+                location["coordinates"] = list(coords)
+
+        return document
 
 __all__ = [
     "EntitiSekolah",

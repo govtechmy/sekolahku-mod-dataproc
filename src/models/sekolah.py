@@ -60,7 +60,6 @@ class Sekolah(BaseModel):
 
     active: bool = Field(default=True, description="Indicates whether the school is active")
     createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
-    updatedAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was last generated")
 
     @field_validator("noTelefon", "noFax", mode="before")
     def empty_to_none(cls, value):
