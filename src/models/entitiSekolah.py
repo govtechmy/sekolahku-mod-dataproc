@@ -66,10 +66,13 @@ class EntitiSekolah(BaseModel):
 
     collection_name: ClassVar[str] = _settings.entiti_sekolah_collection
 
+    id: str = Field(..., alias="_id", description="Primary key equivalent to kodSekolah")
     namaSekolah: Optional[str] = Field(default=None, description="Name of the school")
     kodSekolah: str = Field(..., description="Unique school code identifier")
     data: EntitiSekolahData
     updatedAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was last generated",)
+
+    model_config = ConfigDict(populate_by_name=True)
 
     @classmethod
     def from_sekolah(
@@ -132,6 +135,7 @@ class EntitiSekolah(BaseModel):
         )
 
         return cls(
+            id=sekolah.kodSekolah,
             namaSekolah=sekolah.namaSekolah,
             kodSekolah=sekolah.kodSekolah,
             data=data,
