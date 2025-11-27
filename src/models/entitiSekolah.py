@@ -69,7 +69,8 @@ class EntitiSekolah(BaseModel):
     namaSekolah: Optional[str] = Field(default=None, description="Name of the school")
     kodSekolah: str = Field(..., description="Unique school code identifier")
     data: EntitiSekolahData
-    updatedAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was last generated",)
+    createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
+    updatedAt: Optional[datetime] = Field(default=None, description="UTC timestamp when the document was last updated")
 
     @classmethod
     def from_sekolah(
@@ -131,16 +132,22 @@ class EntitiSekolah(BaseModel):
             infoLokasi=info_lokasi,
         )
 
+        created_at = _utc_now()
+
         return cls(
             namaSekolah=sekolah.namaSekolah,
             kodSekolah=sekolah.kodSekolah,
             data=data,
-            updatedAt=_utc_now(),
+            createdAt=created_at,
+            updatedAt=created_at,
         )
 
     def to_document(self) -> dict:
         """Convert the entity to a Mongo-ready document, omitting ``None`` fields."""
-        return self.model_dump(exclude_none=True, by_alias=True)
+        updated_at = self.updatedAt or self.createdAt
+        document = self.model_dump(exclude_none=True, by_alias=True)
+        document["updatedAt"] = updated_at
+        return document
 
 __all__ = [
     "EntitiSekolah",

@@ -43,7 +43,8 @@ class AnalitikSekolah(BaseModel):
     jumlahGuru: int = Field(default=0, description="Jumlah keseluruhan guru")
     jumlahPelajar: int = Field(default=0, description="Jumlah keseluruhan pelajar")
     data: AnalitikSekolahData
-    updatedAt: datetime = Field(default_factory=_utc_now, description="Masa analisis dikemas kini")
+    createdAt: datetime = Field(default_factory=_utc_now, description="Masa analisis dijana")
+    updatedAt: Optional[datetime] = Field(default=None, description="Masa analisis dikemas kini")
 
     @classmethod
     def from_sekolah_list(cls, sekolah_list: list["Sekolah"], *, region: str = "ALL") -> "AnalitikSekolah":
@@ -85,12 +86,15 @@ class AnalitikSekolah(BaseModel):
             bantuan=cls._convert_to_analitik_items(bantuan_counts, jumlah_sekolah),
         )
 
+        created_at = _utc_now()
+
         return cls(
             jumlahSekolah=jumlah_sekolah,
             jumlahGuru=total_guru,
             jumlahPelajar=total_pelajar,
             data=data,
-            updatedAt=_utc_now(),
+            createdAt=created_at,
+            updatedAt=created_at,
         )
 
     @staticmethod
@@ -139,7 +143,10 @@ class AnalitikSekolah(BaseModel):
 
     def to_document(self) -> dict:
         """Convert the analytics to a Mongo-ready document, omitting None fields."""
-        return self.model_dump(exclude_none=True, by_alias=True)
+        updated_at = self.updatedAt or self.createdAt
+        document = self.model_dump(exclude_none=True, by_alias=True)
+        document["updatedAt"] = updated_at
+        return document
 
 
 __all__ = [

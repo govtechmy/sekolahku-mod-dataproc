@@ -3,6 +3,7 @@ from __future__ import annotations
 import csv
 import logging
 import os
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, Iterator
 
 try:  # pragma: no cover - optional dependency
@@ -19,6 +20,48 @@ from pymongo.errors import OperationFailure
 
 from src.config import Settings, get_settings
 from src.models import Sekolah
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _merge_document(
+    existing: dict[str, Any] | None,
+    payload: dict[str, Any],
+    *,
+    timestamp: datetime | None = None,
+) -> dict[str, Any]:
+    """
+    New documents get both createdAt and updatedAt set to the given (or current) timestamp.
+    Existing documents update only changed fields and let MongoDB refresh updatedAt via $currentDate.
+    """
+
+    ts = timestamp or _utc_now()
+    next_payload = dict(payload)
+    next_payload.pop("_id", None)
+
+    if existing is None:
+        document = dict(next_payload)
+        document["createdAt"] = ts
+        document["updatedAt"] = ts
+        return {
+            "action": "insert",
+            "document": document,
+        }
+
+    changes: dict[str, Any] = {}
+    for key, value in next_payload.items():
+        if existing.get(key) != value:
+            changes[key] = value
+
+    if not changes:
+        return {"action": "noop"}
+
+    return {
+        "action": "update",
+        "filter": {"_id": existing.get("_id")},
+        "set": changes,
+        "currentDate": {"updatedAt": True},
+    }
 
 logger = logging.getLogger(__name__)
 
