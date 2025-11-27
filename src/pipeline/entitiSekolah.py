@@ -35,7 +35,11 @@ def _persist_entiti(collection: Collection, documents: list[dict], dry_run: bool
         return {"processed": processed, "inserted": inserted, "dry_run": True}
 
     collection.delete_many({})
+
+    # to_document() ensures _id is included (id → _id)
     if documents:
+        for doc in documents:
+            doc["_id"] = doc.get("kodSekolah", doc.get("_id"))
         collection.insert_many(documents, ordered=False)
         inserted = len(documents)
 
