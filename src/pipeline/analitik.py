@@ -11,6 +11,7 @@ from pymongo.database import Database
 from src.config.settings import Settings, get_settings
 from src.models import Sekolah
 from src.statistics import ANALITIK_SEKOLAH_COLLECTION, compute_analitik_sekolah
+from src.pipeline.ingestion import _replace_collection
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,8 @@ logger = logging.getLogger(__name__)
 class PersistAnalitikResult(TypedDict):
     processed: int
     inserted: int
+    updated: int
+    skipped: int
     dry_run: bool
     collection: str
 
@@ -27,20 +30,32 @@ def _get_db(settings: Settings) -> Database:
     return client[settings.db_name]
 
 
-def _persist_analitik(collection: Collection, documents: list[dict], dry_run: bool) -> PersistAnalitikResult:
-    processed = len(documents)
-    inserted = 0
+def _persist_analitik(
+    collection: Collection,
+    documents: list[dict],
+    *,
+    batch_size: int,
+    dry_run: bool,
+) -> PersistAnalitikResult:
+    if not documents:
+        logger.info("No analytics documents to persist to collection %s", collection.name)
+        outcome = {"processed": 0, "inserted": 0, "updated": 0, "skipped": 0, "dry_run": dry_run}
+    else:
+        outcome = _replace_collection(
+            collection,
+            documents,
+            batch_size=batch_size,
+            dry_run=dry_run,
+        )
 
-    if dry_run:
-        logger.info("Dry run enabled; skipping write to collection %s", collection.name)
-        return {"processed": processed, "inserted": inserted, "dry_run": True, "collection": collection.name}
-
-    collection.delete_many({})
-    if documents:
-        collection.insert_many(documents, ordered=False)
-        inserted = len(documents)
-
-    return {"processed": processed, "inserted": inserted, "dry_run": False, "collection": collection.name}
+    return {
+        "collection": collection.name,
+        "processed": outcome["processed"],
+        "inserted": outcome["inserted"],
+        "updated": outcome["updated"],
+        "skipped": outcome["skipped"],
+        "dry_run": outcome["dry_run"],
+    }
 
 
 def run_analitik_sekolah(settings: Optional[Settings] = None) -> PersistAnalitikResult:
@@ -58,7 +73,12 @@ def run_analitik_sekolah(settings: Optional[Settings] = None) -> PersistAnalitik
         Sekolah.collection_name,
     )
 
-    result = _persist_analitik(analitik_collection, documents, settings.dry_run)
+    result = _persist_analitik(
+        analitik_collection,
+        documents,
+        batch_size=settings.batch_size,
+        dry_run=settings.dry_run,
+    )
     return result
 
 

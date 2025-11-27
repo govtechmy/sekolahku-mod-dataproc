@@ -39,12 +39,12 @@ class AnalitikSekolah(BaseModel):
 
     collection_name: ClassVar[str] = _settings.analitik_sekolah_collection
 
+    id: str = Field(default="ALL", alias="_id", description="Primary key for the analytics snapshot")
     jumlahSekolah: int = Field(default=0, description="Jumlah keseluruhan sekolah yang diproses")
     jumlahGuru: int = Field(default=0, description="Jumlah keseluruhan guru")
     jumlahPelajar: int = Field(default=0, description="Jumlah keseluruhan pelajar")
     data: AnalitikSekolahData
     createdAt: datetime = Field(default_factory=_utc_now, description="Masa analisis dijana")
-    updatedAt: Optional[datetime] = Field(default=None, description="Masa analisis dikemas kini")
 
     @classmethod
     def from_sekolah_list(cls, sekolah_list: list["Sekolah"], *, region: str = "ALL") -> "AnalitikSekolah":
@@ -86,15 +86,13 @@ class AnalitikSekolah(BaseModel):
             bantuan=cls._convert_to_analitik_items(bantuan_counts, jumlah_sekolah),
         )
 
-        created_at = _utc_now()
-
         return cls(
+            id=region,
             jumlahSekolah=jumlah_sekolah,
             jumlahGuru=total_guru,
             jumlahPelajar=total_pelajar,
             data=data,
-            createdAt=created_at,
-            updatedAt=created_at,
+            createdAt=_utc_now(),
         )
 
     @staticmethod
@@ -143,10 +141,7 @@ class AnalitikSekolah(BaseModel):
 
     def to_document(self) -> dict:
         """Convert the analytics to a Mongo-ready document, omitting None fields."""
-        updated_at = self.updatedAt or self.createdAt
-        document = self.model_dump(exclude_none=True, by_alias=True)
-        document["updatedAt"] = updated_at
-        return document
+        return self.model_dump(exclude_none=True, by_alias=True)
 
 
 __all__ = [

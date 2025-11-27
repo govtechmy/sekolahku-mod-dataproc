@@ -153,6 +153,7 @@ def compute_analitik_sekolah(collection: Collection) -> List[Dict[str, Any]]:
 
     try:
         analitik = AnalitikSekolah(
+            id="ALL",
             jumlahSekolah=jumlah_sekolah,
             jumlahGuru=jumlah_guru,
             jumlahPelajar=jumlah_pelajar,

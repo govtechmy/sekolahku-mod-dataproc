@@ -40,8 +40,6 @@ class InfoPentadbiran(BaseModel):
     integrasi: Optional[bool] = Field(default=None, description="Runs integration programme")
 
 class GeoJSONPoint(BaseModel):
-    """Minimal GeoJSON point structure used for school coordinates."""
-
     type: Literal["Point"] = Field(default="Point", description="GeoJSON geometry type")
     coordinates: tuple[float, float] = Field(..., description="(longitude, latitude) coordinate pair")
 
@@ -71,7 +69,6 @@ class EntitiSekolah(BaseModel):
     kodSekolah: str = Field(..., description="Unique school code identifier")
     data: EntitiSekolahData
     createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
-    updatedAt: Optional[datetime] = Field(default=None, description="UTC timestamp when the document was last updated")
 
     model_config = ConfigDict(populate_by_name=True)
 
@@ -135,22 +132,28 @@ class EntitiSekolah(BaseModel):
             infoLokasi=info_lokasi,
         )
 
-        created_at = _utc_now()
-
         return cls(
             id=sekolah.kodSekolah,
             namaSekolah=sekolah.namaSekolah,
             kodSekolah=sekolah.kodSekolah,
             data=data,
-            createdAt=created_at,
-            updatedAt=created_at,
+            createdAt=_utc_now(),
         )
 
     def to_document(self) -> dict:
         """Convert the entity to a Mongo-ready document, omitting ``None`` fields."""
-        updated_at = self.updatedAt or self.createdAt
-        document = self.model_dump(exclude_none=True)
-        document["updatedAt"] = updated_at
+        document = self.model_dump(exclude_none=True, by_alias=True)
+
+        try:
+            location = document["data"]["infoLokasi"]["location"]
+        except KeyError:
+            location = None
+
+        if location and "coordinates" in location:
+            coords = location["coordinates"]
+            if isinstance(coords, tuple):
+                location["coordinates"] = list(coords)
+
         return document
 
 __all__ = [

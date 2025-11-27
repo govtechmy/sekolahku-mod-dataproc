@@ -20,10 +20,7 @@ def _build_entiti_document(
 ) -> Dict[str, Any]:
     entiti = EntitiSekolah.from_sekolah(sekolah)
     document = entiti.to_document()
-
-    # Preserve the original identifier for traceability if present.
-    if "_id" in raw:
-        document["_id"] = raw["_id"]
+    document["_id"] = sekolah.kodSekolah
     return document
 
 
