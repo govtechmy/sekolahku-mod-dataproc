@@ -58,7 +58,9 @@ class Sekolah(BaseModel):
 
     skmLEQ150: Optional[bool] = Field(default=None, alias="SKM<=150")
 
-    updatedAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was last generated",)
+    active: bool = Field(default=True, description="Indicates whether the school is active")
+    createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
+    updatedAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was last generated")
 
     @field_validator("noTelefon", "noFax", mode="before")
     def empty_to_none(cls, value):
