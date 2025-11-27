@@ -144,7 +144,7 @@ class EntitiSekolah(BaseModel):
 
     def to_document(self) -> dict:
         """Convert the entity to a Mongo-ready document, omitting ``None`` fields."""
-        return self.model_dump(exclude_none=True, by_alias=True)
+        return self.model_dump(exclude_none=True)
 
 __all__ = [
     "EntitiSekolah",

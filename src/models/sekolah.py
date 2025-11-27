@@ -142,7 +142,7 @@ class Sekolah(BaseModel):
     }
 
     def to_document(self) -> dict:
-        data = self.model_dump(by_alias=True, exclude_none=False)
+        data = self.model_dump(exclude_none=False)
         data["_id"] = data.get("kodSekolah", self.kodSekolah)
         if self.koordinatXX is not None and self.koordinatYY is not None:
             data["location"] = {
