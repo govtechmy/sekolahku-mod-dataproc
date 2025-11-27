@@ -64,7 +64,6 @@ class EntitiSekolah(BaseModel):
 
     collection_name: ClassVar[str] = _settings.entiti_sekolah_collection
 
-    id: str = Field(..., alias="_id", description="Primary key equivalent to kodSekolah")
     namaSekolah: Optional[str] = Field(default=None, description="Name of the school")
     kodSekolah: str = Field(..., description="Unique school code identifier")
     data: EntitiSekolahData
@@ -133,7 +132,6 @@ class EntitiSekolah(BaseModel):
         )
 
         return cls(
-            id=sekolah.kodSekolah,
             namaSekolah=sekolah.namaSekolah,
             kodSekolah=sekolah.kodSekolah,
             data=data,
