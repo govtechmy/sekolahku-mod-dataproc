@@ -50,10 +50,21 @@ def main() -> None:
         logger.info("Analitik summary: %s", analitik)
         return
 
+    # -------------------------
     # Run ingestion pipeline if no specific aggregation flags are provided
+    # -------------------------
     result = run_pipeline(settings)
     logger.info("Ingestion summary: %s", result)
 
+    # In dry-run mode, skip EntitiSekolah and Analitik processing
+    if settings.dry_run:
+        logger.info("Dry-run mode: Skipping EntitiSekolah + Analitik processing")
+        return
 
+    entiti = run_entiti_sekolah_dict(settings)
+    logger.info("Entiti summary: %s", entiti)
+    analitik = run_analitik_dict(settings)
+    logger.info("Analitik summary: %s", analitik)
+    
 if __name__ == "__main__":
     main()
