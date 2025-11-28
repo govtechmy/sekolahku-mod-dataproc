@@ -6,15 +6,11 @@
 python -m src.main
 
 # Inline override example
-# For source: csv
-SOURCE=csv python -m src.main
-
-# For source: Google Sheets
-SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
-	GOOGLE_APPLICATION_CREDENTIALS=docs/service_account.json python -m src.main
+# Point to a different CSV file for one-off runs
+CSV_PATH=data/custom_sekolah.csv python -m src.main
 
 # Run ingestion and EntitiSekolah aggregation
-SOURCE=csv python -m src.main --entiti
+python -m src.main --entiti
 
 # Show verbosity for a single run (flag expects a value)
 python -m src.main --log-level DEBUG
@@ -53,8 +49,7 @@ Set the required variables through `.env` or inline exports, then launch the mod
 python -m src.main
 
 # Inline override example
-SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
-	GOOGLE_APPLICATION_CREDENTIALS=docs/service_account.json python -m src.main
+CSV_PATH=data/custom_sekolah.csv python -m src.main
 
 # Run EntitiSekolah pipeline
 python -m src.main --entiti

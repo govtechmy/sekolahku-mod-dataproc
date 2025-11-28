@@ -19,11 +19,7 @@ class Settings(BaseSettings):
     sekolah_collection: str = Field(default="Sekolah", alias="SEKOLAH_COLLECTION")
     entiti_sekolah_collection: str = Field(default="EntitiSekolah", alias="ENTITI_SEKOLAH_COLLECTION")
     analitik_sekolah_collection: str = Field(default="AnalitikSekolah", alias="ANALITIK_SEKOLAH_COLLECTION")
-    source: str = Field(default="csv", alias="SOURCE")
     csv_path: str = Field(default="data/sekolah.csv", alias="CSV_PATH")
-    gsheet_id: str | None = Field(default=None, alias="GSHEET_ID")
-    gsheet_worksheet_name: str = Field(default="Sheet1", alias="GSHEET_WORKSHEET_NAME")
-    google_credentials_path: str = Field(default="service_account.json", alias="GOOGLE_APPLICATION_CREDENTIALS")
     batch_size: int = Field(default=500, alias="BATCH_SIZE")
 
 
