@@ -63,11 +63,6 @@ def run_analitik_sekolah(settings: Optional[Settings] = None) -> PersistAnalitik
     analitik_collection = db[ANALITIK_SEKOLAH_COLLECTION]
 
     documents = compute_analitik_sekolah(db_name)
-    logger.info(
-        "Computed %s AnalitikSekolah documents from collection %s",
-        len(documents),
-        Sekolah.collection_name,
-    )
 
     result = _persist_analitik(
         analitik_collection,

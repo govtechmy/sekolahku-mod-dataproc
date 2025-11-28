@@ -66,11 +66,6 @@ def run_entiti_sekolah(settings: Settings | None = None) -> Dict[str, Any]:
     entiti_collection = db[ENTITI_SEKOLAH_COLLECTION]
 
     documents = compute_entiti_sekolah(db_name)
-    logger.info(
-        "Computed %s EntitiSekolah documents from collection %s",
-        len(documents),
-        Sekolah.collection_name,
-    )
 
     result = _persist_entiti(
         entiti_collection,
