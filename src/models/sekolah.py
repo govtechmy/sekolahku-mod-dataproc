@@ -65,6 +65,7 @@ class Sekolah(BaseModel):
     skmLEQ150: Optional[bool] = Field(default=None, alias="SKM<=150")
 
     status: SekolahStatus | None = Field(default=None, description="Status of the school")
+    checksum: Optional[str] = Field(default=None, description="SHA-256 hash computed with certain fields excluded")
     createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
 
     @field_validator("noTelefon", "noFax", mode="before")

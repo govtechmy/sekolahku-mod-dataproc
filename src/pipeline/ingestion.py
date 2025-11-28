@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import csv
+import hashlib
+import json
 import logging
 import os
 from datetime import datetime, timezone
@@ -15,9 +17,21 @@ from src.config import Settings, get_settings
 from src.models import Sekolah
 from src.models.sekolah import SekolahStatus
 from src.pipeline.status_sync import sync_entiti_statuses
+
+
+CHECKSUM_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt", "checksum", "status"}
+
+def _compute_checksum(document: Dict[str, Any]) -> str:
+    filtered = {
+        key: document[key]
+        for key in sorted(document)
+        if key not in CHECKSUM_EXCLUDE_KEYS
+    }
+    serialized = json.dumps(filtered, sort_keys=True, separators=(",", ":"), ensure_ascii=False,)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
-
 
 def _merge_document(
     existing: dict[str, Any] | None,
@@ -146,6 +160,7 @@ def _replace_collection(
             if identifier is None:
                 skipped += 1
                 logger.warning("Skipping document without identifier: %s", document)
+
                 continue
 
             processed += 1
@@ -164,10 +179,18 @@ def _replace_collection(
         for identifier, document in chunk_documents:
             existing = existing_map.get(identifier)
 
+            incoming_checksum = document.get("checksum")
+            if (
+                existing is not None
+                and incoming_checksum is not None
+                and existing.get("checksum") == incoming_checksum
+            ):
+                continue
+
             comparable_fields = {
                 key: value
                 for key, value in document.items()
-                if key not in {"_id", "createdAt", "updatedAt"}
+                if key not in CHECKSUM_EXCLUDE_KEYS
             }
 
             if existing is None:
@@ -181,6 +204,8 @@ def _replace_collection(
 
             if existing is not None and not changes:
                 continue
+
+            logger.debug("Updating %s: changed fields = %s", identifier, list(changes.keys()),)
 
             created_at_on_insert = (
                 (existing.get("createdAt") if existing else None)
@@ -252,10 +277,13 @@ def run(settings: Settings) -> dict[str, Any]:
 
     active_identifiers: set[Any] = set()
     for document in documents:
+        document["status"] = SekolahStatus.ACTIVE.value  # All schools present in raw file are ACTIVE
+        checksum = _compute_checksum(document)
+        document["checksum"] = checksum
+
         identifier = document.get("_id") or document.get("kodSekolah")
         if identifier is None:
             continue
-        document["status"] = SekolahStatus.ACTIVE.value # All schools present in raw file are ACTIVE
         active_identifiers.add(identifier)
 
     try:
