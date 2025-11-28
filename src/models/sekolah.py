@@ -165,6 +165,11 @@ class Sekolah(BaseModel):
     def to_document(self) -> dict:
         data = self.model_dump(exclude_none=False)
         data["_id"] = data.get("kodSekolah", self.kodSekolah)
+        status_value = data.get("status")
+        if status_value is None:
+            data.pop("status", None)
+        elif isinstance(status_value, SekolahStatus):
+            data["status"] = status_value.value
         if self.koordinatXX is not None and self.koordinatYY is not None:
             data["location"] = {
                 "type": "Point",

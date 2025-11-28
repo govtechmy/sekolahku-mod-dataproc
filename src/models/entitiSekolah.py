@@ -147,10 +147,12 @@ class EntitiSekolah(BaseModel):
             infoLokasi=info_lokasi,
         )
 
+        status = sekolah.status or SekolahStatus.ACTIVE
+
         return cls(
             namaSekolah=sekolah.namaSekolah,
             kodSekolah=sekolah.kodSekolah,
-            status=sekolah.status,
+            status=status,
             data=data,
             createdAt=_utc_now(),
         )

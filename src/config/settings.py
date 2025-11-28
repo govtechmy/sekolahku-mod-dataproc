@@ -25,12 +25,6 @@ class Settings(BaseSettings):
     gsheet_worksheet_name: str = Field(default="Sheet1", alias="GSHEET_WORKSHEET_NAME")
     google_credentials_path: str = Field(default="service_account.json", alias="GOOGLE_APPLICATION_CREDENTIALS")
     batch_size: int = Field(default=500, alias="BATCH_SIZE")
-    dry_run_flag: int = Field(default=0, alias="DRY_RUN")
-
-    @property
-    def dry_run(self) -> bool:
-        """Expose dry-run flag as bool for readability."""
-        return bool(self.dry_run_flag)
 
 
 def get_settings() -> Settings:

@@ -73,17 +73,17 @@ Each run prints a summary dictionary, for example :
 ```bash
 python -m src.main
 ```
-`Ingestion summary: {'collection': 'Sekolah', 'total': 10245, 'processed': 10244, 'failed': 1, 'errors': [{'row': 1, 'error': 'kodSekolah is required'}], 'inserted': 10244, 'dry_run': False}`
+`Ingestion summary: {'collection': 'Sekolah', 'total': 10245, 'processed': 10244, 'failed': 1, 'errors': [{'row': 1, 'error': 'kodSekolah is required'}], 'inserted': 10244}`
 
 ```bash
 python -m src.main --entiti
 ```
-`Entiti summary: {'entiti': {'collection': 'EntitiSekolah', 'total': 10244, 'processed': 10244, 'failed': 0, 'errors': [], 'inserted': 10244, 'dry_run': False}}`. 
+`Entiti summary: {'entiti': {'collection': 'EntitiSekolah', 'total': 10244, 'processed': 10244, 'failed': 0, 'errors': [], 'inserted': 10244}}`. 
 
 ```bash
 python -m src.main --analitik
 ```
-`Analitik summary: {'analitik': {'processed': 1, 'inserted': 1, 'dry_run': False, 'collection': 'AnalitikSekolah'}}`
+`Analitik summary: {'analitik': {'processed': 1, 'inserted': 1, 'collection': 'AnalitikSekolah'}}`
 
 
 ## Data Model

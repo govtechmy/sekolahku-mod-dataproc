@@ -19,7 +19,6 @@ def sync_entiti_statuses(
     entiti_collection: Collection,
     *,
     batch_size: int,
-    dry_run: bool,
 ) -> int:
     if batch_size <= 0:
         raise ValueError("batch size must be positive")
@@ -52,9 +51,6 @@ def sync_entiti_statuses(
 
         if not operations:
             return 0
-
-        if dry_run:
-            return len(operations)
 
         result = entiti_collection.bulk_write(operations, ordered=False)
         modified = getattr(result, "modified_count", 0) or 0

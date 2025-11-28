@@ -165,7 +165,6 @@ def _replace_collection(
     documents: Iterable[Dict[str, Any]],
     *,
     batch_size: int,
-    dry_run: bool,
 ) -> dict[str, int]:
     if batch_size <= 0:
         raise ValueError("batch size must be positive")
@@ -240,7 +239,7 @@ def _replace_collection(
                 )
             )
 
-        if dry_run or not operations:
+        if not operations:
             continue
 
         result = collection.bulk_write(operations, ordered=False)
@@ -252,24 +251,13 @@ def _replace_collection(
         "inserted": inserted,
         "updated": updated,
         "skipped": skipped,
-        "dry_run": dry_run,
     }
 
 
 def _mark_missing_schools_inactive(
     collection: Collection,
     active_identifiers: set[Any],
-    *,
-    dry_run: bool,
 ) -> int:
-    if dry_run:
-        if hasattr(collection, "count_documents"):
-            selector: Dict[str, Any] = {"status": SekolahStatus.ACTIVE.value}
-            if active_identifiers:
-                selector["_id"] = {"$nin": list(active_identifiers)}
-            return int(collection.count_documents(selector))
-        return 0
-
     selector = {"status": SekolahStatus.ACTIVE.value}
     if active_identifiers:
         selector["_id"] = {"$nin": list(active_identifiers)}
@@ -293,7 +281,7 @@ def _get_database(settings: Settings):
 
 
 def run(settings: Settings) -> dict[str, Any]:
-    logger.info("Starting ingestion (dry_run=%s)", settings.dry_run)
+    logger.info("Starting ingestion")
     database = _get_database(settings)
     sekolah_collection = database[Sekolah.collection_name]
     entiti_collection = database[settings.entiti_sekolah_collection]
@@ -312,7 +300,6 @@ def run(settings: Settings) -> dict[str, Any]:
             sekolah_collection,
             documents,
             batch_size=settings.batch_size,
-            dry_run=settings.dry_run,
         )
     except OperationFailure as exc:
         if exc.code == 13:
@@ -325,23 +312,15 @@ def run(settings: Settings) -> dict[str, Any]:
     inactivated = _mark_missing_schools_inactive(
         sekolah_collection,
         active_identifiers,
-        dry_run=settings.dry_run,
     )
-    if settings.dry_run:
-        logger.info("Dry run: %s sekolah would be marked inactive", inactivated)
-    else:
-        logger.info("Marked %s sekolah as inactive", inactivated)
+    logger.info("Marked %s sekolah as inactive", inactivated)
 
     entiti_synced = sync_entiti_statuses(
         sekolah_collection,
         entiti_collection,
         batch_size=settings.batch_size,
-        dry_run=settings.dry_run,
     )
-    if settings.dry_run:
-        logger.info("Dry run: %s EntitiSekolah documents would be synced", entiti_synced)
-    else:
-        logger.info("Synced %s EntitiSekolah statuses", entiti_synced)
+    logger.info("Synced %s EntitiSekolah statuses", entiti_synced)
 
     summary = {
         "collection": Sekolah.collection_name,
@@ -352,7 +331,6 @@ def run(settings: Settings) -> dict[str, Any]:
         "inserted": result["inserted"],
         "updated": result["updated"],
         "skipped": result["skipped"],
-        "dry_run": result["dry_run"],
         "inactivated": inactivated,
         "entiti_synced": entiti_synced,
     }
