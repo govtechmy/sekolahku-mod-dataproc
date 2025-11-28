@@ -20,6 +20,8 @@ from pymongo.errors import OperationFailure
 
 from src.config import Settings, get_settings
 from src.models import Sekolah
+from src.models.sekolah import SekolahStatus
+from src.pipeline.status_sync import sync_entiti_statuses
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -254,20 +256,60 @@ def _replace_collection(
     }
 
 
-def _get_collection(settings: Settings) -> Collection:
+def _mark_missing_schools_inactive(
+    collection: Collection,
+    active_identifiers: set[Any],
+    *,
+    dry_run: bool,
+) -> int:
+    if dry_run:
+        if hasattr(collection, "count_documents"):
+            selector: Dict[str, Any] = {"status": SekolahStatus.ACTIVE.value}
+            if active_identifiers:
+                selector["_id"] = {"$nin": list(active_identifiers)}
+            return int(collection.count_documents(selector))
+        return 0
+
+    selector = {"status": SekolahStatus.ACTIVE.value}
+    if active_identifiers:
+        selector["_id"] = {"$nin": list(active_identifiers)}
+
+    update_document = {
+        "$set": {"status": SekolahStatus.INACTIVE.value},
+        "$currentDate": {"updatedAt": True},
+    }
+
+    result = collection.update_many(selector, update_document)
+    modified = getattr(result, "modified_count", None)
+    if modified is not None:
+        return int(modified)
+    matched = getattr(result, "matched_count", 0)
+    return int(matched)
+
+
+def _get_database(settings: Settings):
     client = MongoClient(settings.mongo_uri)
-    database = client[settings.db_name]
-    return database[Sekolah.collection_name]
+    return client[settings.db_name]
 
 
 def run(settings: Settings) -> dict[str, Any]:
     logger.info("Starting ingestion (dry_run=%s)", settings.dry_run)
-    collection = _get_collection(settings)
+    database = _get_database(settings)
+    sekolah_collection = database[Sekolah.collection_name]
+    entiti_collection = database[settings.entiti_sekolah_collection]
     documents, errors, total = _collect_documents(settings)
+
+    active_identifiers: set[Any] = set()
+    for document in documents:
+        identifier = document.get("_id") or document.get("kodSekolah")
+        if identifier is None:
+            continue
+        document["status"] = SekolahStatus.ACTIVE.value # All schools present in raw file are ACTIVE
+        active_identifiers.add(identifier)
 
     try:
         result = _replace_collection(
-            collection,
+            sekolah_collection,
             documents,
             batch_size=settings.batch_size,
             dry_run=settings.dry_run,
@@ -280,6 +322,27 @@ def run(settings: Settings) -> dict[str, Any]:
         logger.error("MongoDB operation failed: %s", exc)
         raise
 
+    inactivated = _mark_missing_schools_inactive(
+        sekolah_collection,
+        active_identifiers,
+        dry_run=settings.dry_run,
+    )
+    if settings.dry_run:
+        logger.info("Dry run: %s sekolah would be marked inactive", inactivated)
+    else:
+        logger.info("Marked %s sekolah as inactive", inactivated)
+
+    entiti_synced = sync_entiti_statuses(
+        sekolah_collection,
+        entiti_collection,
+        batch_size=settings.batch_size,
+        dry_run=settings.dry_run,
+    )
+    if settings.dry_run:
+        logger.info("Dry run: %s EntitiSekolah documents would be synced", entiti_synced)
+    else:
+        logger.info("Synced %s EntitiSekolah statuses", entiti_synced)
+
     summary = {
         "collection": Sekolah.collection_name,
         "total": total,
@@ -290,6 +353,8 @@ def run(settings: Settings) -> dict[str, Any]:
         "updated": result["updated"],
         "skipped": result["skipped"],
         "dry_run": result["dry_run"],
+        "inactivated": inactivated,
+        "entiti_synced": entiti_synced,
     }
     return summary
 

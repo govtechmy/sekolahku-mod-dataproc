@@ -64,7 +64,7 @@ class Sekolah(BaseModel):
 
     skmLEQ150: Optional[bool] = Field(default=None, alias="SKM<=150")
 
-    status: SekolahStatus = Field(default=SekolahStatus.ACTIVE, description="Status of the school")
+    status: SekolahStatus | None = Field(default=None, description="Status of the school")
     createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
 
     @field_validator("noTelefon", "noFax", mode="before")
@@ -142,6 +142,20 @@ class Sekolah(BaseModel):
             return float(str(value).strip())
         except ValueError:
             return None
+
+    @field_validator("status", mode="before")
+    def normalize_status(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, SekolahStatus):
+            return value
+        text = str(value).strip()
+        if not text:
+            return None
+        try:
+            return SekolahStatus(text.upper())
+        except ValueError as exc:
+            raise ValueError("status must be 'ACTIVE' or 'INACTIVE'") from exc
 
     model_config = {
         "populate_by_name": True,

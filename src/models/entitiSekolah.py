@@ -4,7 +4,7 @@ from typing import ClassVar, Optional, TYPE_CHECKING
 
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
 from pydantic import ConfigDict
 from typing_extensions import Literal
 from src.config.settings import get_settings
@@ -67,11 +67,25 @@ class EntitiSekolah(BaseModel):
 
     namaSekolah: Optional[str] = Field(default=None, description="Name of the school")
     kodSekolah: str = Field(..., description="Unique school code identifier")
-    status: SekolahStatus = Field(default=SekolahStatus.ACTIVE, description="Status of the school")
+    status: SekolahStatus | None = Field(default=None, description="Status of the school")
     data: EntitiSekolahData
     createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
 
     model_config = ConfigDict(populate_by_name=True)
+
+    @field_validator("status", mode="before")
+    def normalize_status(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, SekolahStatus):
+            return value
+        text = str(value).strip()
+        if not text:
+            return None
+        try:
+            return SekolahStatus(text.upper())
+        except ValueError as exc:
+            raise ValueError("status must be 'ACTIVE' or 'INACTIVE'") from exc
 
     @classmethod
     def from_sekolah(
