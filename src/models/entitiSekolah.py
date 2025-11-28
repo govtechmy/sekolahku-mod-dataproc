@@ -8,6 +8,7 @@ from pydantic import BaseModel, EmailStr, Field
 from pydantic import ConfigDict
 from typing_extensions import Literal
 from src.config.settings import get_settings
+from src.models.sekolah import SekolahStatus
 
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
@@ -66,6 +67,7 @@ class EntitiSekolah(BaseModel):
 
     namaSekolah: Optional[str] = Field(default=None, description="Name of the school")
     kodSekolah: str = Field(..., description="Unique school code identifier")
+    status: SekolahStatus = Field(default=SekolahStatus.ACTIVE, description="Status of the school")
     data: EntitiSekolahData
     createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
 
@@ -134,6 +136,7 @@ class EntitiSekolah(BaseModel):
         return cls(
             namaSekolah=sekolah.namaSekolah,
             kodSekolah=sekolah.kodSekolah,
+            status=sekolah.status,
             data=data,
             createdAt=_utc_now(),
         )

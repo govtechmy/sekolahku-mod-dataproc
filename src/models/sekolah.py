@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import ClassVar, Optional
 
+from enum import Enum
+
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -15,6 +17,10 @@ BOOL_YA_MAP = {"YA": True, "TIDAK": False, "": None}
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+class SekolahStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
 
 
 _settings = get_settings()
@@ -58,7 +64,7 @@ class Sekolah(BaseModel):
 
     skmLEQ150: Optional[bool] = Field(default=None, alias="SKM<=150")
 
-    active: bool = Field(default=True, description="Indicates whether the school is active")
+    status: SekolahStatus = Field(default=SekolahStatus.ACTIVE, description="Status of the school")
     createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
 
     @field_validator("noTelefon", "noFax", mode="before")
