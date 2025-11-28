@@ -149,7 +149,7 @@ def compute_analitik_sekolah(collection: Collection) -> List[Dict[str, Any]]:
 
     try:
         analitik = AnalitikSekolah(
-            id="ALL",
+            id="1",
             jumlahSekolah=jumlah_sekolah,
             jumlahGuru=jumlah_guru,
             jumlahPelajar=jumlah_pelajar,
@@ -160,6 +160,7 @@ def compute_analitik_sekolah(collection: Collection) -> List[Dict[str, Any]]:
         return []
 
     document = analitik.to_document()
+    document["_id"] = "1"
     return [document]
 
 
