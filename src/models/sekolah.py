@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import ClassVar, Optional
 
+from enum import Enum
+
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -15,6 +17,10 @@ BOOL_YA_MAP = {"YA": True, "TIDAK": False, "": None}
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
+class SekolahStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    INACTIVE = "INACTIVE"
 
 
 _settings = get_settings()
@@ -58,7 +64,7 @@ class Sekolah(BaseModel):
 
     skmLEQ150: Optional[bool] = Field(default=None, alias="SKM<=150")
 
-    active: bool = Field(default=True, description="Indicates whether the school is active")
+    status: SekolahStatus | None = Field(default=None, description="Status of the school")
     createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
 
     @field_validator("noTelefon", "noFax", mode="before")
@@ -137,6 +143,20 @@ class Sekolah(BaseModel):
         except ValueError:
             return None
 
+    @field_validator("status", mode="before")
+    def normalize_status(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, SekolahStatus):
+            return value
+        text = str(value).strip()
+        if not text:
+            return None
+        try:
+            return SekolahStatus(text.upper())
+        except ValueError as exc:
+            raise ValueError("status must be 'ACTIVE' or 'INACTIVE'") from exc
+
     model_config = {
         "populate_by_name": True,
         "extra": "ignore",
@@ -145,6 +165,11 @@ class Sekolah(BaseModel):
     def to_document(self) -> dict:
         data = self.model_dump(exclude_none=False)
         data["_id"] = data.get("kodSekolah", self.kodSekolah)
+        status_value = data.get("status")
+        if status_value is None:
+            data.pop("status", None)
+        elif isinstance(status_value, SekolahStatus):
+            data["status"] = status_value.value
         if self.koordinatXX is not None and self.koordinatYY is not None:
             data["location"] = {
                 "type": "Point",

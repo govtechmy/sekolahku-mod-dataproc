@@ -6,15 +6,11 @@
 python -m src.main
 
 # Inline override example
-# For source: csv
-SOURCE=csv python -m src.main
-
-# For source: Google Sheets
-SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
-	GOOGLE_APPLICATION_CREDENTIALS=docs/service_account.json python -m src.main
+# Point to a different CSV file for one-off runs
+CSV_PATH=data/custom_sekolah.csv python -m src.main
 
 # Run ingestion and EntitiSekolah aggregation
-SOURCE=csv python -m src.main --entiti
+python -m src.main --entiti
 
 # Show verbosity for a single run (flag expects a value)
 python -m src.main --log-level DEBUG
@@ -53,8 +49,7 @@ Set the required variables through `.env` or inline exports, then launch the mod
 python -m src.main
 
 # Inline override example
-SOURCE=gsheet GSHEET_ID=<ID> GSHEET_WORKSHEET_NAME=<worksheet> \
-	GOOGLE_APPLICATION_CREDENTIALS=docs/service_account.json python -m src.main
+CSV_PATH=data/custom_sekolah.csv python -m src.main
 
 # Run EntitiSekolah pipeline
 python -m src.main --entiti
@@ -73,17 +68,17 @@ Each run prints a summary dictionary, for example :
 ```bash
 python -m src.main
 ```
-`Ingestion summary: {'collection': 'Sekolah', 'total': 10245, 'processed': 10244, 'failed': 1, 'errors': [{'row': 1, 'error': 'kodSekolah is required'}], 'inserted': 10244, 'dry_run': False}`
+`Ingestion summary: {'collection': 'Sekolah', 'total': 10245, 'processed': 10244, 'failed': 1, 'errors': [{'row': 1, 'error': 'kodSekolah is required'}], 'inserted': 10244}`
 
 ```bash
 python -m src.main --entiti
 ```
-`Entiti summary: {'entiti': {'collection': 'EntitiSekolah', 'total': 10244, 'processed': 10244, 'failed': 0, 'errors': [], 'inserted': 10244, 'dry_run': False}}`. 
+`Entiti summary: {'entiti': {'collection': 'EntitiSekolah', 'total': 10244, 'processed': 10244, 'failed': 0, 'errors': [], 'inserted': 10244}}`. 
 
 ```bash
 python -m src.main --analitik
 ```
-`Analitik summary: {'analitik': {'processed': 1, 'inserted': 1, 'dry_run': False, 'collection': 'AnalitikSekolah'}}`
+`Analitik summary: {'analitik': {'processed': 1, 'inserted': 1, 'collection': 'AnalitikSekolah'}}`
 
 
 ## Data Model

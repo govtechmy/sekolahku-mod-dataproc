@@ -21,7 +21,6 @@ class PersistEntitiResult(TypedDict):
     inserted: int
     updated: int
     skipped: int
-    dry_run: bool
 
 
 def _get_db(settings: Settings) -> Database:
@@ -34,11 +33,10 @@ def _persist_entiti(
     documents: list[dict],
     *,
     batch_size: int,
-    dry_run: bool,
 ) -> PersistEntitiResult:
     if not documents:
         logger.info("No entiti documents to persist to collection %s", collection.name)
-        outcome = {"processed": 0, "inserted": 0, "updated": 0, "skipped": 0, "dry_run": dry_run}
+        outcome = {"processed": 0, "inserted": 0, "updated": 0, "skipped": 0}
     else:
         # Ensure identifiers are populated for upsert comparison.
         for document in documents:
@@ -49,7 +47,6 @@ def _persist_entiti(
             collection,
             documents,
             batch_size=batch_size,
-            dry_run=dry_run,
         )
 
     return {
@@ -57,7 +54,6 @@ def _persist_entiti(
         "inserted": outcome["inserted"],
         "updated": outcome["updated"],
         "skipped": outcome["skipped"],
-        "dry_run": outcome["dry_run"],
     }
 
 
@@ -70,17 +66,11 @@ def run_entiti_sekolah(settings: Settings | None = None) -> Dict[str, Any]:
     entiti_collection = db[ENTITI_SEKOLAH_COLLECTION]
 
     documents = compute_entiti_sekolah(db_name)
-    logger.info(
-        "Computed %s EntitiSekolah documents from collection %s",
-        len(documents),
-        Sekolah.collection_name,
-    )
 
     result = _persist_entiti(
         entiti_collection,
         documents,
         batch_size=settings.batch_size,
-        dry_run=settings.dry_run,
     )
     summary = {
         "collection": ENTITI_SEKOLAH_COLLECTION,
@@ -91,7 +81,6 @@ def run_entiti_sekolah(settings: Settings | None = None) -> Dict[str, Any]:
         "inserted": result["inserted"],
         "updated": result["updated"],
         "skipped": result["skipped"],
-        "dry_run": result["dry_run"],
     }
     logger.info("Entiti summary: %s", summary)
     return summary

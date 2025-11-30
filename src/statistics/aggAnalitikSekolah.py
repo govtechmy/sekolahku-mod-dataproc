@@ -138,11 +138,7 @@ def compute_analitik_sekolah(collection: Collection) -> List[Dict[str, Any]]:
     if jumlah_sekolah == 0:
         logger.warning("No sekolah documents found for analytics processing")
         return []
-
-    logger.info(
-        "Aggregating analytics for %s sekolah documents", jumlah_sekolah
-    )
-
+    
     jumlah_guru = int(metadata.get("jumlahGuru") or 0)
     jumlah_pelajar = int(metadata.get("jumlahPelajar") or 0)
 

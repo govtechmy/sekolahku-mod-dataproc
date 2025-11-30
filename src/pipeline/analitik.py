@@ -21,7 +21,6 @@ class PersistAnalitikResult(TypedDict):
     inserted: int
     updated: int
     skipped: int
-    dry_run: bool
     collection: str
 
 
@@ -35,17 +34,15 @@ def _persist_analitik(
     documents: list[dict],
     *,
     batch_size: int,
-    dry_run: bool,
 ) -> PersistAnalitikResult:
     if not documents:
         logger.info("No analytics documents to persist to collection %s", collection.name)
-        outcome = {"processed": 0, "inserted": 0, "updated": 0, "skipped": 0, "dry_run": dry_run}
+        outcome = {"processed": 0, "inserted": 0, "updated": 0, "skipped": 0}
     else:
         outcome = _replace_collection(
             collection,
             documents,
             batch_size=batch_size,
-            dry_run=dry_run,
         )
 
     return {
@@ -54,7 +51,6 @@ def _persist_analitik(
         "inserted": outcome["inserted"],
         "updated": outcome["updated"],
         "skipped": outcome["skipped"],
-        "dry_run": outcome["dry_run"],
     }
 
 
@@ -67,17 +63,11 @@ def run_analitik_sekolah(settings: Optional[Settings] = None) -> PersistAnalitik
     analitik_collection = db[ANALITIK_SEKOLAH_COLLECTION]
 
     documents = compute_analitik_sekolah(db_name)
-    logger.info(
-        "Computed %s AnalitikSekolah documents from collection %s",
-        len(documents),
-        Sekolah.collection_name,
-    )
 
     result = _persist_analitik(
         analitik_collection,
         documents,
         batch_size=settings.batch_size,
-        dry_run=settings.dry_run,
     )
     return result
 
