@@ -63,7 +63,9 @@ logger = logging.getLogger(__name__)
 
 def _read_csv(path: str) -> Iterable[Dict[str, Any]]:
     if not os.path.exists(path):
-        raise FileNotFoundError(f"CSV not found: {path}")
+        # raise FileNotFoundError(f"CSV not found: {path}")
+        logging.warning(f"CSV not found at {path}. Skipping ingestion.")
+        return []
     with open(path, newline="", encoding="utf-8") as handle:
         yield from csv.DictReader(handle)
 
