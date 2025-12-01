@@ -147,7 +147,7 @@ class EntitiSekolah(BaseModel):
             infoLokasi=info_lokasi,
         )
 
-        status = sekolah.status or SekolahStatus.ACTIVE
+        status = sekolah.status if sekolah.status is not None else SekolahStatus.ACTIVE
 
         return cls(
             namaSekolah=sekolah.namaSekolah,

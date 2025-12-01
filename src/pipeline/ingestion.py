@@ -284,6 +284,8 @@ def run(settings: Settings) -> dict[str, Any]:
         identifier = document.get("_id") or document.get("kodSekolah")
         if identifier is None:
             continue
+        # All schools present in raw file are ACTIVE
+        document["status"] = SekolahStatus.ACTIVE.value
         active_identifiers.add(identifier)
 
     try:
