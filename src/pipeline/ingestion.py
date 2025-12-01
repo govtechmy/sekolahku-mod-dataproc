@@ -160,7 +160,6 @@ def _replace_collection(
             if identifier is None:
                 skipped += 1
                 logger.warning("Skipping document without identifier: %s", document)
-
                 continue
 
             processed += 1
@@ -176,23 +175,39 @@ def _replace_collection(
             existing_map = {doc["_id"]: doc for doc in existing_cursor}
 
         operations: list[UpdateOne] = []
+
         for identifier, document in chunk_documents:
             existing = existing_map.get(identifier)
 
-            incoming_checksum = document.get("checksum")
-            if (
-                existing is not None
-                and incoming_checksum is not None
-                and existing.get("checksum") == incoming_checksum
-            ):
-                continue
-
+            # ---------------------------------------
+            # COMPUTE CHECKSUM FOR NEW DOCUMENT
+            # ---------------------------------------
             comparable_fields = {
                 key: value
                 for key, value in document.items()
                 if key not in CHECKSUM_EXCLUDE_KEYS
             }
 
+            serialized = json.dumps(
+                comparable_fields,
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            )
+
+            checksum = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+            document["checksum"] = checksum
+
+            # ---------------------------------------
+            # SKIP IF CHECKSUM MATCHES EXISTING
+            # ---------------------------------------
+            if existing is not None and existing.get("checksum") == checksum:
+                skipped += 1
+                continue
+
+            # ---------------------------------------
+            # DETECT CHANGES FOR UPDATE PAYLOAD
+            # ---------------------------------------
             if existing is None:
                 changes = comparable_fields
             else:
@@ -203,9 +218,8 @@ def _replace_collection(
                 }
 
             if existing is not None and not changes:
+                skipped += 1
                 continue
-
-            logger.debug("Updating %s: changed fields = %s", identifier, list(changes.keys()),)
 
             created_at_on_insert = (
                 (existing.get("createdAt") if existing else None)
@@ -214,7 +228,7 @@ def _replace_collection(
             )
 
             update_document: dict[str, Any] = {
-                "$set": changes,
+                "$set": {**changes, "checksum": checksum},
                 "$setOnInsert": {"createdAt": created_at_on_insert},
                 "$currentDate": {"updatedAt": True},
             }
@@ -240,6 +254,7 @@ def _replace_collection(
         "updated": updated,
         "skipped": skipped,
     }
+
 
 
 def _mark_missing_schools_inactive(
@@ -278,8 +293,6 @@ def run(settings: Settings) -> dict[str, Any]:
     active_identifiers: set[Any] = set()
     for document in documents:
         document["status"] = SekolahStatus.ACTIVE.value  # All schools present in raw file are ACTIVE
-        checksum = _compute_checksum(document)
-        document["checksum"] = checksum
 
         identifier = document.get("_id") or document.get("kodSekolah")
         if identifier is None:
