@@ -39,15 +39,15 @@ class AnalitikSekolah(BaseModel):
 
     collection_name: ClassVar[str] = _settings.analitik_sekolah_collection
 
-    id: str = Field(default="ALL", alias="_id", description="Primary key for the analytics snapshot")
     jumlahSekolah: int = Field(default=0, description="Jumlah keseluruhan sekolah yang diproses")
     jumlahGuru: int = Field(default=0, description="Jumlah keseluruhan guru")
     jumlahPelajar: int = Field(default=0, description="Jumlah keseluruhan pelajar")
     data: AnalitikSekolahData
     createdAt: datetime = Field(default_factory=_utc_now, description="Masa analisis dijana")
+    updatedAt: Optional[datetime] = Field(default=None, description="Waktu kemaskini terakhir bagi dokumen analitik")
 
     @classmethod
-    def from_sekolah_list(cls, sekolah_list: list["Sekolah"], *, region: str = "ALL") -> "AnalitikSekolah":
+    def from_sekolah_list(cls, sekolah_list: list["Sekolah"]) -> "AnalitikSekolah":
         """Create an analytics snapshot from a list of validated Sekolah models."""
         
         jumlah_sekolah = len(sekolah_list)
@@ -87,7 +87,6 @@ class AnalitikSekolah(BaseModel):
         )
 
         return cls(
-            id=region,
             jumlahSekolah=jumlah_sekolah,
             jumlahGuru=total_guru,
             jumlahPelajar=total_pelajar,
@@ -141,7 +140,9 @@ class AnalitikSekolah(BaseModel):
 
     def to_document(self) -> dict:
         """Convert the analytics to a Mongo-ready document, omitting None fields."""
-        return self.model_dump(exclude_none=True, by_alias=True)
+        doc = self.model_dump(exclude_none=True, by_alias=True)
+        doc["updatedAt"] = _utc_now()
+        return doc
 
 
 __all__ = [

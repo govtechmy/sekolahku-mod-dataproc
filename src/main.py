@@ -53,8 +53,13 @@ def main() -> None:
 
     entiti = run_entiti_sekolah_dict(settings)
     logger.info("Entiti summary: %s", entiti)
-    analitik = run_analitik_dict(settings)
-    logger.info("Analitik summary: %s", analitik)
+
+    if result["inserted"] == 0 and result["updated"] == 0 and result["inactivated"] == 0:
+        logger.info("No data changes detected; skipping Analitik run")
+    else:
+        analitik = run_analitik_dict(settings)
+        logger.info("Analitik summary: %s", analitik)
+
 
 if __name__ == "__main__":
     main()

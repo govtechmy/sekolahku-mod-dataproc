@@ -28,47 +28,35 @@ def _get_db(settings: Settings) -> Database:
     client = MongoClient(settings.mongo_uri)
     return client[settings.db_name]
 
-
-def _persist_analitik(
-    collection: Collection,
-    documents: list[dict],
-    *,
-    batch_size: int,
-) -> PersistAnalitikResult:
-    if not documents:
-        logger.info("No analytics documents to persist to collection %s", collection.name)
-        outcome = {"processed": 0, "inserted": 0, "updated": 0, "skipped": 0}
-    else:
-        outcome = _replace_collection(
-            collection,
-            documents,
-            batch_size=batch_size,
-        )
+def _persist_analitik(collection: Collection, document: dict) -> dict:
+    """Overwrite data for every run."""
+    collection.replace_one({"_id": "1"}, document, upsert=True)
 
     return {
         "collection": collection.name,
-        "processed": outcome["processed"],
-        "inserted": outcome["inserted"],
-        "updated": outcome["updated"],
-        "skipped": outcome["skipped"],
+        "processed": 1,
+        "inserted": 1,
+        "updated": 0,
+        "skipped": 0,
     }
 
 
 def run_analitik_sekolah(settings: Optional[Settings] = None) -> PersistAnalitikResult:
-    """Generate and persist the AnalitikSekolah aggregation output."""
+    """Generate the AnalitikSekolah aggregation output."""
 
     settings = settings or get_settings()
     db = _get_db(settings)
-    db_name = db[Sekolah.collection_name]
+    sekolah_collection = db[Sekolah.collection_name]
     analitik_collection = db[ANALITIK_SEKOLAH_COLLECTION]
 
-    documents = compute_analitik_sekolah(db_name)
+    documents = compute_analitik_sekolah(sekolah_collection)
+    if not documents:
+        return {"collection": ANALITIK_SEKOLAH_COLLECTION, "processed": 0, "inserted": 0, "updated": 0, "skipped": 0}
 
-    result = _persist_analitik(
-        analitik_collection,
-        documents,
-        batch_size=settings.batch_size,
-    )
+    # Only one document
+    doc = documents[0]
+
+    result = _persist_analitik(analitik_collection, doc)
     return result
 
 
