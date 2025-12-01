@@ -19,16 +19,16 @@ def _utc_now() -> datetime:
 class AnalitikItem(BaseModel):
     """Individual analytics item with type, percentage, and total."""
     
-    jenis: str = Field(..., description="Kategori atau jenis")
-    peratus: float = Field(..., description="Peratusan daripada jumlah keseluruhan")
-    total: int = Field(..., description="Jumlah bilangan untuk kategori ini")
+    jenis: str = Field(..., description="Category or type of the school e.g. 'SK', 'SMK'")
+    peratus: float = Field(..., description="Percentage of overall total")
+    total: int = Field(..., description="Total count for this category")
 
 
 class AnalitikSekolahData(BaseModel):
     """Container for all analytics dimensions in array format."""
     
-    jenisLabel: list[AnalitikItem] = Field(default_factory=list, description="Analisis mengikut jenis/label sekolah") 
-    bantuan: list[AnalitikItem] = Field(default_factory=list, description="Analisis mengikut jenis bantuan")
+    jenisLabel: list[AnalitikItem] = Field(default_factory=list, description="Analysis by school type/label") 
+    bantuan: list[AnalitikItem] = Field(default_factory=list, description="Analysis by bantuan type")
 
 
 _settings = get_settings()
@@ -39,12 +39,12 @@ class AnalitikSekolah(BaseModel):
 
     collection_name: ClassVar[str] = _settings.analitik_sekolah_collection
 
-    jumlahSekolah: int = Field(default=0, description="Jumlah keseluruhan sekolah yang diproses")
-    jumlahGuru: int = Field(default=0, description="Jumlah keseluruhan guru")
-    jumlahPelajar: int = Field(default=0, description="Jumlah keseluruhan pelajar")
+    jumlahSekolah: int = Field(default=0, description="Total number of schools in Malaysia")
+    jumlahGuru: int = Field(default=0, description="Total number of teachers in Malaysia")
+    jumlahPelajar: int = Field(default=0, description="Total number of students in Malaysia")
     data: AnalitikSekolahData
-    createdAt: datetime = Field(default_factory=_utc_now, description="Masa analisis dijana")
-    updatedAt: Optional[datetime] = Field(default=None, description="Waktu kemaskini terakhir bagi dokumen analitik")
+    createdAt: datetime = Field(default_factory=_utc_now, description="UTC time when document is first created")
+    updatedAt: Optional[datetime] = Field(default=None, description="UTC time when document is last updated")
 
     @classmethod
     def from_sekolah_list(cls, sekolah_list: list["Sekolah"]) -> "AnalitikSekolah":
