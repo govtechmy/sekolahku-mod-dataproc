@@ -3,3 +3,5 @@ pydantic-settings>=2,<3
 pymongo>=4.6,<5
 python-dotenv>=1.0.0,<2.0.0
 email-validator>=2.0.0,<3.0.0
+boto3>=1.40.0,<2.0.0
+botocore>=1.40.0,<2.0.0
