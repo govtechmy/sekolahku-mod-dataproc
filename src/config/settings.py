@@ -6,7 +6,6 @@ from typing import Optional
 
 import boto3
 from dotenv import load_dotenv
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -69,7 +68,7 @@ def get_env_int(name: str, default: int) -> int:
         return int(raw)
     except ValueError:
         return default
-    
+
 
 class Settings(BaseSettings):
 
@@ -91,4 +90,5 @@ class Settings(BaseSettings):
 
 def get_settings() -> Settings:
     """Return environment settings."""
-    return Settings()  # type: ignore[arg-type]
+    return Settings()  
+ 
