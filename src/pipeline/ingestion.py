@@ -20,6 +20,8 @@ from src.pipeline.status_sync import sync_entiti_statuses
 
 
 CHECKSUM_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt", "checksum", "status"}
+COMPARISON_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt", "status"}
+
 
 def _compute_checksum(document: Dict[str, Any]) -> str:
     filtered = {
@@ -30,8 +32,10 @@ def _compute_checksum(document: Dict[str, Any]) -> str:
     serialized = json.dumps(filtered, sort_keys=True, separators=(",", ":"), ensure_ascii=False,)
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
+
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
+
 
 def _merge_document(
     existing: dict[str, Any] | None,
@@ -71,6 +75,7 @@ def _merge_document(
         "set": changes,
         "currentDate": {"updatedAt": True},
     }
+
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +197,7 @@ def _replace_collection(
             comparable_fields = {
                 key: value
                 for key, value in document.items()
-                if key not in CHECKSUM_EXCLUDE_KEYS
+                if key not in COMPARISON_EXCLUDE_KEYS
             }
 
             if existing is None:
