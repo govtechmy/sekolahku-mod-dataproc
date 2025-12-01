@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import os
 import json
+import logging
 from typing import Optional
 
 import boto3
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 load_dotenv()
@@ -27,7 +30,9 @@ def _load_from_aws_secrets_manager_if_configured() -> None:
         client = boto3.client("secretsmanager")
         response = client.get_secret_value(SecretId=secret_name)
         secret_str = response.get("SecretString")
+        
         if not secret_str:
+            logger.warning(f"[AWS Secrets] Secret {secret_name} returned empty string")
             return
 
         try:
@@ -46,8 +51,9 @@ def _load_from_aws_secrets_manager_if_configured() -> None:
                 continue
             key, value = stripped.split("=", 1)
             os.environ[key.strip()] = value.strip()
-        
+
     except Exception as e:
+        logger.error("Failed to load secrets from AWS Secrets Manager '%s': %s", secret_name, e)
         return
 
 _load_from_aws_secrets_manager_if_configured()
