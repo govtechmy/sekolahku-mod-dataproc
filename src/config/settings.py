@@ -54,13 +54,11 @@ _load_from_aws_secrets_manager_if_configured()
 
 
 def get_env_str(name: str, default: Optional[str] = None) -> Optional[str]:
-
     value = os.getenv(name, default)
     return value
 
 
 def get_env_int(name: str, default: int) -> int:
-
     raw = os.getenv(name)
     if raw is None:
         return default
@@ -79,16 +77,15 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    MONGO_URI: str = get_env_str("MONGO_URI")
-    DB_NAME: str = get_env_str("DB_NAME")
-    SEKOLAH_COLLECTION: str = get_env_str("SEKOLAH_COLLECTION", "Sekolah")
-    ENTITI_SEKOLAH_COLLECTION: str = get_env_str("ENTITI_SEKOLAH_COLLECTION", "EntitiSekolah")
-    ANALITIK_SEKOLAH_COLLECTION: str = get_env_str("ANALITIK_SEKOLAH_COLLECTION", "AnalitikSekolah")
-    CSV_PATH: str = get_env_str("CSV_PATH", "data/sekolah.csv")
-    BATCH_SIZE: int = get_env_int("BATCH_SIZE", 500)
+    mongo_uri: str = get_env_str("MONGO_URI")
+    db_name: str = get_env_str("DB_NAME")
+    sekolah_collection: str = get_env_str("SEKOLAH_COLLECTION", "Sekolah")
+    entiti_sekolah_collection: str = get_env_str("ENTITI_SEKOLAH_COLLECTION", "EntitiSekolah")
+    analitik_sekolah_collection: str = get_env_str("ANALITIK_SEKOLAH_COLLECTION", "AnalitikSekolah")
+    csv_path: str = get_env_str("CSV_PATH", "data/sekolah.csv")
+    batch_size: int = get_env_int("BATCH_SIZE", 500)
 
 
 def get_settings() -> Settings:
     """Return environment settings."""
     return Settings()  
- 
