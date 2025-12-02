@@ -1,8 +1,77 @@
 from __future__ import annotations
 
+import os
+import json
+import logging
+from typing import Optional
 
-from pydantic import Field
+import boto3
+from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+logger = logging.getLogger(__name__)
+
+
+load_dotenv()
+
+
+def _load_from_aws_secrets_manager_if_configured() -> None:
+    """If AWS_SECRETS_NAME is set, attempt to load and inject secret values.
+
+    - Secret value is expected to be a JSON object of key/value pairs.
+    - If JSON parsing fails, falls back to parsing .env-style lines.
+    - On any error, silently falls back to existing environment (.env already loaded).
+    """
+    secret_name = os.getenv("AWS_SECRETS_NAME")
+    if not secret_name:
+        return
+
+    try:
+        client = boto3.client("secretsmanager")
+        response = client.get_secret_value(SecretId=secret_name)
+        secret_str = response.get("SecretString")
+        
+        if not secret_str:
+            logger.warning(f"[AWS Secrets] Secret {secret_name} returned empty string")
+            return
+
+        try:
+            parsed = json.loads(secret_str)
+            if isinstance(parsed, dict):
+                for key, value in parsed.items():
+                    os.environ[key] = str(value)
+                return
+        except json.JSONDecodeError:
+            pass
+
+        # Fallback: parse as .env-style lines (KEY=VALUE)
+        for line in secret_str.splitlines():
+            stripped = line.strip()
+            if not stripped or stripped.startswith("#") or "=" not in stripped:
+                continue
+            key, value = stripped.split("=", 1)
+            os.environ[key.strip()] = value.strip()
+
+    except Exception as e:
+        logger.error("Failed to load secrets from AWS Secrets Manager '%s': %s", secret_name, e)
+        return
+
+_load_from_aws_secrets_manager_if_configured()
+
+
+def get_env_str(name: str, default: Optional[str] = None) -> Optional[str]:
+    value = os.getenv(name, default)
+    return value
+
+
+def get_env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
 
 
 class Settings(BaseSettings):
@@ -14,28 +83,24 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    mongo_uri: str = Field(default="mongodb://localhost:27017", alias="MONGO_URI")
-    db_name: str = Field(default="sekolahku", alias="DB_NAME")
-    sekolah_collection: str = Field(default="Sekolah", alias="SEKOLAH_COLLECTION")
-    entiti_sekolah_collection: str = Field(default="EntitiSekolah", alias="ENTITI_SEKOLAH_COLLECTION")
-    analitik_sekolah_collection: str = Field(default="AnalitikSekolah", alias="ANALITIK_SEKOLAH_COLLECTION")
-    csv_path: str = Field(default="data/sekolah.csv", alias="CSV_PATH")
+    mongo_uri: str = get_env_str("MONGO_URI")
+    db_name: str = get_env_str("DB_NAME")
+    sekolah_collection: str = get_env_str("SEKOLAH_COLLECTION", "Sekolah")
+    entiti_sekolah_collection: str = get_env_str("ENTITI_SEKOLAH_COLLECTION", "EntitiSekolah")
+    analitik_sekolah_collection: str = get_env_str("ANALITIK_SEKOLAH_COLLECTION", "AnalitikSekolah")
+    csv_path: str = get_env_str("CSV_PATH", "data/sekolah.csv")
     gsheet_id: str | None = Field(default=None, alias="GSHEET_ID")
     gsheet_gid: str | None = Field(default=None, alias="GSHEET_GID")
     gsheet_worksheet_name: str = Field(default="Sheet1", alias="GSHEET_WORKSHEET_NAME")
-    batch_size: int = Field(default=500, alias="BATCH_SIZE")
-    dry_run_flag: int = Field(default=0, alias="DRY_RUN")
+    batch_size: int = get_env_int("BATCH_SIZE", 500)
     s3_bucket: str = Field(default=..., alias="S3_BUCKET")
     s3_prefix: str = Field(default=..., alias="S3_PREFIX")
     aws_profile: str = Field(default=..., alias="AWS_PROFILE")
     aws_region: str = Field(default=..., alias="AWS_REGION")
 
-    @property
-    def dry_run(self) -> bool:
-        """Expose dry-run flag as bool for readability."""
-        return bool(self.dry_run_flag)
+
 
 
 def get_settings() -> Settings:
     """Return environment settings."""
-    return Settings()  # type: ignore[arg-type]
+    return Settings()  

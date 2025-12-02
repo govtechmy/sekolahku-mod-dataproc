@@ -11,7 +11,7 @@
         }
       },
       "name": "sekolahku-mod-dataproc",
-      "portMappings": [{ "containerPort": 8080, "hostPort": 8080, "name": "sekolahku-mod-dataproc" }],
+      "portMappings": [{ "containerPort": 8000, "hostPort": 8000, "name": "sekolahku-mod-dataproc" }],
       "stopTimeout": 2
     }
   ],
