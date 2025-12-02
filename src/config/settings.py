@@ -91,6 +91,7 @@ class Settings(BaseSettings):
     csv_path: str = get_env_str("CSV_PATH", "data/sekolah.csv")
     batch_size: int = get_env_int("BATCH_SIZE", 500)
     port: int = get_env_int("PORT", 8000)
+    s3_bucket_name: str = get_env_str("S3_BUCKET_NAME", "my.gov.digital.sekolahku-public-dev")
 
 
 def get_settings() -> Settings:
