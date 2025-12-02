@@ -90,6 +90,7 @@ class Settings(BaseSettings):
     analitik_sekolah_collection: str = get_env_str("ANALITIK_SEKOLAH_COLLECTION", "AnalitikSekolah")
     csv_path: str = get_env_str("CSV_PATH", "data/sekolah.csv")
     batch_size: int = get_env_int("BATCH_SIZE", 500)
+    port: int = get_env_int("PORT", 8000)
 
 
 def get_settings() -> Settings:
