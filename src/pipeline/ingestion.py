@@ -20,8 +20,7 @@ from src.pipeline.status_sync import sync_entiti_statuses
 
 
 CHECKSUM_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt", "checksum", "status"}
-# COMPARISON_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt"}
-COMPARISON_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt", "checksum"}
+COMPARISON_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt"}
 
 
 def _compute_checksum(document: Dict[str, Any]) -> str:
@@ -190,7 +189,7 @@ def _replace_collection(
 
             # Always enforce status=ACTIVE for documents
             required_status = SekolahStatus.ACTIVE.value
-            current_status = existing.get("status")
+            current_status = existing.get("status") if existing is not None else None
 
             if current_status != required_status:
                 changes["status"] = required_status
