@@ -9,6 +9,7 @@ from pydantic import ConfigDict
 from typing_extensions import Literal
 from src.config.settings import get_settings
 from src.models.sekolah import SekolahStatus
+from src.models.negeriEnum import NegeriEnum
 
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
@@ -31,7 +32,7 @@ class InfoKomunikasi(BaseModel):
     bandarSurat: Optional[str] = Field(default=None, description="Mailing city")
 
 class InfoPentadbiran(BaseModel):
-    negeri: Optional[str] = Field(default=None, description="State the school is located in")
+    negeri: NegeriEnum | None = Field(default=None, description="State the school is located in")
     ppd: Optional[str] = Field(default=None, description="Pejabat Pendidikan Daerah (district office)")
     parlimen: Optional[str] = Field(default=None, description="Parliament constituency")
     bantuan: Optional[str] = Field(default=None, description="Bantuan classification")

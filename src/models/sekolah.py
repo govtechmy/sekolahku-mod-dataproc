@@ -8,12 +8,14 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from src.config.settings import get_settings
+from src.models.negeriEnum import NegeriEnum
 
 
 MISSING_VALUES = {"TIADA", "", "NONE", "-", "--", "BELUM ADA"}
 BOOL_ADA_MAP = {"ADA": True, "TIADA": False, "": None}
 BOOL_YA_MAP = {"YA": True, "TIDAK": False, "": None}
 
+_settings = get_settings()
 
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
@@ -22,14 +24,10 @@ class SekolahStatus(str, Enum):
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
 
-
-_settings = get_settings()
-
-
 class Sekolah(BaseModel):
     collection_name: ClassVar[str] = _settings.sekolah_collection
 
-    negeri: Optional[str] = Field(default=None, alias="NEGERI")
+    negeri: NegeriEnum | None = Field(default=None, alias="NEGERI")
     ppd: Optional[str] = Field(default=None, alias="PPD")
     parlimen: Optional[str] = Field(default=None, alias="PARLIMEN")
     dun: Optional[str] = Field(default=None, alias="DUN")
@@ -94,8 +92,18 @@ class Sekolah(BaseModel):
             raise ValueError("kodSekolah is required")
         return text
 
-    @field_validator("parlimen", "dun", mode="before")
-    def clean_string(cls, value):
+    @field_validator("parlimen", mode="before")
+    def normalize_parlimen(cls, value):
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        text = text.upper()
+        return text.replace(" ", "_")
+
+    @field_validator("dun", mode="before")
+    def normalize_dun(cls, value):
         if value is None:
             return None
         text = str(value).strip()
@@ -158,6 +166,22 @@ class Sekolah(BaseModel):
         except ValueError as exc:
             raise ValueError("status must be 'ACTIVE' or 'INACTIVE'") from exc
 
+    @field_validator("negeri", mode="before")
+    def normalize_negeri(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, NegeriEnum):
+            return value
+
+        text = str(value).strip().upper()
+        if not text or text in MISSING_VALUES:
+            return None
+        normalized = text.replace(" ", "_")
+        try:
+            return NegeriEnum(normalized)
+        except ValueError as exc:
+            raise ValueError(f"Invalid negeri value: {text}") from exc
+
     model_config = {
         "populate_by_name": True,
         "extra": "ignore",
@@ -179,3 +203,6 @@ class Sekolah(BaseModel):
         else:
             data["location"] = None
         return data
+
+
+__all__ = ["Sekolah", "NegeriEnum"]
