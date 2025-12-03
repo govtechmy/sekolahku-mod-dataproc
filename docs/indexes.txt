@@ -28,3 +28,24 @@ db.getCollection("Sekolah").createIndex(
 db.getCollection("Sekolah").createIndex(
   { location: "2dsphere" })
 ;
+
+
+db.NegeriParlimenKodSekolah.createIndex(
+  { negeri: 1 },
+  { name: "negeri", background: true }
+);
+
+db.NegeriParlimenKodSekolah.createIndex(
+  { parlimen: 1 },
+  { name: "parlimen", background: true }
+);
+
+db.EntitiSekolah.createIndex(
+  { "data.infoPentadbiran.negeri": 1 },
+  { name: "negeri", background: true }
+);
+
+db.EntitiSekolah.createIndex(
+  { "data.infoPentadbiran.parlimen": 1 },
+  { name: "parlimen", background: true }
+);
