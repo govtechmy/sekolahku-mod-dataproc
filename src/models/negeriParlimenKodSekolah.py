@@ -8,28 +8,9 @@ from pydantic import BaseModel, Field, field_validator
 
 from src.config.settings import get_settings
 
+from src.models.negeriEnum import NegeriEnum
 
 _settings = get_settings()
-
-
-class NegeriEnum(str, Enum):
-    JOHOR = "JOHOR"
-    KEDAH = "KEDAH"
-    KELANTAN = "KELANTAN"
-    MELAKA = "MELAKA"
-    NEGERI_SEMBILAN = "NEGERI_SEMBILAN"
-    PAHANG = "PAHANG"
-    PERAK = "PERAK"
-    PERLIS = "PERLIS"
-    PULAU_PINANG = "PULAU_PINANG"
-    SABAH = "SABAH"
-    SARAWAK = "SARAWAK"
-    SELANGOR = "SELANGOR"
-    TERENGGANU = "TERENGGANU"
-    WILAYAH_PERSEKUTUAN_KUALA_LUMPUR = "WILAYAH_PERSEKUTUAN_KUALA_LUMPUR"
-    WILAYAH_PERSEKUTUAN_LABUAN = "WILAYAH_PERSEKUTUAN_LABUAN"
-    WILAYAH_PERSEKUTUAN_PUTRAJAYA = "WILAYAH_PERSEKUTUAN_PUTRAJAYA"
-
 
 class NegeriParlimenKodSekolah(BaseModel):
     """Model representing a (negeri, parlimen) pair and its related school codes."""
