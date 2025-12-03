@@ -205,4 +205,4 @@ class Sekolah(BaseModel):
         return data
 
 
-__all__ = ["Sekolah", "NegeriEnum"]
+__all__ = ["Sekolah"]
