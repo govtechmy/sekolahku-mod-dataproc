@@ -158,6 +158,17 @@ class Sekolah(BaseModel):
         except ValueError as exc:
             raise ValueError("status must be 'ACTIVE' or 'INACTIVE'") from exc
 
+    @field_validator("negeri", "parlimen", mode="before")
+    def clean_negeri(cls, value):
+        if value is None:
+            return None
+        text = str(value).strip()
+        if not text:
+            return None
+        text = "_".join(text.split())
+        return text.upper()
+
+
     model_config = {
         "populate_by_name": True,
         "extra": "ignore",
