@@ -34,7 +34,7 @@ def configure_settings(_: argparse.Namespace) -> Settings:
 
 def main() -> None:
     args = parse_args()
-    logging.basicConfig(level=getattr(args, "log_level", "INFO").upper())
+    logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
     settings = configure_settings(args)
 
     if getattr(args, "negeri_parlimen_kod_sekolah", False):
