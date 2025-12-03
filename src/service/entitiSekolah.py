@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from botocore.exceptions import ClientError
@@ -14,6 +15,8 @@ from src.core.aws import get_s3_client, get_s3_bucket_name
 
 logger = logging.getLogger(__name__)
 
+BATCH_SIZE = 100
+MAX_WORKERS = 10
 TEMP_PREFIX = "temp"
 
 
@@ -39,6 +42,18 @@ def _build_parlimen_path(document: dict[str, Any]) -> tuple[str, str, str]:
     return negeri, parlimen, kod_sekolah
 
 
+def _upload_to_s3(s3_client, bucket: str, temp_key: str, payload: bytes, kod_sekolah: str):
+    try:
+        s3_client.put_object(
+            Bucket=bucket,
+            Key=temp_key,
+            Body=payload,
+            ContentType="application/json",
+        )
+    except ClientError:
+        logger.exception("Failed to upload sekolah=%s to temp key=%s", kod_sekolah, temp_key)
+
+
 def revalidate_school_entity(settings: Settings) -> dict[str, Any]:
     mongo_client = MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=5000)
     s3_client = get_s3_client()
@@ -59,27 +74,25 @@ def revalidate_school_entity(settings: Settings) -> dict[str, Any]:
             settings.db_name,
             settings.entiti_sekolah_collection,
         )
-        cursor = collection.find({}, {"_id": 0})
+        cursor = collection.find({}, {"_id": 0}).batch_size(BATCH_SIZE)
 
-        for document in cursor:
-            negeri, parlimen, kod_sekolah = _build_parlimen_path(document)
-            temp_key = f"{TEMP_PREFIX}/{negeri}/{parlimen}/{kod_sekolah}.json"
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+            futures = []
+            for document in cursor:
+                negeri, parlimen, kod_sekolah = _build_parlimen_path(document)
+                temp_key = f"{TEMP_PREFIX}/{negeri}/{parlimen}/{kod_sekolah}.json"
 
-            payload = _dumps_document(document)
-            logger.debug("Uploading sekolah=%s to temp key=%s", kod_sekolah, temp_key)
-            try:
-                s3_client.put_object(
-                    Bucket=bucket,
-                    Key=temp_key,
-                    Body=payload,
-                    ContentType="application/json",
-                )
-            except ClientError:
-                logger.exception("Failed to upload sekolah=%s to temp key=%s", kod_sekolah, temp_key)
-                raise
+                payload = _dumps_document(document)
+                logger.debug("Uploading sekolah=%s to temp key=%s", kod_sekolah, temp_key)
+                future = executor.submit(_upload_to_s3, s3_client, bucket, temp_key, payload, kod_sekolah)
+                futures.append(future)
 
-            uploaded_temp_keys.append(temp_key)
-            processed += 1
+                uploaded_temp_keys.append(temp_key)
+                processed += 1
+
+            # Wait for all uploads to complete
+            for future in futures:
+                future.result()
 
         final_keys: list[str] = []
         for temp_key in uploaded_temp_keys:
