@@ -37,7 +37,7 @@ def main() -> None:
     logging.basicConfig(level=getattr(args, "log_level", "INFO").upper())
     settings = configure_settings(args)
 
-    if getattr(args, "negeriParlimenKodSekolah", False):
+    if getattr(args, "negeri_parlimen_kod_sekolah", False):
         summary = run_negeri_parlimen_kod_sekolah(settings)
         logger.info("NegeriParlimenKodSekolah summary: %s", summary)
         return
