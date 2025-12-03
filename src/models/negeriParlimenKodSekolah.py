@@ -36,12 +36,9 @@ class NegeriParlimenKodSekolah(BaseModel):
 
     collection_name: ClassVar[str] = _settings.negeri_parlimen_kod_sekolah_collection
 
-    negeri: Optional[NegeriEnum] = Field(default=None, description="Nama negeri (Enum)")
-    parlimen: Optional[str] = Field(default=None, description="Nama parlimen")
-    kodSekolahList: List[str] = Field(
-        default_factory=list,
-        description="List of school codes under this negeri-parlimen pair",
-    )
+    negeri: Optional[NegeriEnum] = Field(default=None, description="State name")
+    parlimen: Optional[str] = Field(default=None, description="Parliament name")
+    kodSekolahList: List[str] = Field(default_factory=list, description="List of school codes under negeri-parlimen pair")
 
     @field_validator("negeri", mode="before")
     def normalize_negeri(cls, value):
@@ -50,12 +47,10 @@ class NegeriParlimenKodSekolah(BaseModel):
         text = str(value).strip()
         if not text:
             return None
-        # normalise to uppercase with underscores between words
         text = "_".join(text.split()).upper()
         try:
             return NegeriEnum(text)
         except ValueError:
-            # If it doesn't match the enum, treat as invalid/None
             return None
 
     @field_validator("parlimen", mode="before")
