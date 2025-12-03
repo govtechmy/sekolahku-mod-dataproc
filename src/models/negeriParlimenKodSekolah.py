@@ -50,6 +50,7 @@ class NegeriParlimenKodSekolah(BaseModel):
         text = "_".join(text.split()).upper()
         try:
             return NegeriEnum(text)
+        # If it doesn't match the enum, return None
         except ValueError:
             return None
 
