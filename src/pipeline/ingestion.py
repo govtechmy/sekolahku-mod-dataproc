@@ -17,8 +17,8 @@ from pymongo.errors import OperationFailure
 
 from src.config import Settings, get_settings
 from src.models import Sekolah
-from src.pipeline.gsheet.scrape import fetch_csv_data
-from src.pipeline.s3.utils import (_upload_to_s3, _latest_csv_from_s3, _read_csv_from_s3)
+from src.core.gsheet import fetch_csv_data
+from src.core.s3 import (_upload_to_s3, _latest_csv_from_s3, _read_csv_from_s3)
 from src.models.sekolah import SekolahStatus
 from src.pipeline.status_sync import sync_entiti_statuses
 
