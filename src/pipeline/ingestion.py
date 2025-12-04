@@ -24,6 +24,7 @@ from src.pipeline.status_sync import sync_entiti_statuses
 
 
 CHECKSUM_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt", "checksum", "status"}
+COMPARISON_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt"}
 
 def _compute_checksum(document: Dict[str, Any]) -> str:
     filtered = {
@@ -230,7 +231,7 @@ def _replace_collection(
             comparable_fields = {
                 key: value
                 for key, value in document.items()
-                if key not in CHECKSUM_EXCLUDE_KEYS
+                if key not in COMPARISON_EXCLUDE_KEYS
             }
 
             if existing is None:
