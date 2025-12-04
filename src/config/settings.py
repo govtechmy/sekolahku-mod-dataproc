@@ -93,10 +93,10 @@ class Settings(BaseSettings):
     gsheet_gid: str | None = Field(default=None, alias="GSHEET_GID")
     gsheet_worksheet_name: str = Field(default="Sheet1", alias="GSHEET_WORKSHEET_NAME")
     batch_size: int = get_env_int("BATCH_SIZE", 500)
-    s3_bucket: str = Field(default=..., alias="S3_BUCKET")
-    s3_prefix: str = Field(default=..., alias="S3_PREFIX")
-    aws_profile: str = Field(default=..., alias="AWS_PROFILE")
-    aws_region: str = Field(default=..., alias="AWS_REGION")
+    s3_bucket: str = get_env_str("S3_BUCKET")
+    s3_prefix: str = get_env_str("S3_PREFIX")
+    aws_profile: str = get_env_str("AWS_PROFILE")
+    aws_region: str = get_env_str("AWS_REGION")
 
 
 
