@@ -9,7 +9,7 @@ from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
 from src.config.settings import get_settings
-from src.service.entitiSekolah import revalidate_school_entity
+from src.service.entitiRevalidate import revalidate_school_entity
 
 if not logging.getLogger().handlers:
     logging.basicConfig(
