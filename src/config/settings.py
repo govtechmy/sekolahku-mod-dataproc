@@ -88,6 +88,7 @@ class Settings(BaseSettings):
     sekolah_collection: str = get_env_str("SEKOLAH_COLLECTION", "Sekolah")
     entiti_sekolah_collection: str = get_env_str("ENTITI_SEKOLAH_COLLECTION", "EntitiSekolah")
     analitik_sekolah_collection: str = get_env_str("ANALITIK_SEKOLAH_COLLECTION", "AnalitikSekolah")
+    negeri_parlimen_kod_sekolah_collection: str = get_env_str("NEGERI_PARLIMEN_KOD_SEKOLAH_COLLECTION", "NegeriParlimenKodSekolah")
     csv_path: str = get_env_str("CSV_PATH", "data/sekolah.csv")
     gsheet_id: str | None = Field(default=None, alias="GSHEET_ID")
     gsheet_gid: str | None = Field(default=None, alias="GSHEET_GID")
@@ -103,4 +104,4 @@ class Settings(BaseSettings):
 
 def get_settings() -> Settings:
     """Return environment settings."""
-    return Settings()  
+    return Settings()
