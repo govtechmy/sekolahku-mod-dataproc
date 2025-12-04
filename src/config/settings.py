@@ -91,6 +91,11 @@ class Settings(BaseSettings):
     negeri_parlimen_kod_sekolah_collection: str = get_env_str("NEGERI_PARLIMEN_KOD_SEKOLAH_COLLECTION", "NegeriParlimenKodSekolah")
     csv_path: str = get_env_str("CSV_PATH", "data/sekolah.csv")
     batch_size: int = get_env_int("BATCH_SIZE", 500)
+    port: int = get_env_int("PORT", 8000)
+    s3_bucket_name: str = get_env_str("S3_BUCKET_NAME", "my.gov.digital.sekolahku-public-dev")
+    entiti_revalidate_batch_size: int = get_env_int("ENTITI_REVALIDATE_BATCH_SIZE", 100)
+    entiti_revalidate_max_workers: int = get_env_int("ENTITI_REVALIDATE_MAX_WORKERS", 10)
+    entiti_revalidate_temp_prefix: str = get_env_str("ENTITI_REVALIDATE_TEMP_PREFIX", "temp")
 
 
 def get_settings() -> Settings:
