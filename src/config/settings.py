@@ -92,7 +92,6 @@ class Settings(BaseSettings):
     csv_path: str = get_env_str("CSV_PATH", "data/sekolah.csv")
     gsheet_id: str = get_env_str("GSHEET_ID")
     gsheet_gid: str = get_env_str("GSHEET_ID")
-    gsheet_worksheet_name: str = get_env_str("GSHEET_ID")
     batch_size: int = get_env_int("BATCH_SIZE", 500)
     s3_bucket: str = get_env_str("S3_BUCKET")
     s3_prefix: str = get_env_str("S3_PREFIX")
