@@ -12,8 +12,7 @@ from shapely.geometry import shape, mapping
 from shapely.validation import make_valid
 
 from src.config.settings import Settings, get_settings
-from src.models.negeriPolygon import NegeriPolygon
-from src.models.parlimenPolygon import ParlimenPolygon
+from src.models.polygon import NegeriPolygon, ParlimenPolygon
 from src.polygons.polygon import (
     normalize_state_name,
     normalize_parliament_name,
