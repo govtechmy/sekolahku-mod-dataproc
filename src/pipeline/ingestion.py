@@ -19,7 +19,7 @@ from src.models.sekolah import SekolahStatus
 from src.pipeline.status_sync import sync_entiti_statuses
 
 
-CHECKSUM_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt", "checksum"}
+CHECKSUM_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt", "checksum", "status"}
 COMPARISON_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt"}
 
 def _compute_checksum(document: Dict[str, Any]) -> str:
@@ -196,13 +196,6 @@ def _replace_collection(
             existing = existing_map.get(identifier)
 
             incoming_checksum = document.get("checksum")
-            if (
-                existing is not None
-                and incoming_checksum is not None
-                and existing.get("checksum") == incoming_checksum
-            ):
-                continue
-
             comparable_fields = {
                 key: value
                 for key, value in document.items()
@@ -293,9 +286,9 @@ def run(settings: Settings) -> dict[str, Any]:
 
     active_identifiers: set[Any] = set()
     for document in documents:
-        document["status"] = SekolahStatus.ACTIVE.value  # All schools present in raw file are ACTIVE
         checksum = _compute_checksum(document)
         document["checksum"] = checksum
+        document["status"] = SekolahStatus.ACTIVE.value # All schools present in raw file are ACTIVE
 
         identifier = document.get("_id") or document.get("kodSekolah")
         if identifier is None:
