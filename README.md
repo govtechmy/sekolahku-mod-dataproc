@@ -12,7 +12,14 @@ CSV_PATH=data/custom_sekolah.csv python -m src.main
 # Run ingestion and EntitiSekolah aggregation
 python -m src.main --entiti
 
-# Show verbosity for a single run (flag expects a value)
+# Extract GeoJSON polygons from OpenDOSM 
+python -m src.polygons.extract_kawasanku_negeri
+python -m src.polygons.extract_kawasanku_parlimen
+
+# Load extracted polygons into MongoDB
+python -m src.main --load-polygons
+
+# Show verbosity for a single run 
 python -m src.main --log-level DEBUG
 ```
 
@@ -21,9 +28,11 @@ python -m src.main --log-level DEBUG
 Configuration (source, paths, Mongo connection, etc.) is controlled entirely through environment variables. Define values in `.env` or export them before running the module. The CLI exposes a couple of runtime toggles:
 
 - `--entiti` triggers the EntitiSekolah aggregation pipeline.
+- `--analitik` triggers the AnalitikSekolah aggregation pipeline.
+- `--load-polygons` loads OpenDOSM polygon seed data into `NegeriPolygon` and `ParlimenPolygon` 
 - `--log-level <LEVEL>` adjusts logging verbosity for the current process (choose from `DEBUG`, `INFO`, `WARNING`, `ERROR`).
 
-The entiti flag writes to the `EntitiSekolah` collection.
+The `--entiti` flag writes to the `EntitiSekolah` collection. The `--analitik` flag writes to the `AnalitikSekolah` collection. The `--load-polygons` flag writes to the `NegeriPolygon` and `ParlimenPolygon` collections after reading extracted GeoJSON files from `data_output/extracted_parlimen/` and `data_output/extracted_negeri/`.
 
 ## Requirements
 
@@ -57,6 +66,13 @@ python -m src.main --entiti
 # Run AnalitikSekolah pipeline
 python -m src.main --analitik
 
+# Extract GeoJSON polygons from OpenDOSM 
+python -m src.polygons.extract_kawasanku_negeri
+python -m src.polygons.extract_kawasanku_parlimen
+
+# Load polygon seed collections (run after extraction)
+python -m src.main --load-polygons
+
 # Increase verbosity for a single run
 python -m src.main --log-level DEBUG
 ```
@@ -79,6 +95,21 @@ python -m src.main --entiti
 python -m src.main --analitik
 ```
 `Analitik summary: {'analitik': {'processed': 1, 'inserted': 1, 'collection': 'AnalitikSekolah'}}`
+
+```bash
+python -m src.polygons.extract_kawasanku_negeri
+```
+`Extraction summary: {'extracted': 16, 'uploaded_to_s3': 16, 'output_dir': 'data_output/extracted_negeri/'}`
+
+```bash
+python -m src.polygons.extract_kawasanku_parlimen
+```
+`Extraction summary: {'extracted': 222, 'uploaded_to_s3': 222, 'output_dir': 'data_output/extracted_parlimen/'}`
+
+```bash
+python -m src.main --load-polygons
+```
+`Polygon loading summary: {'negeri': {'processed': 16, 'inserted': 16, 'collection': 'NegeriPolygon'}, 'parlimen': {'processed': 222, 'inserted': 222, 'collection': 'ParlimenPolygon'}, 'indexes_created': 5}`
 
 
 ## Data Model
@@ -206,7 +237,56 @@ Array of assistance/funding type statistics, each containing:
 | `peratus` | float | Percentage of total `sekolah` |
 | `total` | int | Absolute count of `sekolah` with this assistance type |
 
+---
+
+## Polygon Seed Collections
+
+The `--load-polygons` command loads cleaned OpenDOSM polygon datasets into seed collections for spatial queries and geographic analysis.
+
+```bash
+python -m src.main --load-polygons
+```
+
+This command:
+1. Loads GeoJSON boundaries for negeri and parliamentary constituencies 
+2. Repairs invalid geometries (self-intersections, degenerate loops) to ensure MongoDB compatibility
+3. Creates spatial indexes (`geometry_2dsphere`) for efficient geospatial queries
+4. Populates `parlimenList` in each state document with constituent parliamentary boundaries
+
+### NegeriPolygon (state boundaries)
+
+Each document represents a Malaysian state or federal territory boundary.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `_id` | str | State identifier |
+| `negeri` | str | State name |
+| `parlimenList` | list[str] | Array of parliamentary constituency names within this state |
+| `geometry` | object | GeoJSON `MultiPolygon` with state boundary coordinates |
+| `updatedAt` | datetime | UTC timestamp when the polygon data was loaded |
+
+**Indexes:**
+- `_id_` (default primary key)
+- `negeri_1` (field index)
+- `geometry_2dsphere` (spatial index)
+
+### ParlimenPolygon (parliamentary boundaries)
+
+Each document represents a parliamentary constituency (Dewan Rakyat) boundary.
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `_id` | str | Composite key: `"{negeri}::{parlimen}"` |
+| `negeri` | str | State name |
+| `parlimen` | str | Parliamentary constituency name |
+| `geometry` | object | GeoJSON `MultiPolygon` with constituency boundary coordinates |
+| `updatedAt` | datetime | UTC timestamp when the polygon data was loaded |
+
+**Indexes:**
+- `_id_` (default primary key)
+- `negeri_1` (field index)
+- `negeri_1_parlimen_1` (compound index)
+- `geometry_2dsphere` (spatial index)
 
 ## License
 TBD
-
