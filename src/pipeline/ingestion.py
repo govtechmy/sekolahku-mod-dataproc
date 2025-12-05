@@ -129,7 +129,20 @@ def _collect_documents(
         total += 1
         try:
             sekolah = Sekolah.model_validate(row)
-        except ValidationError as exc:  # pragma: no cover - logging aid
+        except ValidationError as exc:
+            # Check if this is the case where kodSekolah is blank or missing
+            raw_kod = str(row.get("KODSEKOLAH", "")).strip()
+            if raw_kod == "":
+                # Create an INACTIVE school placeholder
+                documents.append({
+                    "_id": None,
+                    "kodSekolah": None,
+                    "status": SekolahStatus.INACTIVE.value,
+                })
+                # DO NOT add to active_identifiers later (it stays inactive)
+                continue
+
+            # Other validation errors behave as before
             messages_list = _format_validation_messages(exc)
             messages = "; ".join(messages_list)
             errors.append({"row": index, "error": messages})
@@ -183,13 +196,6 @@ def _replace_collection(
             existing = existing_map.get(identifier)
 
             incoming_checksum = document.get("checksum")
-            if (
-                existing is not None
-                and incoming_checksum is not None
-                and existing.get("checksum") == incoming_checksum
-            ):
-                continue
-
             comparable_fields = {
                 key: value
                 for key, value in document.items()
@@ -280,9 +286,9 @@ def run(settings: Settings) -> dict[str, Any]:
 
     active_identifiers: set[Any] = set()
     for document in documents:
-        document["status"] = SekolahStatus.ACTIVE.value  # All schools present in raw file are ACTIVE
         checksum = _compute_checksum(document)
         document["checksum"] = checksum
+        document["status"] = SekolahStatus.ACTIVE.value # All schools present in raw file are ACTIVE
 
         identifier = document.get("_id") or document.get("kodSekolah")
         if identifier is None:
@@ -310,6 +316,14 @@ def run(settings: Settings) -> dict[str, Any]:
         active_identifiers,
     )
     logger.info("Marked %s sekolah as inactive", inactivated)
+
+    if errors:
+        inactivated = 0
+    else:
+        inactivated = _mark_missing_schools_inactive(
+            sekolah_collection,
+            active_identifiers,
+        )
 
     entiti_synced = sync_entiti_statuses(
         sekolah_collection,
