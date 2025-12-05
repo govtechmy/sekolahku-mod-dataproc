@@ -19,7 +19,7 @@ from src.models.sekolah import SekolahStatus
 from src.pipeline.status_sync import sync_entiti_statuses
 
 
-CHECKSUM_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt", "checksum", "status"}
+CHECKSUM_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt", "checksum"}
 COMPARISON_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt"}
 
 def _compute_checksum(document: Dict[str, Any]) -> str:
@@ -129,7 +129,20 @@ def _collect_documents(
         total += 1
         try:
             sekolah = Sekolah.model_validate(row)
-        except ValidationError as exc:  # pragma: no cover - logging aid
+        except ValidationError as exc:
+            # Check if this is the case where kodSekolah is blank or missing
+            raw_kod = str(row.get("KODSEKOLAH", "")).strip()
+            if raw_kod == "":
+                # Create an INACTIVE school placeholder
+                documents.append({
+                    "_id": None,
+                    "kodSekolah": None,
+                    "status": SekolahStatus.INACTIVE.value,
+                })
+                # DO NOT add to active_identifiers later (it stays inactive)
+                continue
+
+            # Other validation errors behave as before
             messages_list = _format_validation_messages(exc)
             messages = "; ".join(messages_list)
             errors.append({"row": index, "error": messages})
@@ -310,6 +323,14 @@ def run(settings: Settings) -> dict[str, Any]:
         active_identifiers,
     )
     logger.info("Marked %s sekolah as inactive", inactivated)
+
+    if errors:
+        inactivated = 0
+    else:
+        inactivated = _mark_missing_schools_inactive(
+            sekolah_collection,
+            active_identifiers,
+        )
 
     entiti_synced = sync_entiti_statuses(
         sekolah_collection,
