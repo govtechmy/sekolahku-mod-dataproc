@@ -17,8 +17,8 @@ EXTRACTED_DIR = "data_output/extracted_negeri"
 S3_BUCKET = os.getenv("S3_BUCKET")
 S3_REGION = os.getenv("S3_REGION")
 AWS_PROFILE = os.getenv("AWS_PROFILE")
-S3_RAW_PREFIX = "kawasanku/raw/negeri/"
-S3_EXTRACTED_PREFIX = "kawasanku/extracted/negeri/"
+S3_RAW_PREFIX = "opendosm/raw/negeri/"
+# S3_EXTRACTED_PREFIX = "opendosm/extracted/negeri/"
 
 
 def print_schema(obj, indent=0):
@@ -152,8 +152,8 @@ def main():
         print("Saved extracted JSON →", extract_path)
         
         # Upload extracted JSON to S3
-        s3_extract_key = S3_EXTRACTED_PREFIX + filename
-        upload_to_s3(s3_client, extract_path, s3_extract_key)
+        # s3_extract_key = S3_EXTRACTED_PREFIX + filename
+        # upload_to_s3(s3_client, extract_path, s3_extract_key)
 
 
 if __name__ == "__main__":

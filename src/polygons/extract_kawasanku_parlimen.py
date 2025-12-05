@@ -11,14 +11,14 @@ load_dotenv()
 
 CSV_PATH = "/Users/mydigital/Documents/Github/sekolahku-mod-dataproc/src/polygons/data_input/url_parlimen.csv"
 RAW_DIR = "data_output/raw"
-EXTRACTED_DIR = "data_output/extracted"
+EXTRACTED_DIR = "data_output/extracted_parlimen"
 
 # S3 Configuration from environment
 S3_BUCKET = os.getenv("S3_BUCKET")
 S3_REGION = os.getenv("S3_REGION")
 AWS_PROFILE = os.getenv("AWS_PROFILE")
-S3_RAW_PREFIX = "kawasanku/raw/parlimen/"
-S3_EXTRACTED_PREFIX = "kawasanku/extracted/parlimen/"
+S3_RAW_PREFIX = "opendosm/raw/parlimen/"
+# S3_EXTRACTED_PREFIX = "opendosm/extracted/parlimen/"
 
 
 def print_schema(obj, indent=0):
@@ -166,9 +166,10 @@ def main():
         print("Saved extracted JSON →", extract_path)
         
         # Upload extracted JSON to S3
-        s3_extract_key = S3_EXTRACTED_PREFIX + filename
-        upload_to_s3(s3_client, extract_path, s3_extract_key)
+        # s3_extract_key = S3_EXTRACTED_PREFIX + filename
+        # upload_to_s3(s3_client, extract_path, s3_extract_key)
 
 
 if __name__ == "__main__":
     main()
+

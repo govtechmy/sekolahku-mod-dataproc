@@ -13,7 +13,7 @@ from shapely.validation import make_valid
 
 from src.config.settings import Settings, get_settings
 from src.models.polygon import NegeriPolygon, ParlimenPolygon
-from src.polygons.polygon import (
+from src.polygons.utils import (
     normalize_state_name,
     normalize_parliament_name,
 )
@@ -416,5 +416,3 @@ def run_polygon_loading(settings: Settings | None = None) -> Dict[str, Any]:
     logger.info(f"Indexes: {indexes}")
     
     return summary
-
-# python -m src.main --load-polygons

@@ -52,13 +52,11 @@ def normalize_state_name(raw_state: str) -> Optional[NegeriEnum]:
         except ValueError:
             pass
     
-    # Try matching against all enum values (case-insensitive)
+    
     for negeri in NegeriEnum:
-        # Direct match
         if negeri.value == normalized_input:
             return negeri
         
-        # Match without underscores (e.g., "NEGERISEMBILAN" matches "NEGERI_SEMBILAN")
         if negeri.value.replace('_', '') == normalized_input.replace('_', ''):
             return negeri
     
