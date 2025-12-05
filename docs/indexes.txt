@@ -1,0 +1,51 @@
+# ============ collecton: Sekolah (for EntitiSekolah)============ 
+
+db.getCollection("Sekolah").createIndex(
+  { kodSekolah: 1 },
+  { name: "kodSekolah_unique", unique: true }
+);
+
+db.getCollection("Sekolah").createIndex(
+  { negeri: 1, bandarSurat: 1 },
+  { name: "negeri_bandarSurat", background: true }
+);
+
+db.getCollection("Sekolah").createIndex(
+  { negeri: 1, dun: 1 },
+  { name: "negeri_dun", background: true }
+);
+
+db.getCollection("Sekolah").createIndex(
+  { negeri: 1, ppd: 1 },
+  { name: "negeri_ppd", background: true }
+);
+
+db.getCollection("Sekolah").createIndex(
+  { negeri: 1 },
+  { name: "negeri", background: true }
+);
+
+db.getCollection("Sekolah").createIndex(
+  { location: "2dsphere" })
+;
+
+
+db.NegeriParlimenKodSekolah.createIndex(
+  { negeri: 1 },
+  { name: "negeri", background: true }
+);
+
+db.NegeriParlimenKodSekolah.createIndex(
+  { parlimen: 1 },
+  { name: "parlimen", background: true }
+);
+
+db.EntitiSekolah.createIndex(
+  { "data.infoPentadbiran.negeri": 1 },
+  { name: "negeri", background: true }
+);
+
+db.EntitiSekolah.createIndex(
+  { "data.infoPentadbiran.parlimen": 1 },
+  { name: "parlimen", background: true }
+);
