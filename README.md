@@ -29,10 +29,17 @@ The entiti flag writes to the `EntitiSekolah` collection.
 
 Python 3.11+
 
-Install dependencies:
+### Environment setup
+
+Create and activate a virtual environment, then install dependencies:
+
 ```bash
+python -m venv venv
+source venv/bin/activate  # On Windows use: venv\Scripts\activate
 pip install -r requirements.txt
 ```
+
+The dependency list includes FastAPI for the API health check. Ensure your environment exports the Mongo-related variables (`MONGO_URI`, `DB_NAME`, etc.) before running CLI or API commands.
 
 ## Environment Variables
 
@@ -79,6 +86,17 @@ python -m src.main --entiti
 python -m src.main --analitik
 ```
 `Analitik summary: {'analitik': {'processed': 1, 'inserted': 1, 'collection': 'AnalitikSekolah'}}`
+
+
+## Running the API
+
+Serve the FastAPI application (which exposes the `/health` endpoint) with an ASGI server such as `uvicorn` after activating your virtual environment:
+
+```bash
+uvicorn src.api:app --reload
+```
+
+The endpoint performs a MongoDB `ping` using the configured `MONGO_URI` and responds with `{"status": "ok", "database": "<DB_NAME>"}` when the database is reachable. If the ping fails, it returns `503 Service Unavailable`.
 
 
 ## Data Model

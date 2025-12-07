@@ -36,34 +36,37 @@ def _aggregate_negeri_parlimen_kod_sekolah(sekolah_collection: Collection) -> Li
         parlimen_raw = doc.get("parlimen")
         kod = doc.get("kodSekolah")
 
-        # Skip early if negeri is missing; Enum-based model will reject None
-        if negeri_raw is None:
+        # kodSekolah must exist; everything else can be missing
+        if kod is None:
             continue
 
         model = NegeriParlimenKodSekolah(
             negeri=negeri_raw,
             parlimen=parlimen_raw,
-            kodSekolahList=[kod] if kod is not None else [],
+            kodSekolahList=[kod],
         )
 
-        if model.negeri is None or model.parlimen is None or not model.kodSekolahList:
-            continue
+        # Normalize missing negeri → UNKNOWN
+        negeri_key = model.negeri.value if model.negeri else "UNKNOWN"
 
-        key = (model.negeri.value, model.parlimen)
-        for k in model.kodSekolahList:
-            mapping[key].add(k)
+        # Normalize missing parlimen → UNKNOWN
+        parlimen_key = model.parlimen if model.parlimen else "UNKNOWN"
+
+        key = (negeri_key, parlimen_key)
+        mapping[key].add(kod)
 
     results: List[NegeriParlimenKodSekolah] = []
-    for (negeri, parlimen), codes in mapping.items():
+    for (negeri_key, parlimen_key), codes in mapping.items():
         results.append(
             NegeriParlimenKodSekolah(
-                negeri=negeri,
-                parlimen=parlimen,
+                negeri=None if negeri_key == "UNKNOWN" else negeri_key,
+                parlimen=None if parlimen_key == "UNKNOWN" else parlimen_key,
                 kodSekolahList=sorted(codes),
             )
         )
 
     return results
+
 
 
 def _upsert_documents(collection: Collection, models: List[NegeriParlimenKodSekolah], *, batch_size: int) -> Dict[str, int]:
