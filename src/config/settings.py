@@ -100,7 +100,6 @@ class Settings(BaseSettings):
     entiti_revalidate_temp_prefix: str = get_env_str("ENTITI_REVALIDATE_TEMP_PREFIX", "temp")
     s3_bucket: str = get_env_str("S3_BUCKET")
     s3_prefix: str = get_env_str("S3_PREFIX")
-    aws_profile: str = get_env_str("AWS_PROFILE")
     aws_region: str = get_env_str("AWS_REGION")
 
 

@@ -1,19 +1,16 @@
-import boto3
-import time 
+import time
 from typing import Optional, List
+
 import pandas as pd
-from src.config.settings import get_settings
 
-settings = get_settings()
+from src.core.aws import get_s3_client, get_s3_bucket_name
 
-session = boto3.Session(
-    profile_name=settings.aws_profile,
-    region_name=settings.aws_region,
-)
-
-s3 = session.client("s3")
+s3 = get_s3_client()
 
 def _upload_to_s3(csv_bytes: bytes, bucket: str, prefix: str) -> str:
+    if not bucket:
+        bucket = get_s3_bucket_name()
+
     timestamp = int(time.time())
     s3_key = f"{prefix}/{timestamp}.csv"
 
