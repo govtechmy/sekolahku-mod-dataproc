@@ -51,7 +51,7 @@ def revalidate_school_entity(settings: Settings) -> dict[str, Any]:
             logger.info("Uploading sekolah entities to temp folder")
             for document in cursor:
                 negeri, parlimen, kod_sekolah = build_parlimen_path(document)
-                temp_key = f"{temp_prefix}/{negeri}/{parlimen}/{kod_sekolah}.json"
+                temp_key = f"{temp_prefix}/{negeri}/{parlimen}/{kod_sekolah}/{kod_sekolah}.json"
 
                 payload = dumps_document(document)
                 logger.debug("Uploading sekolah=%s to temp key=%s", kod_sekolah, temp_key)
