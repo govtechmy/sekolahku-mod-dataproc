@@ -89,11 +89,7 @@ def _read_csv(path: str) -> Iterable[Dict[str, Any]]:
         yield from csv.DictReader(handle)
 
 def _read_google_sheet(sheet_id: str, gid: str) -> Iterable[Dict[str, Any]]:
-    logger.info(
-        "Scraping Google Sheet directly (sheet_id=%s, gid=%s)",
-        sheet_id,
-        gid,
-    )
+    logger.info("Scraping Google Sheet directly (sheet_id=%s, gid=%s)", sheet_id, gid,)
 
     csv_bytes = fetch_csv_data(sheet_id, gid)
     df = pd.read_csv(io.BytesIO(csv_bytes), dtype=str).fillna("")
@@ -103,26 +99,15 @@ def _read_google_sheet(sheet_id: str, gid: str) -> Iterable[Dict[str, Any]]:
 
 
 def _load_rows(settings: Settings) -> Iterable[Dict[str, Any]]:
-    logger.info(
-        "Scraping Google Sheet via S3 (sheet_id=%s)", 
-        settings.gsheet_id
-        )
+    logger.info("Scraping Google Sheet via S3 (sheet_id=%s)", settings.gsheet_id)
     csv_bytes = fetch_csv_data(settings.gsheet_id, settings.gsheet_gid)
-    logger.info(
-        "Uploading CSV data to S3 bucket %s", 
-        settings.s3_bucket
-        )
+
+    logger.info("Uploading CSV data to S3 bucket %s", settings.s3_bucket)
     s3_key = _upload_to_s3(csv_bytes, settings.s3_bucket, settings.s3_prefix)
-    logger.info(
-        "CSV uploaded to S3 at key: %s", 
-        s3_key
-        )
+    logger.info("CSV uploaded to S3 at key: %s", s3_key)
+
     df = _read_csv_from_s3(settings.s3_bucket, s3_key)
-    logger.info(
-        "CSV loaded from S3: %d rows, %d columns", 
-        df.shape[0], 
-        df.shape[1]
-        )
+    logger.info("CSV loaded from S3: %d rows, %d columns", df.shape[0], df.shape[1])
     return df.to_dict(orient="records")
 
 
