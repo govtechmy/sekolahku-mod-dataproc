@@ -111,6 +111,9 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+sekolahku-env/
+sekolahku-env-311/
+sekolahku-dataproc-env/
 
 # Spyder project settings
 .spyderproject
@@ -168,6 +171,11 @@ token.json
 
 
 data/
+data_output/
+
+# CSV data files
+*.csv
+!example*.csv
 
 docs/
 
