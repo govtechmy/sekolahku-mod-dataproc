@@ -113,118 +113,29 @@ uvicorn src.api:app --reload
 
 The FastAPI service includes **automated daily ingestion** via `fastapi-crons`:
 
-#### Daily Ingestion Job
-- **Schedule**: Runs every day at **00:00 (midnight)**
-- **Timezone**: Configurable via `CRON_TIMEZONE` environment variable (default: `Asia/Kuala_Lumpur`)
-- **Function**: Executes the full ingestion pipeline automatically:
-  - Main school data ingestion from CSV
-  - EntitiSekolah aggregation
-  - NegeriParlimenKodSekolah population
-  - AnalitikSekolah aggregation (if data changed)
-
-#### Cron Configuration
-
-The cron expression `"0 0 * * *"` means:
-- `0` - Minute: 0 (on the hour)
-- `0` - Hour: 0 (midnight)
-- `*` - Day of month: every day
-- `*` - Month: every month
-- `*` - Day of week: every day of the week
+- **Schedule**: `0 0 * * *` (daily at midnight)
+- **Timezone**: Runs in server's local timezone
+- **Function**: Executes the full ingestion pipeline (CSV ingestion, EntitiSekolah, NegeriParlimenKodSekolah, AnalitikSekolah)
 
 **To adjust the schedule**, modify the cron expression in `src/api.py`:
-
 ```python
-@crons.cron("0 0 * * *", tz=settings.cron_timezone)  # Daily at midnight
-async def daily_ingestion_job():
-    ...
+@crons.cron("0 2 * * *")  # Example: daily at 2 AM
 ```
 
-Common schedule examples:
-- `"0 */6 * * *"` - Every 6 hours
-- `"0 2 * * *"` - Daily at 2:00 AM
-- `"0 0 * * 0"` - Weekly on Sunday at midnight
-- `"0 0 1 * *"` - Monthly on the 1st at midnight
-
-**To change the timezone**, set the `CRON_TIMEZONE` environment variable:
-
-```bash
-# In .env file or environment
-CRON_TIMEZONE=UTC
-CRON_TIMEZONE=Asia/Singapore
-CRON_TIMEZONE=America/New_York
-```
-
-**To disable the scheduled job**, comment out or remove the cron decorator in `src/api.py`:
-
-```python
-# @crons.cron("0 0 * * *", tz=settings.cron_timezone)
-# async def daily_ingestion_job():
-#     ...
-```
-
-Alternatively, don't start the cron scheduler by modifying the startup event.
+**To disable**, comment out the `@crons.cron()` decorator or remove the cron startup in `src/api.py`.
 
 #### Monitoring Scheduled Jobs
 
-The cron job produces detailed logs for monitoring:
+The cron job produces detailed logs with start/end times, duration, and metrics for each pipeline stage (ingestion, EntitiSekolah, NegeriParlimenKodSekolah, AnalitikSekolah).
 
-**Job Start:**
-```
-================================================================================
-SCHEDULED INGESTION JOB STARTED
-Start Time: 2025-12-08T00:00:00.123456
-Timezone: Asia/Kuala_Lumpur
-================================================================================
-```
-
-**Job Success:**
-```
-================================================================================
-SCHEDULED INGESTION JOB COMPLETED SUCCESSFULLY
-End Time: 2025-12-08T00:05:23.654321
-Duration: 323.53 seconds
---------------------------------------------------------------------------------
-INGESTION METRICS:
-  - Total Processed: 10234
-  - Inserted: 45
-  - Updated: 123
-  - Inactivated: 12
-  - Failed: 0
-  - Entiti Synced: 178
---------------------------------------------------------------------------------
-[... additional metrics for EntitSekolah, NegeriParlimenKodSekolah, AnalitikSekolah ...]
-================================================================================
-```
-
-**Job Failure:**
-```
-================================================================================
-SCHEDULED INGESTION JOB FAILED - DATABASE ERROR
-End Time: 2025-12-08T00:02:15.123456
-Duration: 135.12 seconds
-Error Type: ConnectionFailure
-Error Message: Connection refused
-================================================================================
-Job failed but FastAPI server continues running
-Next scheduled run: tomorrow at 00:00 Asia/Kuala_Lumpur
-```
-
-**Important**: Failed cron jobs are logged but do **not** crash the FastAPI server. The server continues running and the job will retry at the next scheduled time.
+**Important**: Failed jobs are logged but do **not** crash the server. The job retries at the next scheduled time.
 
 #### Manual vs Scheduled Ingestion
 
-Both manual and scheduled ingestion methods are available:
+- **Scheduled**: Automatic at 00:00 daily for regular updates
+- **Manual**: `POST /trigger-ingestion` for on-demand runs, testing, or recovery
 
-| Method | Trigger | Use Case |
-|--------|---------|----------|
-| **Scheduled** | Automatic at 00:00 daily | Regular automated data updates |
-| **Manual** | `POST /trigger-ingestion` | On-demand runs, testing, recovery |
-
-Both methods:
-- Execute the same complete pipeline
-- Log comprehensive metrics
-- Are independent and don't conflict
-- Handle errors gracefully
+Both execute the same pipeline, log comprehensive metrics, and handle errors gracefully.
 
 
 ## Data Model
