@@ -96,6 +96,7 @@ class Settings(BaseSettings):
     entiti_revalidate_batch_size: int = get_env_int("ENTITI_REVALIDATE_BATCH_SIZE", 100)
     entiti_revalidate_max_workers: int = get_env_int("ENTITI_REVALIDATE_MAX_WORKERS", 10)
     entiti_revalidate_temp_prefix: str = get_env_str("ENTITI_REVALIDATE_TEMP_PREFIX", "temp")
+    cron_timezone: str = get_env_str("CRON_TIMEZONE", "Asia/Kuala_Lumpur")
 
 
 def get_settings() -> Settings:
