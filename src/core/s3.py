@@ -39,4 +39,4 @@ def _latest_csv_from_s3(bucket: str, prefix: str) -> Optional[str]:
 
 def _read_csv_from_s3(bucket: str, s3_key: str) -> pd.DataFrame:
     response = s3.get_object(Bucket=bucket, Key=s3_key)
-    return pd.read_csv(response["Body"])
+    return pd.read_csv(response["Body"], dtype=str).fillna("")

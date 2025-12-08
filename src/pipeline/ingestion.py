@@ -96,7 +96,7 @@ def _read_google_sheet(sheet_id: str, gid: str) -> Iterable[Dict[str, Any]]:
     )
 
     csv_bytes = fetch_csv_data(sheet_id, gid)
-    df = pd.read_csv(io.BytesIO(csv_bytes))
+    df = pd.read_csv(io.BytesIO(csv_bytes), dtype=str).fillna("")
 
     logger.info("Google Sheet loaded: %d rows, %d columns", df.shape[0], df.shape[1])
     return df.to_dict(orient="records")
