@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 # Load environment variables
 load_dotenv()
 
-CSV_PATH = "/Users/mydigital/Documents/Github/sekolahku-mod-dataproc/src/polygons/data_input/url_parlimen.csv"
+PARLIMEN_CSV_PATH = os.getenv("PARLIMEN_CSV_PATH")
 RAW_DIR = "data_output/raw"
 EXTRACTED_DIR = "data_output/extracted_parlimen"
 
@@ -18,6 +18,8 @@ S3_BUCKET = os.getenv("S3_BUCKET")
 S3_REGION = os.getenv("S3_REGION")
 AWS_PROFILE = os.getenv("AWS_PROFILE")
 S3_RAW_PREFIX = "opendosm/raw/parlimen/"
+
+# TODO: Uncomment when ready to upload extracted files to S3
 # S3_EXTRACTED_PREFIX = "opendosm/extracted/parlimen/"
 
 
@@ -165,7 +167,7 @@ def main():
 
         print("Saved extracted JSON →", extract_path)
         
-        # Upload extracted JSON to S3
+        # TODO: Uncomment to upload extracted JSON to S3 (requires S3_EXTRACTED_PREFIX)
         # s3_extract_key = S3_EXTRACTED_PREFIX + filename
         # upload_to_s3(s3_client, extract_path, s3_extract_key)
 
