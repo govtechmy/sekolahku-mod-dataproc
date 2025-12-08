@@ -17,8 +17,8 @@ from pymongo.errors import OperationFailure
 
 from src.config import Settings, get_settings
 from src.models import Sekolah
-from src.pipeline.gsheet.scrape import fetch_csv_data
-from src.pipeline.s3.utils import (_upload_to_s3, _latest_csv_from_s3, _read_csv_from_s3)
+from src.core.gsheet import fetch_csv_data
+from src.core.s3 import (_upload_to_s3, _latest_csv_from_s3, _read_csv_from_s3)
 from src.models.sekolah import SekolahStatus
 from src.pipeline.status_sync import sync_entiti_statuses
 
@@ -89,40 +89,25 @@ def _read_csv(path: str) -> Iterable[Dict[str, Any]]:
         yield from csv.DictReader(handle)
 
 def _read_google_sheet(sheet_id: str, gid: str) -> Iterable[Dict[str, Any]]:
-    logger.info(
-        "Scraping Google Sheet directly (sheet_id=%s, gid=%s)",
-        sheet_id,
-        gid,
-    )
+    logger.info("Scraping Google Sheet directly (sheet_id=%s, gid=%s)", sheet_id, gid,)
 
     csv_bytes = fetch_csv_data(sheet_id, gid)
-    df = pd.read_csv(io.BytesIO(csv_bytes))
+    df = pd.read_csv(io.BytesIO(csv_bytes), dtype=str).fillna("")
 
     logger.info("Google Sheet loaded: %d rows, %d columns", df.shape[0], df.shape[1])
     return df.to_dict(orient="records")
 
 
 def _load_rows(settings: Settings) -> Iterable[Dict[str, Any]]:
-    logger.info(
-        "Scraping Google Sheet via S3 (sheet_id=%s)", 
-        settings.gsheet_id
-        )
+    logger.info("Scraping Google Sheet via S3 (sheet_id=%s)", settings.gsheet_id)
     csv_bytes = fetch_csv_data(settings.gsheet_id, settings.gsheet_gid)
-    logger.info(
-        "Uploading CSV data to S3 bucket %s", 
-        settings.s3_bucket
-        )
+
+    logger.info("Uploading CSV data to S3 bucket %s", settings.s3_bucket)
     s3_key = _upload_to_s3(csv_bytes, settings.s3_bucket, settings.s3_prefix)
-    logger.info(
-        "CSV uploaded to S3 at key: %s", 
-        s3_key
-        )
+    logger.info("CSV uploaded to S3 at key: %s", s3_key)
+
     df = _read_csv_from_s3(settings.s3_bucket, s3_key)
-    logger.info(
-        "CSV loaded from S3: %d rows, %d columns", 
-        df.shape[0], 
-        df.shape[1]
-        )
+    logger.info("CSV loaded from S3: %d rows, %d columns", df.shape[0], df.shape[1])
     return df.to_dict(orient="records")
 
 
@@ -167,7 +152,20 @@ def _collect_documents(
         total += 1
         try:
             sekolah = Sekolah.model_validate(row)
-        except ValidationError as exc:  # pragma: no cover - logging aid
+        except ValidationError as exc:
+            # Check if this is the case where kodSekolah is blank or missing
+            raw_kod = str(row.get("KODSEKOLAH", "")).strip()
+            if raw_kod == "":
+                # Create an INACTIVE school placeholder
+                documents.append({
+                    "_id": None,
+                    "kodSekolah": None,
+                    "status": SekolahStatus.INACTIVE.value,
+                })
+                # DO NOT add to active_identifiers later (it stays inactive)
+                continue
+
+            # Other validation errors behave as before
             messages_list = _format_validation_messages(exc)
             messages = "; ".join(messages_list)
             errors.append({"row": index, "error": messages})
@@ -221,13 +219,6 @@ def _replace_collection(
             existing = existing_map.get(identifier)
 
             incoming_checksum = document.get("checksum")
-            if (
-                existing is not None
-                and incoming_checksum is not None
-                and existing.get("checksum") == incoming_checksum
-            ):
-                continue
-
             comparable_fields = {
                 key: value
                 for key, value in document.items()
@@ -318,9 +309,9 @@ def run(settings: Settings) -> dict[str, Any]:
 
     active_identifiers: set[Any] = set()
     for document in documents:
-        document["status"] = SekolahStatus.ACTIVE.value  # All schools present in raw file are ACTIVE
         checksum = _compute_checksum(document)
         document["checksum"] = checksum
+        document["status"] = SekolahStatus.ACTIVE.value # All schools present in raw file are ACTIVE
 
         identifier = document.get("_id") or document.get("kodSekolah")
         if identifier is None:
@@ -348,6 +339,14 @@ def run(settings: Settings) -> dict[str, Any]:
         active_identifiers,
     )
     logger.info("Marked %s sekolah as inactive", inactivated)
+
+    if errors:
+        inactivated = 0
+    else:
+        inactivated = _mark_missing_schools_inactive(
+            sekolah_collection,
+            active_identifiers,
+        )
 
     entiti_synced = sync_entiti_statuses(
         sekolah_collection,
