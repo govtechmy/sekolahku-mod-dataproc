@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 import logging
-import time
-from datetime import datetime
 from typing import Any
 
 from botocore.exceptions import ClientError
@@ -89,7 +87,7 @@ def health_check() -> dict[str, str]:
 
 
 @app.post("/trigger-ingestion")
-def trigger_ingestion_endpoint() -> dict[str, Any]:
+def trigger_ingestion_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """
     Manually trigger the full ingestion pipeline.
     
@@ -97,41 +95,17 @@ def trigger_ingestion_endpoint() -> dict[str, Any]:
     without waiting for the scheduled cron job. It runs independently
     and does not interfere with the scheduled daily runs.
     
+    The ingestion job runs in the background and the endpoint returns immediately.
+    Check the logs for job completion status and metrics.
+    
     Returns:
-        Dictionary containing the ingestion summary with metrics from all pipeline stages.
+        Dictionary confirming that the ingestion job has been queued.
     """
-    start_time = time.time()
-    start_timestamp = datetime.now().isoformat()
+    logger.info("Received request to trigger manual ingestion")
     
-    logger.info("Manual ingestion triggered via POST /trigger-ingestion")
+    background_tasks.add_task(run_ingest)
     
-    try:
-        summary = run_ingest()
-        
-        elapsed_time = time.time() - start_time
-        end_timestamp = datetime.now().isoformat()
-        
-        logger.info("Manual ingestion completed successfully in %.2f seconds", elapsed_time)
-        
-        return {
-            "status": "ok",
-            "trigger": "manual",
-            "start_time": start_timestamp,
-            "end_time": end_timestamp,
-            "duration_seconds": round(elapsed_time, 2),
-            **summary
-        }
-        
-    except PyMongoError as exc:
-        elapsed_time = time.time() - start_time
-        logger.error("Manual ingestion failed - database error (%.2f seconds): %s", elapsed_time, str(exc))
-        logger.exception("Database error during manual ingestion:")
-        raise HTTPException(status_code=503, detail="Database unreachable") from exc
-    except Exception as exc:
-        elapsed_time = time.time() - start_time
-        logger.error("Manual ingestion failed - unexpected error (%.2f seconds): %s", elapsed_time, str(exc))
-        logger.exception("Error during manual ingestion:")
-        raise HTTPException(status_code=500, detail=f"Ingestion failed: {str(exc)}") from exc
+    return {"status": "received"}
 
 
 @app.get("/revalidate-school-entity")
@@ -144,23 +118,6 @@ def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict
     background_tasks.add_task(_run_revalidate_school_entity_job, settings)
 
     return {"status": "received"}
-    try:
-        summary = revalidate_school_entity(settings)
-    except PyMongoError as exc:
-        logger.exception("MongoDB error while handling revalidation request")
-        raise HTTPException(status_code=503, detail="Database unreachable") from exc
-    except ClientError as exc:
-        logger.exception("S3 error while handling revalidation request")
-        raise HTTPException(status_code=502, detail="S3 operation failed") from exc
-
-    logger.info(
-        "Revalidation completed successfully: bucket=%s processed=%s",
-        summary.get("bucket"),
-        summary.get("processed"),
-    )
-
-    return {"status": "ok", **summary}
-
 
 @app.on_event("startup")
 async def startup_event():
