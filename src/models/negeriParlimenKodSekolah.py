@@ -38,10 +38,10 @@ class NegeriParlimenKodSekolah(BaseModel):
     @field_validator("parlimen", mode="before")
     def normalize_parlimen(cls, value: str | None) -> str | None:
         if value is None:
-            return "NONE"
+            return None
         text = str(value).strip()
         if not text:
-            return "NONE"
+            return None
         text = "_".join(text.split())
         return text.upper()
 
@@ -64,17 +64,20 @@ class NegeriParlimenKodSekolah(BaseModel):
         return cleaned
 
     def to_document(self) -> dict:
-        data = self.model_dump(exclude_none=True)
+        data = self.model_dump(exclude_none=False)
 
         negeri_value = None
-        if "negeri" in data and isinstance(data["negeri"], NegeriEnum):
-            negeri_value = data["negeri"].value
+        if isinstance(self.negeri, NegeriEnum):
+            negeri_value = self.negeri.value
             data["negeri"] = negeri_value
         else:
             negeri_value = data.get("negeri")
-        parlimen_value = data.get("parlimen") or "NONE"
-        if negeri_value is not None and parlimen_value is not None:
-            data["_id"] = f"{negeri_value}::{parlimen_value}"
+        # parlimen stays NULL if None
+        parlimen_value = self.parlimen
+        parlimen_id = parlimen_value if parlimen_value else "UNKNOWN"
+        if negeri_value is not None:
+            data["_id"] = f"{negeri_value}::{parlimen_id}"
+
         return data
 
 

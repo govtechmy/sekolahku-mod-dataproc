@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 tmp/
 tmp/**
+.tmp_dagster_home_*
 
 # C extensions
 *.so
@@ -176,7 +177,5 @@ data_output/
 # CSV data files
 *.csv
 !example*.csv
-
-docs/
 
 tests/

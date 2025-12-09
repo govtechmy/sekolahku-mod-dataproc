@@ -92,7 +92,19 @@ class Settings(BaseSettings):
     negeri_polygon_collection: str = get_env_str("NEGERI_POLYGON_COLLECTION", "NegeriPolygon")
     parlimen_polygon_collection: str = get_env_str("PARLIMEN_POLYGON_COLLECTION", "ParlimenPolygon")
     csv_path: str = get_env_str("CSV_PATH", "data/sekolah.csv")
+    gsheet_id: str = get_env_str("GSHEET_ID")
+    gsheet_gid: str = get_env_str("GSHEET_GID")
+    gsheet_worksheet_name: str = get_env_str("GSHEET_WORKSHEET_NAME", "Sheet1")
     batch_size: int = get_env_int("BATCH_SIZE", 500)
+    port: int = get_env_int("PORT", 8000)
+    s3_bucket_name: str = get_env_str("S3_BUCKET_NAME", "my.gov.digital.sekolahku-public-dev")
+    entiti_revalidate_batch_size: int = get_env_int("ENTITI_REVALIDATE_BATCH_SIZE", 100)
+    entiti_revalidate_max_workers: int = get_env_int("ENTITI_REVALIDATE_MAX_WORKERS", 10)
+    entiti_revalidate_temp_prefix: str = get_env_str("ENTITI_REVALIDATE_TEMP_PREFIX", "temp")
+    s3_bucket_dataproc: str = get_env_str("S3_BUCKET_DATAPROC")
+    s3_prefix: str = get_env_str("S3_PREFIX", "raw/sekolah")
+    s3_prefix_opendosm: str = get_env_str("S3_PREFIX_OPENDOSM", "opendosm/raw")
+
 
 
 def get_settings() -> Settings:

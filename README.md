@@ -38,10 +38,17 @@ The `--entiti` flag writes to the `EntitiSekolah` collection. The `--analitik` f
 
 Python 3.11+
 
-Install dependencies:
+### Environment setup
+
+Create and activate a virtual environment, then install dependencies:
+
 ```bash
+python -m venv venv
+source venv/bin/activate  # On Windows use: venv\Scripts\activate
 pip install -r requirements.txt
 ```
+
+The dependency list includes FastAPI for the API health check. Ensure your environment exports the Mongo-related variables (`MONGO_URI`, `DB_NAME`, etc.) before running CLI or API commands.
 
 ## Environment Variables
 
@@ -109,7 +116,20 @@ python -m src.polygons.extract_kawasanku_parlimen
 ```bash
 python -m src.main --load-polygons
 ```
-`Polygon loading summary: {'negeri': {'processed': 16, 'inserted': 16, 'collection': 'NegeriPolygon'}, 'parlimen': {'processed': 222, 'inserted': 222, 'collection': 'ParlimenPolygon'}, 'indexes_created': 5}`
+`Negeri summary: {'negeri': {'processed': 16, 'inserted': 16, 'collection': 'NegeriPolygon'}, 'total_negeri_files_scanned': 16}`
+
+`Parlimen summary: {'parlimen': {'processed': 222, 'inserted': 222, 'skipped': 0, 'collection': 'ParlimenPolygon'}, 'total_files_scanned': 222}`
+
+
+## Running the API
+
+Serve the FastAPI application (which exposes the `/health` endpoint) with an ASGI server such as `uvicorn` after activating your virtual environment:
+
+```bash
+uvicorn src.api:app --reload
+```
+
+The endpoint performs a MongoDB `ping` using the configured `MONGO_URI` and responds with `{"status": "ok", "database": "<DB_NAME>"}` when the database is reachable. If the ping fails, it returns `503 Service Unavailable`.
 
 
 ## Data Model

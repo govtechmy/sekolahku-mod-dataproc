@@ -6,6 +6,8 @@ import json
 import logging
 import os
 from datetime import datetime, timezone
+import io 
+import pandas as pd
 from typing import Any, Dict, Iterable, Iterator
 
 from pydantic import ValidationError
@@ -15,11 +17,14 @@ from pymongo.errors import OperationFailure
 
 from src.config import Settings, get_settings
 from src.models import Sekolah
+from src.core.gsheet import fetch_csv_data
+from src.core.s3 import (_upload_to_s3, _latest_csv_from_s3, _read_csv_from_s3)
 from src.models.sekolah import SekolahStatus
 from src.pipeline.status_sync import sync_entiti_statuses
 
 
 CHECKSUM_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt", "checksum", "status"}
+COMPARISON_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt"}
 
 def _compute_checksum(document: Dict[str, Any]) -> str:
     filtered = {
@@ -83,10 +88,25 @@ def _read_csv(path: str) -> Iterable[Dict[str, Any]]:
     with open(path, newline="", encoding="utf-8") as handle:
         yield from csv.DictReader(handle)
 
+def _read_google_sheet(sheet_id: str, gid: str) -> Iterable[Dict[str, Any]]:
+    logger.info("Scraping Google Sheet directly (sheet_id=%s, gid=%s)", sheet_id, gid,)
+
+    csv_bytes = fetch_csv_data(sheet_id, gid)
+    df = pd.read_csv(io.BytesIO(csv_bytes), dtype=str).fillna("")
+
+    logger.info("Google Sheet loaded: %d rows, %d columns", df.shape[0], df.shape[1])
+    return df.to_dict(orient="records")
+
 
 def _load_rows(settings: Settings) -> Iterable[Dict[str, Any]]:
-    logger.info("Loading data from CSV: %s", settings.csv_path)
-    return _read_csv(settings.csv_path)
+    csv_bytes = fetch_csv_data(settings.gsheet_id, settings.gsheet_gid)
+    logger.info("Uploading CSV data to S3 bucket %s", settings.s3_bucket_dataproc)
+    s3_key = _upload_to_s3(csv_bytes, settings.s3_bucket_dataproc, settings.s3_prefix)
+    logger.info("CSV uploaded to S3 at key: %s", s3_key)
+
+    df = _read_csv_from_s3(settings.s3_bucket_dataproc, s3_key)
+    logger.info("CSV loaded from S3: %d rows, %d columns", df.shape[0], df.shape[1])
+    return df.to_dict(orient="records")
 
 
 def _chunked(rows: Iterable[Dict[str, Any]], size: int) -> Iterator[list[Dict[str, Any]]]:
@@ -105,16 +125,18 @@ def _chunked(rows: Iterable[Dict[str, Any]], size: int) -> Iterator[list[Dict[st
 def _format_validation_messages(exc: ValidationError) -> list[str]:
     messages: list[str] = []
     for error in exc.errors():
+        loc = error.get("loc", [])
+        field = ".".join(str(x) for x in loc)
         message = error.get("msg")
         if not message:
             continue
         prefix = "value error, "
         if message.lower().startswith(prefix):
             message = message[len(prefix):]
-        messages.append(message)
+        messages.append(f"{field}: {message}")
     if not messages:
         messages.append(str(exc))
-    return messages
+    return messages 
 
 
 def _collect_documents(
@@ -128,7 +150,20 @@ def _collect_documents(
         total += 1
         try:
             sekolah = Sekolah.model_validate(row)
-        except ValidationError as exc:  # pragma: no cover - logging aid
+        except ValidationError as exc:
+            # Check if this is the case where kodSekolah is blank or missing
+            raw_kod = str(row.get("KODSEKOLAH", "")).strip()
+            if raw_kod == "":
+                # Create an INACTIVE school placeholder
+                documents.append({
+                    "_id": None,
+                    "kodSekolah": None,
+                    "status": SekolahStatus.INACTIVE.value,
+                })
+                # DO NOT add to active_identifiers later (it stays inactive)
+                continue
+
+            # Other validation errors behave as before
             messages_list = _format_validation_messages(exc)
             messages = "; ".join(messages_list)
             errors.append({"row": index, "error": messages})
@@ -182,17 +217,10 @@ def _replace_collection(
             existing = existing_map.get(identifier)
 
             incoming_checksum = document.get("checksum")
-            if (
-                existing is not None
-                and incoming_checksum is not None
-                and existing.get("checksum") == incoming_checksum
-            ):
-                continue
-
             comparable_fields = {
                 key: value
                 for key, value in document.items()
-                if key not in CHECKSUM_EXCLUDE_KEYS
+                if key not in COMPARISON_EXCLUDE_KEYS
             }
 
             if existing is None:
@@ -279,9 +307,9 @@ def run(settings: Settings) -> dict[str, Any]:
 
     active_identifiers: set[Any] = set()
     for document in documents:
-        document["status"] = SekolahStatus.ACTIVE.value  # All schools present in raw file are ACTIVE
         checksum = _compute_checksum(document)
         document["checksum"] = checksum
+        document["status"] = SekolahStatus.ACTIVE.value # All schools present in raw file are ACTIVE
 
         identifier = document.get("_id") or document.get("kodSekolah")
         if identifier is None:
@@ -310,6 +338,14 @@ def run(settings: Settings) -> dict[str, Any]:
     )
     logger.info("Marked %s sekolah as inactive", inactivated)
 
+    if errors:
+        inactivated = 0
+    else:
+        inactivated = _mark_missing_schools_inactive(
+            sekolah_collection,
+            active_identifiers,
+        )
+
     entiti_synced = sync_entiti_statuses(
         sekolah_collection,
         entiti_collection,
@@ -330,7 +366,6 @@ def run(settings: Settings) -> dict[str, Any]:
         "entiti_synced": entiti_synced,
     }
     return summary
-
 
 def run_with_overrides(**overrides: Any) -> dict[str, Any]:
     settings = get_settings().model_copy(update=overrides)
