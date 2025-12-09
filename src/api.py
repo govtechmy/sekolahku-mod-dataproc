@@ -41,6 +41,17 @@ def _run_revalidate_school_entity_job(settings: Any) -> None:
         summary.get("processed"),
     )
 
+
+def _run_ingestion_job() -> None:
+    """Execute ingestion pipeline and log outcome."""
+    try:
+        run_ingest()
+        logger.info("Manual ingestion job completed successfully")
+    except PyMongoError:
+        logger.exception("MongoDB error while handling ingestion request")
+    except Exception:
+        logger.exception("Unexpected error while handling ingestion request")
+
 # Initialize settings to get timezone configuration
 settings = get_settings()
 crons = Crons()
@@ -103,7 +114,7 @@ def trigger_ingestion_endpoint(background_tasks: BackgroundTasks) -> dict[str, s
     """
     logger.info("Received request to trigger manual ingestion")
     
-    background_tasks.add_task(run_ingest)
+    background_tasks.add_task(_run_ingestion_job)
     
     return {"status": "received"}
 
