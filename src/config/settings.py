@@ -90,6 +90,9 @@ class Settings(BaseSettings):
     analitik_sekolah_collection: str = get_env_str("ANALITIK_SEKOLAH_COLLECTION", "AnalitikSekolah")
     negeri_parlimen_kod_sekolah_collection: str = get_env_str("NEGERI_PARLIMEN_KOD_SEKOLAH_COLLECTION", "NegeriParlimenKodSekolah")
     csv_path: str = get_env_str("CSV_PATH", "data/sekolah.csv")
+    gsheet_id: str = get_env_str("GSHEET_ID")
+    gsheet_gid: str = get_env_str("GSHEET_GID")
+    gsheet_worksheet_name: str = get_env_str("GSHEET_WORKSHEET_NAME", "Sheet1")
     batch_size: int = get_env_int("BATCH_SIZE", 500)
     port: int = get_env_int("PORT", 8000)
     s3_bucket_name: str = get_env_str("S3_BUCKET_NAME", "my.gov.digital.sekolahku-public-dev")
@@ -97,6 +100,9 @@ class Settings(BaseSettings):
     entiti_revalidate_max_workers: int = get_env_int("ENTITI_REVALIDATE_MAX_WORKERS", 10)
     entiti_revalidate_temp_prefix: str = get_env_str("ENTITI_REVALIDATE_TEMP_PREFIX", "temp")
     cron_timezone: str = get_env_str("CRON_TIMEZONE", "Asia/Kuala_Lumpur")
+    s3_bucket_dataproc: str = get_env_str("S3_BUCKET_DATAPROC")
+    s3_prefix: str = get_env_str("S3_PREFIX")
+
 
 
 def get_settings() -> Settings:

@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Any
 
 from botocore.exceptions import ClientError
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi import FastAPI, HTTPException
 from fastapi_crons import Crons
 from pymongo import MongoClient
@@ -23,6 +24,24 @@ if not logging.getLogger().handlers:
 
 logger = logging.getLogger(__name__)
 app = FastAPI()
+
+
+def _run_revalidate_school_entity_job(settings: Any) -> None:
+    """Execute school entity revalidation and log outcome."""
+    try:
+        summary = revalidate_school_entity(settings)
+    except PyMongoError:
+        logger.exception("MongoDB error while handling revalidation request")
+        return
+    except ClientError:
+        logger.exception("S3 error while handling revalidation request")
+        return
+
+    logger.info(
+        "Revalidation completed successfully: bucket=%s processed=%s",
+        summary.get("bucket"),
+        summary.get("processed"),
+    )
 
 # Initialize settings to get timezone configuration
 settings = get_settings()
@@ -212,12 +231,15 @@ def trigger_ingestion_endpoint() -> dict[str, Any]:
 
 
 @app.get("/revalidate-school-entity")
-def revalidate_school_entity_endpoint() -> dict[str, Any]:
+def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Trigger revalidation of school entities into the configured S3 bucket."""
 
     settings = get_settings()
     logger.info("Received request to revalidate school entities")
 
+    background_tasks.add_task(_run_revalidate_school_entity_job, settings)
+
+    return {"status": "received"}
     try:
         summary = revalidate_school_entity(settings)
     except PyMongoError as exc:
