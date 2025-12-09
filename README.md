@@ -25,6 +25,18 @@ Configuration (source, paths, Mongo connection, etc.) is controlled entirely thr
 
 The entiti flag writes to the `EntitiSekolah` collection.
 
+### Managing MongoDB Indexes
+
+MongoDB indexes for this project is managed in `src/db/indexes.py`.
+
+These indexes only need to be created once for your database.
+If you need to rerun the setup, simply execute:
+
+```bash
+python -m src.db.indexes
+```
+Running the command multiple times will skip any existing indexes with matching key definitions.
+
 ## Requirements
 
 Python 3.11+
