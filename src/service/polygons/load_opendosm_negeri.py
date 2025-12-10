@@ -3,13 +3,14 @@ import logging
 from collections import defaultdict
 
 from pymongo import MongoClient
-from shapely.geometry import shape, mapping
+from shapely.geometry import shape, mapping, Point
 from shapely.validation import make_valid
 
 from src.core import s3 as s3_core
 from src.models.negeriEnum import NegeriEnum
 from src.models.negeriPolygon import NegeriPolygon
 from src.config.settings import get_settings
+from src.models.sekolah import Sekolah
 
 # --------------------------
 # SETUP
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 mongo_client = MongoClient(settings.mongo_uri)
 db = mongo_client[settings.db_name]
 collection = db[settings.negeri_polygon_collection]
+sekolah_collection = db[Sekolah.collection_name]
 
 # S3
 s3_client = s3_core.get_s3_client()
@@ -75,7 +77,7 @@ def repair_geometry(geometry: dict, state_name: str = "") -> dict:
             logger.warning(f"Invalid geometry detected for {state_name}: {reason}")
             # Use shapely's make_valid to fix the geometry
             geom = make_valid(geom)
-            logger.info(f"✓ Geometry repaired successfully for {state_name}")
+            logger.info(f"Geometry repaired successfully for {state_name}")
         
         # Convert back to GeoJSON
         return mapping(geom)
@@ -151,7 +153,7 @@ def main():
         repaired_geometry = repair_geometry(geometry, normalized)
         
         negeri_to_geometry[NegeriEnum[normalized].value] = repaired_geometry
-        logger.info(f"✓ Loaded geometry for {normalized}")
+        logger.info(f"Loaded geometry for {normalized}")
 
     # UPSERT INTO MONGODB
     logger.info("\n" + "=" * 60)
@@ -160,12 +162,18 @@ def main():
 
     upserted_count = 0
     for negeri_str, geometry in negeri_to_geometry.items():
+        negeri_enum = NegeriEnum[negeri_str]
+
+        # Calculate centroid of schools in this negeri
+        centroid_doc = calculate_centroid(negeri_enum)
+
         model = NegeriPolygon(
-            negeri=NegeriEnum[negeri_str],
-            geometry=geometry
+            negeri=negeri_enum,
+            geometry=geometry,
+            centroid=centroid_doc,
         )
         collection.replace_one({"_id": negeri_str}, model.to_document(), upsert=True)
-        logger.info(f"✓ Upserted {negeri_str}")
+        logger.info(f"Upserted {negeri_str} with centroid {centroid_doc}")
         upserted_count += 1
 
 # --------------------------
@@ -184,6 +192,54 @@ def main():
     logger.info(f"SUMMARY: {summary}")
     logger.info("=" * 60)
     return summary
+
+
+def calculate_centroid(negeri: NegeriEnum) -> dict | None:
+    """Calculate centroid of all schools in the given negeri.
+
+    - Reads from Sekolah collection in MongoDB
+    - Uses KOORDINATXX (x/longitude) and KOORDINATYY (y/latitude)
+    - Returns GeoJSON Point {"type": "Point", "coordinates": [x, y]} or None
+    """
+    cursor = sekolah_collection.find(
+        {
+            "negeri": negeri.value,
+            "location.type": "Point",
+            "location.coordinates": {"$type": "array"},
+        },
+        {"location": 1},
+    )
+
+    total_lat = 0.0
+    total_lon = 0.0
+    count = 0
+
+    for doc in cursor:
+        location = doc.get("location") or {}
+        coordinates = location.get("coordinates")
+        if not isinstance(coordinates, (list, tuple)) or len(coordinates) != 2:
+            continue
+
+        x, y = coordinates
+        try:
+            x = float(x)
+            y = float(y)
+        except (TypeError, ValueError):
+            continue
+
+        total_lat += x
+        total_lon += y
+        count += 1
+
+    if count == 0:
+        logger.warning(f"No valid school coordinates found for negeri {negeri.value}; centroid will be None")
+        return None
+
+    center_lat = total_lat / count
+    center_lon = total_lon / count
+
+    point = Point(center_lat, center_lon)
+    return mapping(point)
 
 
 if __name__ == "__main__":
