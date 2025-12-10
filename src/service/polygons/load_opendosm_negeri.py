@@ -235,8 +235,8 @@ def calculate_centroid(negeri: NegeriEnum) -> dict | None:
         {"location": 1},
     )
 
-    total_lat = 0.0
-    total_lon = 0.0
+    total_lon = 0.0 # x
+    total_lat = 0.0 # y
     count = 0
 
     for doc in cursor:
@@ -252,18 +252,19 @@ def calculate_centroid(negeri: NegeriEnum) -> dict | None:
         except (TypeError, ValueError):
             continue
 
-        total_lat += x
-        total_lon += y
+        total_lon += x  # longitude
+        total_lat += y  # latitude
         count += 1
 
     if count == 0:
         logger.warning(f"No valid school coordinates found for negeri {negeri.value}; centroid will be None")
         return None
 
-    center_lat = total_lat / count
     center_lon = total_lon / count
+    center_lat = total_lat / count
 
-    point = Point(center_lat, center_lon)
+    # Shapely/GeoJSON convention: Point(lon, lat) -> [lon, lat]
+    point = Point(center_lon, center_lat)
     return mapping(point)
 
 
