@@ -34,6 +34,18 @@ Configuration (source, paths, Mongo connection, etc.) is controlled entirely thr
 
 The `--entiti` flag writes to the `EntitiSekolah` collection. The `--analitik` flag writes to the `AnalitikSekolah` collection. The `--load-polygons` flag reads from S3 and writes to the `NegeriPolygon` and `ParlimenPolygon` collections. 
 
+### Managing MongoDB Indexes
+
+MongoDB indexes for this project is managed in `src/db/indexes.py`.
+
+These indexes only need to be created once for your database.
+If you need to rerun the setup, simply execute:
+
+```bash
+python -m src.db.indexes
+```
+Running the command multiple times will skip any existing indexes with matching key definitions.
+
 ## Requirements
 
 Python 3.11+
@@ -126,7 +138,46 @@ Serve the FastAPI application with an ASGI server such as `uvicorn` after activa
 uvicorn src.api:app --reload
 ```
 
-The endpoint performs a MongoDB `ping` using the configured `MONGO_URI` and responds with `{"status": "ok", "database": "<DB_NAME>"}` when the database is reachable. If the ping fails, it returns `503 Service Unavailable`.
+### Available Endpoints
+
+- **`GET /health`** - Health check that verifies MongoDB connectivity
+  - Returns `{"status": "ok", "database": "<DB_NAME>"}` when database is reachable
+  - Returns `503 Service Unavailable` if database is unreachable
+
+- **`POST /trigger-ingestion`** - Manually trigger the full ingestion pipeline
+  - Executes the complete data ingestion process on-demand
+  - Returns detailed metrics and summary of all pipeline stages
+  - Independent from the scheduled daily job
+
+- **`GET /revalidate-school-entity`** - Trigger revalidation of school entities to S3
+
+### Scheduled Cron Jobs
+
+The FastAPI service includes **automated daily ingestion** via `fastapi-crons`:
+
+- **Schedule**: `0 0 * * *` (daily at midnight)
+- **Timezone**: Runs in server's local timezone
+- **Function**: Executes the full ingestion pipeline (CSV ingestion, EntitiSekolah, NegeriParlimenKodSekolah, AnalitikSekolah)
+
+**To adjust the schedule**, modify the cron expression in `src/api.py`:
+```python
+@crons.cron("0 2 * * *")  # Example: daily at 2 AM
+```
+
+**To disable**, comment out the `@crons.cron()` decorator or remove the cron startup in `src/api.py`.
+
+#### Monitoring Scheduled Jobs
+
+The cron job produces detailed logs with start/end times, duration, and metrics for each pipeline stage (ingestion, EntitiSekolah, NegeriParlimenKodSekolah, AnalitikSekolah).
+
+**Important**: Failed jobs are logged but do **not** crash the server. The job retries at the next scheduled time.
+
+#### Manual vs Scheduled Ingestion
+
+- **Scheduled**: Automatic at 00:00 daily for regular updates
+- **Manual**: `POST /trigger-ingestion` for on-demand runs, testing, or recovery
+
+Both execute the same pipeline, log comprehensive metrics, and handle errors gracefully.
 
 ## Data Model
 
