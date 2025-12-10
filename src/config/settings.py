@@ -102,8 +102,6 @@ class Settings(BaseSettings):
     s3_bucket_dataproc: str = get_env_str("S3_BUCKET_DATAPROC")
     s3_prefix: str = get_env_str("S3_PREFIX")
 
-
-
 def get_settings() -> Settings:
     """Return environment settings."""
     return Settings()
