@@ -7,21 +7,38 @@ logger = logging.getLogger(__name__)
 
 
 def add_index(col, keys, name=None, **options):
-    """Create index only if an identical one doesn't exist."""
+    """
+    Checks and fixes the index if needed.
+    - If the index exists and matches: skip
+    - If the index exists but differs: drop & recreate
+    - If no index exists: create it
+    """
     existing = col.index_information()
+
     desired_key = list(keys.items())
 
-    for idx_name, idx_info in existing.items():
-        if idx_info.get("key") == desired_key:
-            logger.info(f"[SKIP] {col.name}.{idx_name} already matches {keys}")
+    # Check if an index with this name already exists
+    if name in existing:
+        current = existing[name]
+        current_key = current.get("key")
+
+        # If key matches -> skip
+        if current_key == desired_key:
+            logger.info(f"[SKIP] {col.name}.{name} already matches {keys}")
             return
 
-    try:
-        result = col.create_index(keys, name=name, **options)
-        logger.info(f"[CREATE] {col.name}.{result}")
-    except PyMongoError as e:
-        logger.warning(f"[ERROR] Skipping index for {col.name}: {e}")
+        # Key mismatch -> drop
+        logger.warning(f"[DROP] {col.name}.{name} has wrong key {current_key}, expected {desired_key}")
+        col.drop_index(name)
 
+    # Check if an index with same key but different name exists
+    for idx_name, idx_info in existing.items():
+        if idx_info.get("key") == desired_key:
+            logger.info(f"[SKIP] {col.name}.{idx_name} already provides key {keys}")
+            return
+
+    result = col.create_index(keys, name=name, **options)
+    logger.info(f"[CREATE] {col.name}.{result} created")
 
 def create_index_sekolah(db, settings):
     col = db[settings.sekolah_collection]
@@ -46,7 +63,7 @@ def create_index_entiti_sekolah(db, settings):
 
     add_index(col, {"data.infoPentadbiran.negeri": 1}, name="negeri")
     add_index(col, {"data.infoPentadbiran.parlimen": 1}, name="parlimen")
-    add_index(col, {"data.infoLokasi.location": 1}, name="location")
+    add_index(col, {"data.infoLokasi.location": "2dsphere"}, name="location")
 
 
 def main():
@@ -57,7 +74,7 @@ def main():
     create_index_negeri_parlimen_kod_sekolah(db, settings)
     create_index_entiti_sekolah(db, settings)
 
-    logger.info("Index added successfully.")
+    logger.info("Indexes added successfully.")
 
 
 if __name__ == "__main__":
