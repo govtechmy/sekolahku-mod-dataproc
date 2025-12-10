@@ -11,6 +11,7 @@ from src.models.negeriEnum import NegeriEnum
 from src.models.negeriPolygon import NegeriPolygon
 from src.config.settings import get_settings
 from src.models.sekolah import Sekolah
+from shapely.validation import explain_validity
 
 # --------------------------
 # SETUP
@@ -66,11 +67,13 @@ def repair_geometry(geometry: dict, state_name: str = "") -> dict:
       "Can't extract geo keys... Edges 122 and 124 cross"
     """
     try:
-        from shapely.validation import explain_validity
+        # skip heavy repair for other states
+        if state_name not in ["SARAWAK", "SABAH"]:
+            return geometry
         
         # Convert GeoJSON to shapely geometry
         geom = shape(geometry)
-        
+
         # Check if geometry is valid
         if not geom.is_valid:
             reason = explain_validity(geom)
@@ -78,9 +81,10 @@ def repair_geometry(geometry: dict, state_name: str = "") -> dict:
             # Use shapely's make_valid to fix the geometry
             geom = make_valid(geom)
             logger.info(f"Geometry repaired successfully for {state_name}")
-        
+
         # Convert back to GeoJSON
         return mapping(geom)
+
     except Exception as e:
         logger.error(f"Failed to repair geometry for {state_name}: {str(e)[:200]}")
         # Return original geometry if repair fails
@@ -176,29 +180,6 @@ def main():
         collection.replace_one({"_id": negeri_str}, model.to_document(), upsert=True)
         logger.info(f"Upserted {negeri_str} with centroid {centroid_doc}")
         upserted_count += 1
-        try:
-            model = NegeriPolygon(
-                negeri=NegeriEnum[negeri_str],
-                geometry=geometry
-            )
-            collection.replace_one({"_id": negeri_str}, model.to_document(), upsert=True)
-            logger.info(f"✓ Upserted {negeri_str}")
-            upserted_count += 1
-        except Exception as e:
-            failed_count += 1
-            error_msg = str(e)
-            
-            # Extract key error info for MongoDB geometry validation errors
-            if "Edges" in error_msg and "cross" in error_msg:
-                # Extract just the edges crossing info
-                error_summary = error_msg.split("Edge locations")[0].strip()
-                logger.error(f"MongoDB rejected {negeri_str}: {error_summary}")
-            else:
-                # For other errors, show first 200 chars
-                logger.error(f"Failed to upsert {negeri_str}: {error_msg[:200]}")
-            
-            # Continue with next state instead of crashing
-            continue
 
 # --------------------------
 # SUMMARY
