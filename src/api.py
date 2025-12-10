@@ -148,7 +148,6 @@ def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[s
     background_tasks.add_task(load_polygons_sequentially)
 
     return {"status": "received request to load polygons"}
-  
 @app.on_event("startup")
 async def startup_event():
     """Initialize and start scheduled cron jobs."""

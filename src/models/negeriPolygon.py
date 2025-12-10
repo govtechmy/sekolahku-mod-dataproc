@@ -19,7 +19,6 @@ class NegeriPolygon(BaseModel):
     collection_name: ClassVar[str] = _settings.negeri_polygon_collection
 
     negeri: NegeriEnum = Field(..., description="Negeri name following NegeriEnum")
-    parlimen_list: List[str] = Field(default_factory=list, description="List of parliament names in this Negeri")
     geometry: Dict[str, Any] = Field(..., description="GeoJSON geometry (MultiPolygon)")
     centroid: Optional[Dict[str, Any]] = Field(default=None, description="GeoJSON Point representing centroid of schools in this negeri")
     updated_at: datetime = Field(default_factory=_utc_now, description="Last updated timestamp in UTC")
