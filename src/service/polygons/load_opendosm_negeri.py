@@ -121,48 +121,48 @@ def extract_state(obj: dict) -> str | None:
 # --------------------------
 # PROCESS FILES
 # --------------------------
+
 def main():
     negeri_to_geometry = {}
 
     # Load negeri geometries
-    logger.info("=" * 60)
-    logger.info("Loading NEGERI geometries")
-    logger.info("=" * 60)
+    logger.info("[Negeri] Loading state geometries from S3 prefix '%s'", negeri_prefix)
 
     negeri_keys = list_s3_json_files(bucket, negeri_prefix)
     if not negeri_keys:
-        logger.warning(f"No negeri JSON files found in s3://{bucket}/{negeri_prefix}")
+        logger.warning("[Negeri] No negeri JSON files found in s3://%s/%s", bucket, negeri_prefix)
         return
 
+    logger.info("[Negeri] Found %d negeri JSON files", len(negeri_keys))
+
     for key in negeri_keys:
-        logger.info(f"Processing negeri file: {key}")
+        logger.debug("[Negeri] Processing file: %s", key)
         obj = s3_core.read_json_from_s3(bucket, key)
         if not obj:
-            logger.warning(f"Empty JSON: {key}")
+            logger.warning("[Negeri] Empty JSON: %s", key)
             continue
 
         state_name = extract_state(obj)
         geometry = obj.get("pageProps", {}).get("geojson", {}).get("geometry")
 
         if not state_name or not geometry:
-            logger.warning(f"Missing state or geometry in {key}")
+            logger.warning("[Negeri] Missing state or geometry in %s", key)
             continue
 
         normalized = normalize_state_name(state_name)
         if not normalized:
-            logger.warning(f"Unknown negeri name: {state_name}")
+            logger.warning("[Negeri] Unknown negeri name: %s", state_name)
             continue
 
         # Repair geometry if needed (fixes self-intersecting polygons)
         repaired_geometry = repair_geometry(geometry, normalized)
-        
+
         negeri_to_geometry[NegeriEnum[normalized].value] = repaired_geometry
-        logger.info(f"Loaded geometry for {normalized}")
+
+    logger.info("[Negeri] Loaded geometries for %d states", len(negeri_to_geometry))
 
     # UPSERT INTO MONGODB
-    logger.info("\n" + "=" * 60)
-    logger.info("Upserting NEGERI geometries to MongoDB")
-    logger.info("=" * 60)
+    logger.info("[Negeri] Upserting state geometries to MongoDB collection '%s'", collection.name)
 
     upserted_count = 0
     failed_count = 0
@@ -178,25 +178,22 @@ def main():
             centroid=centroid_doc,
         )
         collection.replace_one({"_id": negeri_str}, model.to_document(), upsert=True)
-        logger.info(f"Upserted {negeri_str} with centroid {centroid_doc}")
         upserted_count += 1
 
-# --------------------------
-# SUMMARY
-# --------------------------
+    # --------------------------
+    # SUMMARY
+    # --------------------------
     summary = {
         "negeri": {
             "processed": len(negeri_to_geometry),
             "succeeded": upserted_count,
             "failed": failed_count,
-            "collection": collection.name
+            "collection": collection.name,
         },
         "total_negeri_files_scanned": len(negeri_keys),
     }
 
-    logger.info("\n" + "=" * 60)
-    logger.info(f"NEGERI SUMMARY: {summary}")
-    logger.info("=" * 60)
+    logger.info("[Negeri] Summary: %s", summary)
     return summary
 
 
