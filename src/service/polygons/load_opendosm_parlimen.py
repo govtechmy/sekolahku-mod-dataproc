@@ -2,6 +2,8 @@ import json
 import logging
 
 from pymongo import MongoClient
+from shapely.geometry import shape, mapping
+from shapely.validation import make_valid
 
 from src.core import s3 as s3_core
 from src.models.negeriEnum import NegeriEnum
@@ -23,7 +25,7 @@ collection = db[settings.parlimen_polygon_collection]
 # S3 client
 s3_client = s3_core.get_s3_client()
 bucket = settings.s3_bucket_dataproc
-parlimen_prefix = f"{settings.s3_prefix_opendosm}raw/parlimen/"
+parlimen_prefix = f"{settings.s3_prefix_opendosm}parlimen/"
 
 
 # --------------------------
@@ -67,6 +69,38 @@ def normalize_parliament_name(raw_parlimen: str) -> str:
     - "Kuala Lumpur" -> "KUALA_LUMPUR"
     """
     return raw_parlimen.upper().replace(" ", "_")
+
+
+# --------------------------
+# REPAIR INVALID GEOMETRY
+# --------------------------
+def repair_geometry(geometry: dict, parlimen_id: str = "") -> dict:
+    """
+    Repair invalid geometries (e.g., self-intersecting polygons) using shapely.
+    Returns the repaired geometry as a GeoJSON dict.
+    - MongoDB's 2dsphere geospatial index validates GeoJSON geometries and rejects invalid ones
+    - This function fixes geometry issues like self-intersecting edges, invalid loops, etc.
+    """
+    try:
+        from shapely.validation import explain_validity
+        
+        # Convert GeoJSON to shapely geometry
+        geom = shape(geometry)
+        
+        # Check if geometry is valid
+        if not geom.is_valid:
+            reason = explain_validity(geom)
+            logger.warning(f"Invalid geometry detected for {parlimen_id}: {reason}")
+            # Use shapely's make_valid to fix the geometry
+            geom = make_valid(geom)
+            logger.info(f"✓ Geometry repaired successfully for {parlimen_id}")
+        
+        # Convert back to GeoJSON
+        return mapping(geom)
+    except Exception as e:
+        logger.error(f"Failed to repair geometry for {parlimen_id}: {str(e)[:200]}")
+        # Return original geometry if repair fails
+        return geometry
 
 
 # --------------------------
@@ -136,10 +170,13 @@ def main():
         negeri_enum = NegeriEnum[normalized_state]
         normalized_parlimen = normalize_parliament_name(parlimen_name)
         
+        parlimen_id = f"{negeri_enum.value}::{normalized_parlimen}"
+        repaired_geometry = repair_geometry(geometry, parlimen_id)
+        
         parlimen_data.append({
             'negeri': negeri_enum,
             'parlimen': normalized_parlimen,
-            'geometry': geometry,
+            'geometry': repaired_geometry,
             'original_state': state_name,
             'original_parlimen': parlimen_name
         })
@@ -181,9 +218,7 @@ def main():
             error_msg = str(e)
             parlimen_id = f"{data['negeri'].value}_{data['parlimen']}"
             
-            # Extract key error info for MongoDB geometry validation errors
             if "Edges" in error_msg and "cross" in error_msg:
-                # Extract just the edges crossing info
                 error_summary = error_msg.split("Edge locations")[0].strip()
                 logger.error(f"MongoDB rejected {parlimen_id}: {error_summary}")
             else:
