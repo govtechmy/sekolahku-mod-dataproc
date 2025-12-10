@@ -25,7 +25,7 @@ collection = db[settings.parlimen_polygon_collection]
 # S3 client
 s3_client = s3_core.get_s3_client()
 bucket = settings.s3_bucket_dataproc
-parlimen_prefix = f"{settings.s3_prefix_opendosm}raw/parlimen/"
+parlimen_prefix = f"{settings.s3_prefix_opendosm}parlimen/"
 
 
 # --------------------------

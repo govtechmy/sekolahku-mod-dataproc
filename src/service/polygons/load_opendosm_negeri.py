@@ -25,7 +25,7 @@ collection = db[settings.negeri_polygon_collection]
 # S3
 s3_client = s3_core.get_s3_client()
 bucket = settings.s3_bucket_dataproc
-negeri_prefix = f"{settings.s3_prefix_opendosm}raw/negeri/"
+negeri_prefix = f"{settings.s3_prefix_opendosm}/negeri/"
 
 # --------------------------
 # NORMALIZE STATE NAME

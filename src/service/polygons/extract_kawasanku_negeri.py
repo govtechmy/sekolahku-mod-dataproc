@@ -21,7 +21,7 @@ NEGERI_CSV_PATH = "src/service/polygons/data/url_negeri.csv"
 
 # S3 Configuration from environment
 S3_BUCKET = settings.s3_bucket_dataproc
-S3_PREFIX_OPENDOSM = "opendosm/test/negeri/"
+S3_PREFIX_OPENDOSM = "opendosm/raw/negeri/"
 # TODO: Uncomment when ready to upload extracted files to S3
 # S3_EXTRACTED_PREFIX = "opendosm/extracted/negeri/"
 
@@ -90,16 +90,22 @@ def main():
 
     urls = [row[0].strip() for row in rows[1:] if row and row[0].strip()]
 
+    # Counters for tracking
+    download_success = 0
+    download_failed = 0
+    extract_success = 0
+    extract_failed = 0
+
     # ---------------------------------------------------------
     # STEP 1 — Download and upload directly to S3
     # ---------------------------------------------------------
     for url in urls:
         filename = extract_filename(url)
 
-        logger.info("\n==============================================================")
+        logger.info("\n=======================================================")
         logger.info(f"Downloading: {url}")
         logger.info(f"Uploading to S3: s3://{settings.s3_bucket_dataproc}/{S3_PREFIX_OPENDOSM}{filename}")
-        logger.info("==============================================================")
+        logger.info("=======================================================")
 
         try:
             resp = requests.get(url, timeout=20)
@@ -107,6 +113,7 @@ def main():
             data = resp.json()
         except Exception as e:
             logger.error(f"ERROR: {e}")
+            download_failed += 1
             continue
 
         # Upload JSON directly to S3 (no local file)
@@ -119,8 +126,10 @@ def main():
                 ContentType='application/json'
             )
             logger.info(f"✓ Successfully uploaded to S3")
+            download_success += 1
         except Exception as e:
             logger.error(f"✗ S3 upload failed: {e}")
+            download_failed += 1
             continue
 
     # ---------------------------------------------------------
@@ -138,26 +147,35 @@ def main():
             root = json.loads(response['Body'].read().decode('utf-8'))
         except Exception as e:
             logger.error(f"Failed to read from S3: {e}")
+            extract_failed += 1
             continue
 
         pageProps = root.get("pageProps", {})
         params = pageProps.get("params", {})
         geojson = pageProps.get("geojson", {})
 
-        logger.info("\nSCHEMA: pageProps.params")
-        print_schema(params)
-
-        logger.info("\nSCHEMA: pageProps.geojson")
-        print_schema(geojson)
-
         extracted_data = {
             "params": params,
             "geojson": geojson
         }
         
+        logger.info(f"✓ Extracted data from {filename}")
+        extract_success += 1
+        
         # TODO: Uncomment to upload extracted JSON to S3 (requires S3_EXTRACTED_PREFIX)
         # s3_extract_key = S3_EXTRACTED_PREFIX + filename
         # upload_to_s3(s3_client, extract_path, s3_extract_key)
+
+    # ---------------------------------------------------------
+    # SUMMARY
+    # ---------------------------------------------------------
+    logger.info("\n" + "=" * 60)
+    logger.info("===== EXTRACTION SUMMARY =====")
+    logger.info(f"Total URLs processed: {len(urls)}")
+    logger.info(f"Download successful: {download_success}")
+    logger.info(f"Download failed: {download_failed}")
+    logger.info(f"Extract successful: {extract_success}")
+    logger.info(f"Extract failed: {extract_failed}")
 
 
 if __name__ == "__main__":
