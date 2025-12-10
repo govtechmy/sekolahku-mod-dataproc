@@ -33,6 +33,51 @@ def configure_settings(_: argparse.Namespace) -> Settings:
     """Return settings from environment."""
     return get_settings()
 
+def run_ingest(settings: Settings | None = None) -> dict:
+    """
+    Run the full ingestion pipeline including all aggregations.
+    
+    This function can be called programmatically from other modules (e.g., api.py)
+    without needing command-line arguments.
+    
+    Args:
+        settings: Optional Settings object. If None, loads from environment.
+    
+    Returns:
+        Dictionary containing summary of all pipeline operations:
+        - ingestion: Main ingestion results
+        - entiti: EntitiSekolah aggregation results
+        - negeri_parlimen_kod_sekolah: NegeriParlimenKodSekolah results
+        - analitik: Analitik aggregation results (if data changed)
+    """
+    if settings is None:
+        settings = get_settings()
+    
+    # -------------------------
+    # Run ingestion pipeline
+    # -------------------------
+    result = run_pipeline(settings)
+    logger.info("Ingestion summary: %s", result)
+
+    entiti = run_entiti_sekolah_dict(settings)
+    logger.info("Entiti summary: %s", entiti)
+
+    negeri_parlimen_kod_sekolah_summary = run_negeri_parlimen_kod_sekolah(settings)
+    logger.info("NegeriParlimenKodSekolah summary: %s", negeri_parlimen_kod_sekolah_summary)
+
+    if result["inserted"] == 0 and result["updated"] == 0 and result["inactivated"] == 0:
+        logger.info("No data changes detected; skipping Analitik run")
+        analitik = None
+    else:
+        analitik = run_analitik_dict(settings)
+        logger.info("Analitik summary: %s", analitik)
+    
+    return {
+        "ingestion": result,
+        "entiti": entiti,
+        "negeri_parlimen_kod_sekolah": negeri_parlimen_kod_sekolah_summary,
+        "analitik": analitik,
+    }
 
 def main() -> None:
     args = parse_args()
@@ -59,24 +104,7 @@ def main() -> None:
         logger.info("Analitik summary: %s", analitik)
         return
 
-    # -------------------------
-    # Run ingestion pipeline if no specific aggregation flags are provided
-    # -------------------------
-    result = run_pipeline(settings)
-    logger.info("Ingestion summary: %s", result)
-
-    entiti = run_entiti_sekolah_dict(settings)
-    logger.info("Entiti summary: %s", entiti)
-
-    negeri_parlimen_kod_sekolah_summary = run_negeri_parlimen_kod_sekolah(settings)
-    logger.info("NegeriParlimenKodSekolah summary: %s", negeri_parlimen_kod_sekolah_summary)
-
-    if result["inserted"] == 0 and result["updated"] == 0 and result["inactivated"] == 0:
-        logger.info("No data changes detected; skipping Analitik run")
-    else:
-        analitik = run_analitik_dict(settings)
-        logger.info("Analitik summary: %s", analitik)
-
+    run_ingest(settings)
 
 if __name__ == "__main__":
     main()

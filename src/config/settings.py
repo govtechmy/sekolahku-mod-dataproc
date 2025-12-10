@@ -105,8 +105,6 @@ class Settings(BaseSettings):
     s3_prefix: str = get_env_str("S3_PREFIX", "raw/sekolah")
     s3_prefix_opendosm: str = get_env_str("S3_PREFIX_OPENDOSM", "opendosm/raw")
 
-
-
 def get_settings() -> Settings:
     """Return environment settings."""
     return Settings()

@@ -5,10 +5,13 @@ from typing import Any
 
 from botocore.exceptions import ClientError
 from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
+from fastapi_crons import Crons
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
 from src.config.settings import get_settings
+from src.main import run_ingest
 from src.service.entitiRevalidate import revalidate_school_entity
 from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
 
@@ -40,6 +43,47 @@ def _run_revalidate_school_entity_job(settings: Any) -> None:
     )
 
 
+def _run_ingestion_job() -> None:
+    """Execute ingestion pipeline and log outcome."""
+    try:
+        run_ingest()
+        logger.info("Manual ingestion job completed successfully")
+    except PyMongoError:
+        logger.exception("MongoDB error while handling ingestion request")
+    except Exception:
+        logger.exception("Unexpected error while handling ingestion request")
+
+# Initialize settings to get timezone configuration
+settings = get_settings()
+crons = Crons()
+
+
+@crons.cron("0 0 * * *")
+async def daily_ingestion_job():
+    """
+    Run the full ingestion pipeline daily at midnight (00:00).
+    
+    This cron job executes the complete data ingestion process including:
+    - Main school data ingestion
+    - EntitiSekolah aggregation
+    - NegeriParlimenKodSekolah population
+    - Analitik aggregation (if data changed)
+    """
+    logger.info("Starting scheduled daily ingestion job")
+    
+    try:
+        run_ingest()
+        logger.info("Scheduled daily ingestion job completed successfully")
+    except PyMongoError as exc:
+        logger.error("Scheduled ingestion job failed - database error: %s", str(exc))
+        logger.exception("Full database error details:")
+        # DO NOT re-raise - allow the server to continue running
+    except Exception as exc:
+        logger.error("Scheduled ingestion job failed - unexpected error: %s", str(exc))
+        logger.exception("Full error details:")
+        # DO NOT re-raise - allow the server to continue running
+
+
 @app.get("/health")
 def health_check() -> dict[str, str]:
     """Return application health status by verifying database connectivity."""
@@ -53,6 +97,27 @@ def health_check() -> dict[str, str]:
         client.close()
     return {"status": "ok", "database": settings.db_name}
 
+
+@app.post("/trigger-ingestion")
+def trigger_ingestion_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
+    """
+    Manually trigger the full ingestion pipeline.
+    
+    This endpoint allows on-demand execution of the ingestion process
+    without waiting for the scheduled cron job. It runs independently
+    and does not interfere with the scheduled daily runs.
+    
+    The ingestion job runs in the background and the endpoint returns immediately.
+    Check the logs for job completion status and metrics.
+    
+    Returns:
+        Dictionary confirming that the ingestion job has been queued.
+    """
+    logger.info("Received request to trigger manual ingestion")
+    
+    background_tasks.add_task(_run_ingestion_job)
+    
+    return {"status": "received"}
 
 
 @app.get("/revalidate-school-entity")
@@ -83,3 +148,18 @@ def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[s
     background_tasks.add_task(load_polygons_sequentially)
 
     return {"status": "received request to load polygons"}
+  
+@app.on_event("startup")
+async def startup_event():
+    """Initialize and start scheduled cron jobs."""
+    logger.info("Initializing scheduled cron jobs")
+    await crons.start()
+    logger.info("Cron jobs started successfully - daily ingestion scheduled for 00:00")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Stop cron jobs on application shutdown."""
+    logger.info("Stopping scheduled cron jobs")
+    await crons.stop()
+    logger.info("Cron jobs stopped")
