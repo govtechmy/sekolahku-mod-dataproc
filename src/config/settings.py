@@ -103,8 +103,6 @@ class Settings(BaseSettings):
     s3_prefix: str = get_env_str("S3_PREFIX")
     dataproc_api_key: str = get_env_str("DATAPROC_API_KEY")
 
-
-
 def get_settings() -> Settings:
     """Return environment settings."""
     return Settings()

@@ -7,6 +7,7 @@ charset-normalizer==3.4.4
 dnspython==2.7.0
 email-validator==2.3.0
 fastapi==0.115.5
+fastapi-crons==2.0.1
 google-auth==2.43.0
 google-auth-oauthlib==1.2.2
 gspread==6.2.1
