@@ -21,7 +21,7 @@ NEGERI_CSV_PATH = "src/service/polygons/data/url_negeri.csv"
 
 # S3 Configuration from environment
 S3_BUCKET = settings.s3_bucket_dataproc
-S3_PREFIX_OPENDOSM = "opendosm/negeri/"
+S3_PREFIX_OPENDOSM = "opendosm/test/negeri/"
 # TODO: Uncomment when ready to upload extracted files to S3
 # S3_EXTRACTED_PREFIX = "opendosm/extracted/negeri/"
 

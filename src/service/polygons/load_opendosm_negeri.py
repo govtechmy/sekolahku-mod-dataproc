@@ -159,29 +159,47 @@ def main():
     logger.info("=" * 60)
 
     upserted_count = 0
+    failed_count = 0
     for negeri_str, geometry in negeri_to_geometry.items():
-        model = NegeriPolygon(
-            negeri=NegeriEnum[negeri_str],
-            geometry=geometry
-        )
-        collection.replace_one({"_id": negeri_str}, model.to_document(), upsert=True)
-        logger.info(f"✓ Upserted {negeri_str}")
-        upserted_count += 1
+        try:
+            model = NegeriPolygon(
+                negeri=NegeriEnum[negeri_str],
+                geometry=geometry
+            )
+            collection.replace_one({"_id": negeri_str}, model.to_document(), upsert=True)
+            logger.info(f"✓ Upserted {negeri_str}")
+            upserted_count += 1
+        except Exception as e:
+            failed_count += 1
+            error_msg = str(e)
+            
+            # Extract key error info for MongoDB geometry validation errors
+            if "Edges" in error_msg and "cross" in error_msg:
+                # Extract just the edges crossing info
+                error_summary = error_msg.split("Edge locations")[0].strip()
+                logger.error(f"MongoDB rejected {negeri_str}: {error_summary}")
+            else:
+                # For other errors, show first 200 chars
+                logger.error(f"Failed to upsert {negeri_str}: {error_msg[:200]}")
+            
+            # Continue with next state instead of crashing
+            continue
 
 # --------------------------
 # SUMMARY
 # --------------------------
     summary = {
         "negeri": {
-            "processed": upserted_count,
-            "inserted": upserted_count,
+            "processed": len(negeri_to_geometry),
+            "succeeded": upserted_count,
+            "failed": failed_count,
             "collection": collection.name
         },
         "total_negeri_files_scanned": len(negeri_keys),
     }
 
     logger.info("\n" + "=" * 60)
-    logger.info(f"SUMMARY: {summary}")
+    logger.info(f"NEGERI SUMMARY: {summary}")
     logger.info("=" * 60)
     return summary
 

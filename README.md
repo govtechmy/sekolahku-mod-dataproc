@@ -12,11 +12,11 @@ CSV_PATH=data/custom_sekolah.csv python -m src.main
 # Run ingestion and EntitiSekolah aggregation
 python -m src.main --entiti
 
-# Extract GeoJSON polygons from OpenDOSM 
-python -m src.polygons.extract_kawasanku_negeri
-python -m src.polygons.extract_kawasanku_parlimen
+# Extract GeoJSON polygons from OPENDOSM to S3
+python -m src.service.polygons.extract_kawasanku_negeri
+python -m src.service.polygons.extract_kawasanku_parlimen
 
-# Load extracted polygons into MongoDB
+# Load extracted polygons from S3 into MongoDB
 python -m src.main --load-polygons
 
 # Show verbosity for a single run 
@@ -29,10 +29,10 @@ Configuration (source, paths, Mongo connection, etc.) is controlled entirely thr
 
 - `--entiti` triggers the EntitiSekolah aggregation pipeline.
 - `--analitik` triggers the AnalitikSekolah aggregation pipeline.
-- `--load-polygons` loads OpenDOSM polygon seed data into `NegeriPolygon` and `ParlimenPolygon` 
+- `--load-polygons` loads OpenDOSM polygon seed data from S3 into `NegeriPolygon` and `ParlimenPolygon` collections
 - `--log-level <LEVEL>` adjusts logging verbosity for the current process (choose from `DEBUG`, `INFO`, `WARNING`, `ERROR`).
 
-The `--entiti` flag writes to the `EntitiSekolah` collection. The `--analitik` flag writes to the `AnalitikSekolah` collection. The `--load-polygons` flag writes to the `NegeriPolygon` and `ParlimenPolygon` collections after reading extracted GeoJSON files from `data_output/extracted_parlimen/` and `data_output/extracted_negeri/`.
+The `--entiti` flag writes to the `EntitiSekolah` collection. The `--analitik` flag writes to the `AnalitikSekolah` collection. The `--load-polygons` flag reads from S3 and writes to the `NegeriPolygon` and `ParlimenPolygon` collections. 
 
 ## Requirements
 
@@ -73,11 +73,7 @@ python -m src.main --entiti
 # Run AnalitikSekolah pipeline
 python -m src.main --analitik
 
-# Extract GeoJSON polygons from OpenDOSM 
-python -m src.polygons.extract_kawasanku_negeri
-python -m src.polygons.extract_kawasanku_parlimen
-
-# Load polygon seed collections (run after extraction)
+# Load polygon seed collections from S3
 python -m src.main --load-polygons
 
 # Increase verbosity for a single run
@@ -86,7 +82,7 @@ python -m src.main --log-level DEBUG
 
 The process reads configuration from environment variables.
 
-Each run prints a summary dictionary, for example :
+Each run prints a summary dictionary, for example:
 
 ```bash
 python -m src.main
@@ -104,33 +100,33 @@ python -m src.main --analitik
 `Analitik summary: {'analitik': {'processed': 1, 'inserted': 1, 'collection': 'AnalitikSekolah'}}`
 
 ```bash
-python -m src.polygons.extract_kawasanku_negeri
-```
-`Extraction summary: {'extracted': 16, 'uploaded_to_s3': 16, 'output_dir': 'data_output/extracted_negeri/'}`
-
-```bash
-python -m src.polygons.extract_kawasanku_parlimen
-```
-`Extraction summary: {'extracted': 222, 'uploaded_to_s3': 222, 'output_dir': 'data_output/extracted_parlimen/'}`
-
-```bash
 python -m src.main --load-polygons
 ```
-`Negeri summary: {'negeri': {'processed': 16, 'inserted': 16, 'collection': 'NegeriPolygon'}, 'total_negeri_files_scanned': 16}`
+`Negeri summary: {'negeri': {'processed': 16, 'succeeded': 16, 'failed': 0, 'collection': 'NegeriPolygon'}, 'total_negeri_files_scanned': 16}`
 
-`Parlimen summary: {'parlimen': {'processed': 222, 'inserted': 222, 'skipped': 0, 'collection': 'ParlimenPolygon'}, 'total_files_scanned': 222}`
+`Parlimen summary: {'parlimen': {'processed': 222, 'succeeded': 222, 'failed': 0, 'skipped': 0, 'collection': 'ParlimenPolygon'}, 'total_files_scanned': 222}`
+
+```bash
+python -m src.service.polygons.extract_kawasanku_negeri
+
+python -m src.service.polygons.extract_kawasanku_parlimen
+```
+
+```
+Extraction summary: {'extracted': 16, 'uploaded_to_s3': 16}
+Extraction summary: {'extracted': 222, 'uploaded_to_s3': 222}
+```
 
 
 ## Running the API
 
-Serve the FastAPI application (which exposes the `/health` endpoint) with an ASGI server such as `uvicorn` after activating your virtual environment:
+Serve the FastAPI application with an ASGI server such as `uvicorn` after activating your virtual environment:
 
 ```bash
 uvicorn src.api:app --reload
 ```
 
 The endpoint performs a MongoDB `ping` using the configured `MONGO_URI` and responds with `{"status": "ok", "database": "<DB_NAME>"}` when the database is reachable. If the ping fails, it returns `503 Service Unavailable`.
-
 
 ## Data Model
 
@@ -261,52 +257,52 @@ Array of assistance/funding type statistics, each containing:
 
 ## Polygon Seed Collections
 
-The `--load-polygons` command loads cleaned OpenDOSM polygon datasets into seed collections for spatial queries and geographic analysis.
+The polygon loading pipeline extracts GeoJSON boundary data from OpenDOSM and populates MongoDB collections.
 
-```bash
-python -m src.main --load-polygons
-```
+### Workflow
 
-This command:
-1. Loads GeoJSON boundaries for negeri and parliamentary constituencies 
-2. Repairs invalid geometries (self-intersections, degenerate loops) to ensure MongoDB compatibility
-3. Creates spatial indexes (`geometry_2dsphere`) for efficient geospatial queries
-4. Populates `parlimenList` in each state document with constituent parliamentary boundaries
+1. **Extract**: Download polygons from Kawasanku API and upload to S3
+   ```bash
+   python -m src.service.polygons.extract_kawasanku_negeri
+   python -m src.service.polygons.extract_kawasanku_parlimen
+   ```
 
-### NegeriPolygon (state boundaries)
+2. **Load**: Read from S3 and insert into MongoDB
+   ```bash
+   python -m src.main --load-polygons
+   # OR via API endpoint
+   curl http://localhost:8000/load-opendosm-polygons
+   ```
 
-Each document represents a Malaysian state or federal territory boundary.
+### NegeriPolygon
+
+Each document represents a Negeri boundary..
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `_id` | str | State identifier |
-| `negeri` | str | State name |
-| `parlimenList` | list[str] | Array of parliamentary constituency names within this state |
+| `_id` | str | Negeri identifier (e.g., `JOHOR`, `WILAYAH_PERSEKUTUAN_KUALA_LUMPUR`) |
+| `negeri` | str | Negeri name matching `NegeriEnum` |
 | `geometry` | object | GeoJSON `MultiPolygon` with state boundary coordinates |
 | `updatedAt` | datetime | UTC timestamp when the polygon data was loaded |
 
-**Indexes:**
-- `_id_` (default primary key)
-- `negeri_1` (field index)
-- `geometry_2dsphere` (spatial index)
+**Data source:** `s3://{S3_BUCKET_DATAPROC}/opendosm/raw/negeri/`
 
-### ParlimenPolygon (parliamentary boundaries)
+### ParlimenPolygon
 
-Each document represents a parliamentary constituency (Dewan Rakyat) boundary.
+Each document represents a parliamentary boundary.
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `_id` | str | Composite key: `"{negeri}::{parlimen}"` |
-| `negeri` | str | State name |
-| `parlimen` | str | Parliamentary constituency name |
-| `geometry` | object | GeoJSON `MultiPolygon` with constituency boundary coordinates |
+| `_id` | str | Composite key: `"{negeri}::{parlimen}"` (e.g., `JOHOR::SEGAMAT`) |
+| `negeri` | str | Negeri name matching `NegeriEnum` |
+| `parlimen` | str | Parliamentary name |
+| `geometry` | object | GeoJSON `MultiPolygon` with constituency boundary coordinates|
 | `updatedAt` | datetime | UTC timestamp when the polygon data was loaded |
 
-**Indexes:**
-- `_id_` (default primary key)
-- `negeri_1` (field index)
-- `negeri_1_parlimen_1` (compound index)
-- `geometry_2dsphere` (spatial index)
+**Data source:** `s3://{S3_BUCKET_DATAPROC}/opendosm/raw/parlimen/`
+
+
+---
 
 ## License
 TBD

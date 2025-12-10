@@ -158,23 +158,42 @@ def main():
     logger.info("UPSERTING TO MONGODB")
     logger.info("=" * 60)
     upserted_count = 0
+    failed_count = 0
     
     for data in parlimen_data:
-        model = ParlimenPolygon(
-            negeri=data['negeri'],
-            parlimen=data['parlimen'],
-            geometry=data['geometry']
-        )
+        try:
+            model = ParlimenPolygon(
+                negeri=data['negeri'],
+                parlimen=data['parlimen'],
+                geometry=data['geometry']
+            )
 
-        doc = model.to_document()
-        collection.replace_one({"_id": doc["_id"]}, doc, upsert=True)
-        logger.debug(f"Upserted {doc['_id']}")
-        upserted_count += 1
-        
-        if upserted_count % 50 == 0:
-            logger.info(f"Upserted {upserted_count} parliamen records...")
+            doc = model.to_document()
+            collection.replace_one({"_id": doc["_id"]}, doc, upsert=True)
+            logger.debug(f"Upserted {doc['_id']}")
+            upserted_count += 1
+            
+            if upserted_count % 50 == 0:
+                logger.info(f"Upserted {upserted_count} parliament records...")
+                
+        except Exception as e:
+            failed_count += 1
+            error_msg = str(e)
+            parlimen_id = f"{data['negeri'].value}_{data['parlimen']}"
+            
+            # Extract key error info for MongoDB geometry validation errors
+            if "Edges" in error_msg and "cross" in error_msg:
+                # Extract just the edges crossing info
+                error_summary = error_msg.split("Edge locations")[0].strip()
+                logger.error(f"MongoDB rejected {parlimen_id}: {error_summary}")
+            else:
+                logger.error(f"Failed to upsert {parlimen_id}: {error_msg}")
+            
+            continue
     
     logger.info(f"\n✓ Total parlimen upserted: {upserted_count}")
+    if failed_count > 0:
+        logger.warning(f"Total parlimen failed: {failed_count}")
 
     # --------------------------
     # BUILD SUMMARY
@@ -182,7 +201,8 @@ def main():
     summary = {
         'parlimen': {
             'processed': processed_count,
-            'inserted': upserted_count,
+            'succeeded': upserted_count,
+            'failed': failed_count,
             'skipped': skipped_count,
             'collection': collection.name
         },
