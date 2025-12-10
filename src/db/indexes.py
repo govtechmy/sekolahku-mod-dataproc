@@ -65,6 +65,18 @@ def create_index_entiti_sekolah(db, settings):
     add_index(col, {"data.infoPentadbiran.parlimen": 1}, name="parlimen")
     add_index(col, {"data.infoLokasi.location": "2dsphere"}, name="location")
 
+def create_index_negeri_polygon(db, settings):
+    col = db[settings.negeri_polygon_collection]
+
+    add_index(col, {"negeri": 1}, name="negeri")
+    add_index(col, {"geometry": "2dsphere"}, name="geometry")
+
+def create_index_parlimen_polygon(db, settings):
+    col = db[settings.parlimen_polygon_collection]
+
+    add_index(col, {"negeri": 1}, name="negeri")
+    add_index(col, {"parlimen": 1}, name="parlimen")
+    add_index(col, {"geometry": "2dsphere"}, name="geometry")
 
 def main():
     settings = get_settings()
@@ -73,6 +85,8 @@ def main():
     create_index_sekolah(db, settings)
     create_index_negeri_parlimen_kod_sekolah(db, settings)
     create_index_entiti_sekolah(db, settings)
+    create_index_negeri_polygon(db, settings)
+    create_index_parlimen_polygon(db, settings)
 
     logger.info("Indexes added successfully.")
 
