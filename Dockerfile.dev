@@ -4,7 +4,7 @@ FROM python:3.13.8-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    AWS_SECRETS_NAME=sekolahku-mod-dataproc-secret-dev \
+    AWS_SECRETS_NAME=sekolahku-mod-dataproc-secret-dev
 
 WORKDIR /app
 

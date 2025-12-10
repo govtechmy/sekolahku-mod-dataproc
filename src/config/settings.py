@@ -89,6 +89,8 @@ class Settings(BaseSettings):
     entiti_sekolah_collection: str = get_env_str("ENTITI_SEKOLAH_COLLECTION", "EntitiSekolah")
     analitik_sekolah_collection: str = get_env_str("ANALITIK_SEKOLAH_COLLECTION", "AnalitikSekolah")
     negeri_parlimen_kod_sekolah_collection: str = get_env_str("NEGERI_PARLIMEN_KOD_SEKOLAH_COLLECTION", "NegeriParlimenKodSekolah")
+    negeri_polygon_collection: str = get_env_str("NEGERI_POLYGON_COLLECTION", "NegeriPolygon")
+    parlimen_polygon_collection: str = get_env_str("PARLIMEN_POLYGON_COLLECTION", "ParlimenPolygon")
     csv_path: str = get_env_str("CSV_PATH", "data/sekolah.csv")
     gsheet_id: str = get_env_str("GSHEET_ID")
     gsheet_gid: str = get_env_str("GSHEET_GID")
@@ -101,7 +103,8 @@ class Settings(BaseSettings):
     entiti_revalidate_temp_prefix: str = get_env_str("ENTITI_REVALIDATE_TEMP_PREFIX", "temp")
     s3_bucket_dataproc: str = get_env_str("S3_BUCKET_DATAPROC")
     s3_prefix_sekolah: str = get_env_str("S3_PREFIX_SEKOLAH")
-    dataproc_api_key: str = get_env_str("DATAPROC_API_KEY")
+    dataproc_api_key: str = get_env_str("DATAPROC_API_KEY", "raw/sekolah")
+    s3_prefix_opendosm: str = get_env_str("S3_PREFIX_OPENDOSM", "opendosm/raw")
 
 
 

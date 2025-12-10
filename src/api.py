@@ -15,6 +15,7 @@ from pymongo.errors import PyMongoError
 from src.config.settings import get_settings
 from src.main import run_ingest
 from src.service.entitiRevalidate import revalidate_school_entity
+from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
 
 from src.core.db import get_entitisekolah_collection
 from src.core.jsonhelpers import build_snap_routes, build_school_list
@@ -36,16 +37,8 @@ SNAP_ROUTES_KEY = f"{S3_PREFIX_SEKOLAH}/snap-routes.json"
 SCHOOL_LIST_KEY = f"{S3_PREFIX_SEKOLAH}/school-list.json"
 S3_BUCKET = os.getenv("S3_BUCKET_DATAPROC") 
 
-def _check_api_key(x_api_key: Optional[str]) -> bool:
-    expected = os.getenv("DATAPROC_API_KEY")
-    return x_api_key == expected
-
-
 @router.post("/generate/snap-routes")
-def generate_snap_routes(x_api_key: Optional[str] = Header(None)):
-    if not _check_api_key(x_api_key):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
-
+def generate_snap_routes():
     try:
         coll = get_entitisekolah_collection()
         docs = list(coll.find({}, {"_id": 1, "KODSEKOLAH": 1}))
@@ -65,10 +58,7 @@ def generate_snap_routes(x_api_key: Optional[str] = Header(None)):
 
 
 @router.post("/generate/school-list")
-def generate_school_list(x_api_key: Optional[str] = Header(None)):
-    if not _check_api_key(x_api_key):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid API key")
-
+def generate_school_list():
     try:
         coll = get_entitisekolah_collection()
         docs = list(coll.find({}, {"_id": 1, "kodSekolah": 1, "namaSekolah": 1}))
@@ -87,7 +77,7 @@ def generate_school_list(x_api_key: Optional[str] = Header(None)):
     return {"ok": True, "count": len(payload)}
 
 # Register all dataproc endpoints
-app.include_router(dataproc_router)
+app.include_router(router)
 
 def _run_revalidate_school_entity_job(settings: Any) -> None:
     """Execute school entity revalidation and log outcome."""
@@ -195,6 +185,23 @@ def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict
 
     return {"status": "received"}
 
+
+@app.get("/load-opendosm-polygons")
+def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
+    """Trigger loading of Negeri + Parlimen polygons from S3 to MongoDB."""
+
+    def load_polygons_sequentially():
+        try:
+            negeri= load_opendosm_negeri.main()
+            parlimen = load_opendosm_parlimen.main()
+            logger.info(f"Negeri summary: {negeri}")
+            logger.info(f"Parlimen summary: {parlimen}")
+        except Exception as e:
+            logger.exception("Error occurred while loading polygons: %s", e)
+
+    background_tasks.add_task(load_polygons_sequentially)
+
+    return {"status": "received request to load polygons"}
 @app.on_event("startup")
 async def startup_event():
     """Initialize and start scheduled cron jobs."""
