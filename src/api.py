@@ -13,6 +13,7 @@ from pymongo.errors import PyMongoError
 from src.config.settings import get_settings
 from src.main import run_ingest
 from src.service.entitiRevalidate import revalidate_school_entity
+from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
 
 if not logging.getLogger().handlers:
     logging.basicConfig(
@@ -130,6 +131,23 @@ def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict
 
     return {"status": "received"}
 
+
+@app.get("/load-opendosm-polygons")
+def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
+    """Trigger loading of Negeri + Parlimen polygons from S3 to MongoDB."""
+
+    def load_polygons_sequentially():
+        try:
+            negeri= load_opendosm_negeri.main()
+            parlimen = load_opendosm_parlimen.main()
+            logger.info(f"Negeri summary: {negeri}")
+            logger.info(f"Parlimen summary: {parlimen}")
+        except Exception as e:
+            logger.exception("Error occurred while loading polygons: %s", e)
+
+    background_tasks.add_task(load_polygons_sequentially)
+
+    return {"status": "received request to load polygons"}
 @app.on_event("startup")
 async def startup_event():
     """Initialize and start scheduled cron jobs."""

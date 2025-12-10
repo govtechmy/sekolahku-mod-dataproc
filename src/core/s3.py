@@ -1,11 +1,15 @@
+import json
+import logging
 import time
 from typing import Optional, List
 
 import pandas as pd
+from botocore.exceptions import ClientError
 
 from src.core.aws import get_s3_client, get_s3_bucket_name
 
 s3 = get_s3_client()
+logger = logging.getLogger(__name__)
 
 def _upload_to_s3(csv_bytes: bytes, bucket: str, prefix: str) -> str:
     if not bucket:
@@ -40,3 +44,12 @@ def _latest_csv_from_s3(bucket: str, prefix: str) -> Optional[str]:
 def _read_csv_from_s3(bucket: str, s3_key: str) -> pd.DataFrame:
     response = s3.get_object(Bucket=bucket, Key=s3_key)
     return pd.read_csv(response["Body"], dtype=str).fillna("")
+
+def read_json_from_s3(bucket: str, key: str) -> dict | None:
+    s3 = get_s3_client()
+    try:
+        obj = s3.get_object(Bucket=bucket, Key=key)
+        return json.loads(obj["Body"].read())
+    except ClientError as e:
+        logger.warning(f"Error reading S3 object {key} from bucket {bucket}: {e}")
+        return None
