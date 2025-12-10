@@ -100,8 +100,10 @@ class Settings(BaseSettings):
     entiti_revalidate_max_workers: int = get_env_int("ENTITI_REVALIDATE_MAX_WORKERS", 10)
     entiti_revalidate_temp_prefix: str = get_env_str("ENTITI_REVALIDATE_TEMP_PREFIX", "temp")
     s3_bucket_dataproc: str = get_env_str("S3_BUCKET_DATAPROC")
-    s3_prefix: str = get_env_str("S3_PREFIX")
+    s3_prefix_sekolah: str = get_env_str("S3_PREFIX_SEKOLAH")
     dataproc_api_key: str = get_env_str("DATAPROC_API_KEY")
+
+
 
 def get_settings() -> Settings:
     """Return environment settings."""
