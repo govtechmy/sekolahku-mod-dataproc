@@ -5,9 +5,7 @@ import os
 from typing import Any, Optional
 
 from botocore.exceptions import ClientError
-from fastapi import BackgroundTasks, FastAPI, HTTPException
-from fastapi import FastAPI, HTTPException
-from fastapi import APIRouter, Header, status
+from fastapi import BackgroundTasks, FastAPI, HTTPException, APIRouter, Header, status
 from fastapi_crons import Crons
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
@@ -30,12 +28,12 @@ if not logging.getLogger().handlers:
 logger = logging.getLogger(__name__)
 app = FastAPI()
 
-router = APIRouter(prefix="/dataproc", tags=["dataproc"])
+router = APIRouter(prefix="/api", tags=["sekolahku"])
 
 S3_PREFIX_SEKOLAH = "common"
 SNAP_ROUTES_KEY = f"{S3_PREFIX_SEKOLAH}/snap-routes.json"
 SCHOOL_LIST_KEY = f"{S3_PREFIX_SEKOLAH}/school-list.json"
-S3_BUCKET = os.getenv("S3_BUCKET_DATAPROC") 
+S3_BUCKET = os.getenv("S3_BUCKET_NAME")
 
 @router.post("/generate/snap-routes")
 def generate_snap_routes():

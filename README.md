@@ -388,7 +388,7 @@ The endpoint creates `common/snap-routes.json` in S3 with the following structur
 
 ### Generate School Lists JSON
 
-**Endpoint:** `POST /api/generate/school-lists`
+**Endpoint:** `POST /api/generate/school-list`
 
 Generates the school lists JSON file containing categorized lists of schools (by negeri, parlimen, etc.) and uploads it to S3. This file is used by the frontend for school discovery and filtering.
 

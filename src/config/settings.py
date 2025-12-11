@@ -103,7 +103,6 @@ class Settings(BaseSettings):
     entiti_revalidate_temp_prefix: str = get_env_str("ENTITI_REVALIDATE_TEMP_PREFIX", "temp")
     s3_bucket_dataproc: str = get_env_str("S3_BUCKET_DATAPROC")
     s3_prefix_sekolah: str = get_env_str("S3_PREFIX_SEKOLAH")
-    dataproc_api_key: str = get_env_str("DATAPROC_API_KEY", "raw/sekolah")
     s3_prefix_opendosm: str = get_env_str("S3_PREFIX_OPENDOSM", "opendosm/raw")
 
 
