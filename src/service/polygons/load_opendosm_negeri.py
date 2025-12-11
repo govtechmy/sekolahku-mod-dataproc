@@ -4,14 +4,13 @@ from collections import defaultdict
 
 from pymongo import MongoClient
 from shapely.geometry import shape, mapping, Point
-from shapely.validation import make_valid
+from shapely.validation import make_valid, explain_validity
 
 from src.core import s3 as s3_core
 from src.models.negeriEnum import NegeriEnum
-from src.models.negeriPolygon import NegeriPolygon
+from src.models.negeriPolygon import NegeriPolygon, NegeriPolygonCentroid
 from src.config.settings import get_settings
 from src.models.sekolah import Sekolah
-from shapely.validation import explain_validity
 
 # --------------------------
 # SETUP
@@ -122,6 +121,7 @@ def extract_state(obj: dict) -> str | None:
 # PROCESS FILES
 # --------------------------
 
+
 def main():
     negeri_to_geometry = {}
 
@@ -170,14 +170,22 @@ def main():
         negeri_enum = NegeriEnum[negeri_str]
 
         # Calculate centroid of schools in this negeri (GeoJSON + raw lon/lat)
-        centroid_doc, centroid_x, centroid_y = calculate_centroid(negeri_enum)
+        centroid_location, centroid_x, centroid_y = calculate_centroid(negeri_enum)
+
+        centroid_obj: NegeriPolygonCentroid | None
+        if centroid_location is not None and centroid_x is not None and centroid_y is not None:
+            centroid_obj = NegeriPolygonCentroid(
+                location=centroid_location,
+                koordinatXX=centroid_x,
+                koordinatYY=centroid_y,
+            )
+        else:
+            centroid_obj = None
 
         model = NegeriPolygon(
             negeri=negeri_enum,
             geometry=geometry,
-            centroid=centroid_doc,
-            centroidXX=centroid_x,
-            centroidYY=centroid_y,
+            centroid=centroid_obj,
         )
         collection.replace_one({"_id": negeri_str}, model.to_document(), upsert=True)
         upserted_count += 1

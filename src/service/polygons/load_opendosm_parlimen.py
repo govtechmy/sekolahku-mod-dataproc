@@ -5,7 +5,7 @@ from pymongo import MongoClient
 
 from src.core import s3 as s3_core
 from src.models.negeriEnum import NegeriEnum
-from src.models.parlimenPolygon import ParlimenPolygon
+from src.models.parlimenPolygon import ParlimenPolygon, ParlimenPolygonCentroid
 from src.config.settings import get_settings
 from src.models.sekolah import Sekolah
 from shapely.geometry import Point, mapping
@@ -206,15 +206,23 @@ def main():
 
     for data in parlimen_data:
         try:
-            centroid_doc, centroid_x, centroid_y = calculate_centroid(data["negeri"], data["parlimen"])
+            centroid_location, centroid_x, centroid_y = calculate_centroid(data["negeri"], data["parlimen"])
+
+            centroid_obj: ParlimenPolygonCentroid | None
+            if centroid_location is not None and centroid_x is not None and centroid_y is not None:
+                centroid_obj = ParlimenPolygonCentroid(
+                    location=centroid_location,
+                    koordinatXX=centroid_x,
+                    koordinatYY=centroid_y,
+                )
+            else:
+                centroid_obj = None
 
             model = ParlimenPolygon(
                 negeri=data["negeri"],
                 parlimen=data["parlimen"],
                 geometry=data["geometry"],
-                centroid=centroid_doc,
-                centroidXX=centroid_x,
-                centroidYY=centroid_y,
+                centroid=centroid_obj,
             )
 
             doc = model.to_document()
