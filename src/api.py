@@ -13,10 +13,8 @@ from src.main import run_ingest
 from src.config.settings import Settings, get_settings
 from src.service.entitiRevalidate import revalidate_school_entity
 from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
-from src.service.builders.build_snap_routes import build_snap_routes
-from src.service.builders.build_school_list import build_school_list
-from src.core.s3 import upload_json_to_s3
-from src.core.db import get_mongo_client
+from src.service.builders.build_snap_routes import generate_and_upload_snap_routes
+from src.service.builders.build_school_list import generate_and_upload_school_list
 
 logger = logging.getLogger(__name__)
 app = FastAPI()
@@ -26,58 +24,42 @@ settings = get_settings()
 
 
 @app.post("/generate-snap-routes", tags=["publisher"])
-def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[bool, int]:
+def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[str, str | int]:
     """Generate snap-routes.json and upload to S3."""
     try:
-        client = get_mongo_client()
-        db = client[settings.db_name]
-        collection = db[settings.entiti_sekolah_collection]
-        docs = list(collection.find({}, {"_id": 1, "KODSEKOLAH": 1}))
+        count = generate_and_upload_snap_routes()
     except PyMongoError:
-        logger.exception("Failed reading DB")
+        logger.exception("Failed reading DB while generating snap routes")
         raise HTTPException(status_code=500, detail="Database error")
-
-    payload = build_snap_routes(docs)
-
-    try:
-        upload_json_to_s3(payload, settings.s3_bucket_name, "common/snap-routes.json")
     except ClientError as e:
         logger.exception("Failed uploading snap-routes.json to S3")
         error_code = e.response["Error"].get("Code", "unknown")
         msg = f"S3 upload failed (code={error_code or 'unknown'})"
         raise HTTPException(status_code=502, detail=msg)
     except Exception:
-        logger.exception("Failed uploading snap-routes.json (unexpected error)")
-        raise HTTPException(status_code=500, detail="Unexpected S3 upload error")
+        logger.exception("Failed generating snap routes (unexpected error)")
+        raise HTTPException(status_code=500, detail="Unexpected error")
 
-    return {"ok": True, "count": len(payload)}
+    return {"status": "received", "count": count}
 
 @app.post("/generate-school-list", tags=["publisher"])
-def generate_school_list_endpoint(background_tasks: BackgroundTasks) -> dict[bool, int]:
+def generate_school_list_endpoint(background_tasks: BackgroundTasks) -> dict[str, str | int]:
     """Generate school-list.json and upload to S3."""
     try:
-        client = get_mongo_client()
-        db = client[settings.db_name]
-        collection = db[settings.entiti_sekolah_collection]
-        docs = list(collection.find({}, {"_id": 1, "kodSekolah": 1, "namaSekolah": 1}))
+        count = generate_and_upload_school_list()
     except PyMongoError:
-        logger.exception("Failed reading DB")
+        logger.exception("Failed reading DB while generating school list")
         raise HTTPException(status_code=500, detail="Database error")
-
-    payload = build_school_list(docs)
-
-    try:
-        upload_json_to_s3(payload, settings.s3_bucket_name, "common/school-list.json")
     except ClientError as e:
         logger.exception("Failed uploading school-list.json to S3")
         error_code = e.response["Error"].get("Code", "unknown")
         msg = f"S3 upload failed (code={error_code or 'unknown'})"
         raise HTTPException(status_code=502, detail=msg)
     except Exception:
-        logger.exception("Failed uploading school-list.json (unexpected error)")
-        raise HTTPException(status_code=500, detail="Unexpected S3 upload error")
+        logger.exception("Failed generating school list (unexpected error)")
+        raise HTTPException(status_code=500, detail="Unexpected error")
 
-    return {"ok": True, "count": len(payload)}
+    return {"status": "received", "count": count}
 
 def _run_revalidate_school_entity_job(settings: Any) -> None:
     """Execute school entity revalidation and log outcome."""
