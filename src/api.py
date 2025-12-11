@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any, Optional
+from typing import Any
 
 from botocore.exceptions import ClientError
-from fastapi import BackgroundTasks, FastAPI, HTTPException, APIRouter, Header, status
+from fastapi import BackgroundTasks, FastAPI, HTTPException, status
 from fastapi_crons import Crons
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
@@ -19,24 +19,12 @@ from src.core.db import get_entitisekolah_collection
 from src.core.jsonhelpers import build_snap_routes, build_school_list
 from src.core.s3 import upload_json_to_s3
 
-if not logging.getLogger().handlers:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
-
 logger = logging.getLogger(__name__)
 app = FastAPI()
 
-router = APIRouter(prefix="/api", tags=["sekolahku"])
 
-S3_PREFIX_SEKOLAH = "common"
-SNAP_ROUTES_KEY = f"{S3_PREFIX_SEKOLAH}/snap-routes.json"
-SCHOOL_LIST_KEY = f"{S3_PREFIX_SEKOLAH}/school-list.json"
-S3_BUCKET = os.getenv("S3_BUCKET_NAME")
-
-@router.post("/generate/snap-routes")
-def generate_snap_routes():
+@app.post("/build-snap-routes")
+def build_snap_routes_job(background_tasks: BackgroundTasks) -> dict[bool, int]:
     try:
         coll = get_entitisekolah_collection()
         docs = list(coll.find({}, {"_id": 1, "KODSEKOLAH": 1}))
@@ -47,16 +35,20 @@ def generate_snap_routes():
     payload = build_snap_routes(docs)
 
     try:
-        upload_json_to_s3(payload, S3_BUCKET, SNAP_ROUTES_KEY)
+        upload_json_to_s3(payload, settings.S3_BUCKET_NAME, "common/snap-routes.json")
+    except ClientError as e:
+        logger.exception("Failed uploading snap-routes.json to S3")
+        error_code = e.response["Error"].get("Code", "unknown")
+        msg = f"S3 upload failed (code={error_code or 'unknown'})"
+        raise HTTPException(status_code=502, detail=msg)
     except Exception:
-        logger.exception("Failed uploading snap-routes.json")
-        raise HTTPException(status_code=500, detail="S3 upload error")
+        logger.exception("Failed uploading snap-routes.json (unexpected error)")
+        raise HTTPException(status_code=500, detail="Unexpected S3 upload error")
 
     return {"ok": True, "count": len(payload)}
 
-
-@router.post("/generate/school-list")
-def generate_school_list():
+@app.post("/build-school-list")
+def build_school_list_job(background_tasks: BackgroundTasks) -> dict[bool, int]:
     try:
         coll = get_entitisekolah_collection()
         docs = list(coll.find({}, {"_id": 1, "kodSekolah": 1, "namaSekolah": 1}))
@@ -67,15 +59,17 @@ def generate_school_list():
     payload = build_school_list(docs)
 
     try:
-        upload_json_to_s3(payload, S3_BUCKET, SCHOOL_LIST_KEY)
+        upload_json_to_s3(payload, settings.S3_BUCKET_NAME, "common/school-list.json")
+    except ClientError as e:
+        logger.exception("Failed uploading school-list.json to S3")
+        error_code = e.response["Error"].get("Code", "unknown")
+        msg = f"S3 upload failed (code={error_code or 'unknown'})"
+        raise HTTPException(status_code=502, detail=msg)
     except Exception:
-        logger.exception("Failed uploading school-list.json")
-        raise HTTPException(status_code=500, detail="S3 upload error")
+        logger.exception("Failed uploading school-list.json (unexpected error)")
+        raise HTTPException(status_code=500, detail="Unexpected S3 upload error")
 
     return {"ok": True, "count": len(payload)}
-
-# Register all dataproc endpoints
-app.include_router(router)
 
 def _run_revalidate_school_entity_job(settings: Any) -> None:
     """Execute school entity revalidation and log outcome."""
@@ -200,6 +194,7 @@ def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[s
     background_tasks.add_task(load_polygons_sequentially)
 
     return {"status": "received request to load polygons"}
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize and start scheduled cron jobs."""
