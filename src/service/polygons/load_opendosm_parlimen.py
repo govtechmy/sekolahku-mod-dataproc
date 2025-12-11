@@ -87,7 +87,7 @@ def list_s3_json_files(bucket: str, prefix: str) -> list[str]:
     return keys
 
 
-def calculate_centroid(negeri: NegeriEnum, parlimen: str) -> dict | None:
+def calculate_centroid(negeri: NegeriEnum, parlimen: str) -> tuple[dict | None, float | None, float | None]:
     """Calculate centroid of all schools in the given negeri and parlimen.
 
     - Reads from Sekolah collection in MongoDB
@@ -132,13 +132,13 @@ def calculate_centroid(negeri: NegeriEnum, parlimen: str) -> dict | None:
             negeri.value,
             parlimen,
         )
-        return None
+        return None, None, None
 
     center_lon = total_lon / count
     center_lat = total_lat / count
 
     point = Point(center_lon, center_lat)
-    return mapping(point)
+    return mapping(point), center_lon, center_lat
 
 def main():
     parlimen_data = []
@@ -206,13 +206,15 @@ def main():
 
     for data in parlimen_data:
         try:
-            centroid_doc = calculate_centroid(data["negeri"], data["parlimen"])
+            centroid_doc, centroid_x, centroid_y = calculate_centroid(data["negeri"], data["parlimen"])
 
             model = ParlimenPolygon(
                 negeri=data["negeri"],
                 parlimen=data["parlimen"],
                 geometry=data["geometry"],
                 centroid=centroid_doc,
+                centroidXX=centroid_x,
+                centroidYY=centroid_y,
             )
 
             doc = model.to_document()

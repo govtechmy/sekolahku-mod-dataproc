@@ -169,13 +169,15 @@ def main():
     for negeri_str, geometry in negeri_to_geometry.items():
         negeri_enum = NegeriEnum[negeri_str]
 
-        # Calculate centroid of schools in this negeri
-        centroid_doc = calculate_centroid(negeri_enum)
+        # Calculate centroid of schools in this negeri (GeoJSON + raw lon/lat)
+        centroid_doc, centroid_x, centroid_y = calculate_centroid(negeri_enum)
 
         model = NegeriPolygon(
             negeri=negeri_enum,
             geometry=geometry,
             centroid=centroid_doc,
+            centroidXX=centroid_x,
+            centroidYY=centroid_y,
         )
         collection.replace_one({"_id": negeri_str}, model.to_document(), upsert=True)
         upserted_count += 1
@@ -197,7 +199,7 @@ def main():
     return summary
 
 
-def calculate_centroid(negeri: NegeriEnum) -> dict | None:
+def calculate_centroid(negeri: NegeriEnum) -> tuple[dict | None, float | None, float | None]:
     """Calculate centroid of all schools in the given negeri.
 
     - Reads from Sekolah collection in MongoDB
@@ -236,14 +238,14 @@ def calculate_centroid(negeri: NegeriEnum) -> dict | None:
 
     if count == 0:
         logger.warning(f"No valid school coordinates found for negeri {negeri.value}; centroid will be None")
-        return None
+        return None, None, None
 
     center_lon = total_lon / count
     center_lat = total_lat / count
 
     # Shapely/GeoJSON convention: Point(lon, lat) -> [lon, lat]
     point = Point(center_lon, center_lat)
-    return mapping(point)
+    return mapping(point), center_lon, center_lat
 
 
 if __name__ == "__main__":
