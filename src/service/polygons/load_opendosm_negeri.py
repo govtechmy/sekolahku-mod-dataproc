@@ -187,8 +187,12 @@ def main():
             geometry=geometry,
             centroid=centroid_obj,
         )
-        collection.replace_one({"_id": negeri_str}, model.to_document(), upsert=True)
-        upserted_count += 1
+        try:
+            collection.replace_one({"_id": negeri_str}, model.to_document(), upsert=True)
+            upserted_count += 1
+        except Exception as e:
+            failed_count += 1
+            logger.error("[Negeri] Failed to upsert negeri '%s' into collection '%s': %s", negeri_str, collection.name, str(e)[:500],)
 
     # --------------------------
     # SUMMARY
@@ -240,8 +244,8 @@ def calculate_centroid(negeri: NegeriEnum) -> tuple[dict | None, float | None, f
         except (TypeError, ValueError):
             continue
 
-        total_lon += x  # longitude
-        total_lat += y  # latitude
+        total_lon += x # longitude
+        total_lat += y # latitude
         count += 1
 
     if count == 0:
