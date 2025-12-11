@@ -1,5 +1,5 @@
 import datetime
-from typing import Any, ClassVar, Dict
+from typing import Any, ClassVar, Dict, Optional
 from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
@@ -19,6 +19,7 @@ class ParlimenPolygon(BaseModel):
     negeri: NegeriEnum = Field(..., description="Negeri name following NegeriEnum")
     parlimen: str = Field(..., description="Parliament name")
     geometry: Dict[str, Any] = Field(..., description="GeoJSON geometry (MultiPolygon)")
+    centroid: Optional[Dict[str, Any]] = Field(default=None, description="GeoJSON Point representing centroid of schools in this negeri-parlimen")
     updated_at: datetime = Field(default_factory=_utc_now, description="Last updated timestamp in UTC")
 
     def to_document(self) -> Dict[str, Any]:
@@ -29,5 +30,6 @@ class ParlimenPolygon(BaseModel):
             "negeri": self.negeri.value,
             "parlimen": self.parlimen,
             "geometry": self.geometry,
+            "centroid": self.centroid,
             "updatedAt": self.updated_at
         }

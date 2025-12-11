@@ -7,6 +7,8 @@ from src.core import s3 as s3_core
 from src.models.negeriEnum import NegeriEnum
 from src.models.parlimenPolygon import ParlimenPolygon
 from src.config.settings import get_settings
+from src.models.sekolah import Sekolah
+from shapely.geometry import Point, mapping
 
 # --------------------------
 # SETUP
@@ -19,6 +21,7 @@ logger = logging.getLogger(__name__)
 mongo_client = MongoClient(settings.mongo_uri)
 db = mongo_client[settings.db_name]
 collection = db[settings.parlimen_polygon_collection]
+sekolah_collection = db[Sekolah.collection_name]
 
 # S3 client
 s3_client = s3_core.get_s3_client()
@@ -82,6 +85,60 @@ def list_s3_json_files(bucket: str, prefix: str) -> list[str]:
             if key.endswith(".json"):
                 keys.append(key)
     return keys
+
+
+def calculate_centroid(negeri: NegeriEnum, parlimen: str) -> dict | None:
+    """Calculate centroid of all schools in the given negeri and parlimen.
+
+    - Reads from Sekolah collection in MongoDB
+    - Uses KOORDINATXX (x/longitude) and KOORDINATYY (y/latitude)
+    - Returns GeoJSON Point {"type": "Point", "coordinates": [x, y]} or None
+    """
+
+    cursor = sekolah_collection.find(
+        {
+            "negeri": negeri.value,
+            "parlimen": parlimen,
+            "location.type": "Point",
+            "location.coordinates": {"$type": "array"},
+        },
+        {"location": 1},
+    )
+
+    total_lon = 0.0
+    total_lat = 0.0
+    count = 0
+
+    for doc in cursor:
+        location = doc.get("location") or {}
+        coordinates = location.get("coordinates")
+        if not isinstance(coordinates, (list, tuple)) or len(coordinates) != 2:
+            continue
+
+        x, y = coordinates
+        try:
+            x = float(x)
+            y = float(y)
+        except (TypeError, ValueError):
+            continue
+
+        total_lon += x
+        total_lat += y
+        count += 1
+
+    if count == 0:
+        logger.warning(
+            "[Parlimen] No valid school coordinates found for %s / %s; centroid will be None",
+            negeri.value,
+            parlimen,
+        )
+        return None
+
+    center_lon = total_lon / count
+    center_lat = total_lat / count
+
+    point = Point(center_lon, center_lat)
+    return mapping(point)
 
 def main():
     parlimen_data = []
@@ -149,10 +206,13 @@ def main():
 
     for data in parlimen_data:
         try:
+            centroid_doc = calculate_centroid(data["negeri"], data["parlimen"])
+
             model = ParlimenPolygon(
                 negeri=data["negeri"],
                 parlimen=data["parlimen"],
                 geometry=data["geometry"],
+                centroid=centroid_doc,
             )
 
             doc = model.to_document()
