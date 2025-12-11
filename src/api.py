@@ -184,7 +184,7 @@ def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict
     return {"status": "received"}
 
 
-@app.get("/load-opendosm-polygons")
+@app.post("/load-opendosm-polygons")
 def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Trigger loading of Negeri + Parlimen polygons from S3 to MongoDB."""
 
