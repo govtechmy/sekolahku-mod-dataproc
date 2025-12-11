@@ -27,6 +27,7 @@ settings = get_settings()
 
 @app.post("/generate-snap-routes", tags=["publisher"])
 def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[bool, int]:
+    """Generate snap-routes.json and upload to S3."""
     try:
         client = get_mongo_client()
         db = client[settings.db_name]
@@ -53,6 +54,7 @@ def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[boo
 
 @app.post("/generate-school-list", tags=["publisher"])
 def generate_school_list_endpoint(background_tasks: BackgroundTasks) -> dict[bool, int]:
+    """Generate school-list.json and upload to S3."""
     try:
         client = get_mongo_client()
         db = client[settings.db_name]
