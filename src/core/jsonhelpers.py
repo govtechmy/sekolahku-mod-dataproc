@@ -20,7 +20,7 @@ def build_school_list(docs):
         key = doc.get("kodSekolah")
         value = doc.get("namaSekolah")
 
-        if key:
+        if key and value:
             mapping.append({"KODSEKOLAH": key, "NAMASEKOLAH": value})
 
     return mapping
