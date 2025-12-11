@@ -10,7 +10,6 @@ from src.core import s3 as s3_core
 from src.models.negeriEnum import NegeriEnum
 from src.models.negeriPolygon import NegeriPolygon, NegeriPolygonCentroid
 from src.config.settings import get_settings
-from src.models.sekolah import Sekolah
 
 # --------------------------
 # SETUP
@@ -22,7 +21,7 @@ logger = logging.getLogger(__name__)
 mongo_client = MongoClient(settings.mongo_uri)
 db = mongo_client[settings.db_name]
 collection = db[settings.negeri_polygon_collection]
-sekolah_collection = db[Sekolah.collection_name]
+sekolah_collection = db[settings.sekolah_collection]
 
 # S3
 s3_client = s3_core.get_s3_client()

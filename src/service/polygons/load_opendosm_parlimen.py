@@ -2,15 +2,13 @@ import json
 import logging
 
 from pymongo import MongoClient
-from shapely.geometry import shape, mapping
+from shapely.geometry import shape, mapping, Point
 from shapely.validation import make_valid
 
 from src.core import s3 as s3_core
 from src.models.negeriEnum import NegeriEnum
 from src.models.parlimenPolygon import ParlimenPolygon, ParlimenPolygonCentroid
 from src.config.settings import get_settings
-from src.models.sekolah import Sekolah
-from shapely.geometry import Point, mapping
 
 # --------------------------
 # SETUP
@@ -23,7 +21,7 @@ logger = logging.getLogger(__name__)
 mongo_client = MongoClient(settings.mongo_uri)
 db = mongo_client[settings.db_name]
 collection = db[settings.parlimen_polygon_collection]
-sekolah_collection = db[Sekolah.collection_name]
+sekolah_collection = db[settings.sekolah_collection]
 
 # S3 client
 s3_client = s3_core.get_s3_client()
