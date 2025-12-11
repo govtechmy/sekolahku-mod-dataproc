@@ -25,8 +25,8 @@ crons = Crons()
 settings = get_settings()
 
 
-@app.post("/build-snap-routes")
-def build_snap_routes_job(background_tasks: BackgroundTasks) -> dict[bool, int]:
+@app.post("/generate-snap-routes", tags=["publisher"])
+def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[bool, int]:
     try:
         client = get_mongo_client()
         db = client[settings.db_name]
@@ -51,8 +51,8 @@ def build_snap_routes_job(background_tasks: BackgroundTasks) -> dict[bool, int]:
 
     return {"ok": True, "count": len(payload)}
 
-@app.post("/build-school-list")
-def build_school_list_job(background_tasks: BackgroundTasks) -> dict[bool, int]:
+@app.post("/generate-school-list", tags=["publisher"])
+def generate_school_list_endpoint(background_tasks: BackgroundTasks) -> dict[bool, int]:
     try:
         client = get_mongo_client()
         db = client[settings.db_name]
@@ -131,7 +131,7 @@ async def daily_ingestion_job():
         # DO NOT re-raise - allow the server to continue running
 
 
-@app.get("/health")
+@app.get("/health", tags=["health"])
 def health_check() -> dict[str, str]:
     """Return application health status by verifying database connectivity."""
     client = MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=2000)
@@ -144,7 +144,7 @@ def health_check() -> dict[str, str]:
     return {"status": "ok", "database": settings.db_name}
 
 
-@app.post("/trigger-ingestion")
+@app.post("/trigger-ingestion", tags=["ingestion"])
 def trigger_ingestion_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """
     Manually trigger the full ingestion pipeline.
@@ -166,7 +166,7 @@ def trigger_ingestion_endpoint(background_tasks: BackgroundTasks) -> dict[str, s
     return {"status": "received"}
 
 
-@app.get("/revalidate-school-entity")
+@app.get("/revalidate-school-entity", tags=["publisher"])
 def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Trigger revalidation of school entities into the configured S3 bucket."""
 
@@ -177,7 +177,7 @@ def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict
     return {"status": "received"}
 
 
-@app.post("/load-opendosm-polygons")
+@app.post("/load-opendosm-polygons", tags=["ingestion"])
 def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Trigger loading of Negeri + Parlimen polygons from S3 to MongoDB."""
 
