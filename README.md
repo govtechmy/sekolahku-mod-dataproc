@@ -322,7 +322,7 @@ The polygon loading pipeline extracts GeoJSON boundary data from OpenDOSM and po
    ```bash
    python -m src.main --load-polygons
    # OR via API endpoint
-   curl http://localhost:8000/load-opendosm-polygons
+   curl -X POST http://localhost:8000/load-opendosm-polygons
    ```
 
 ### NegeriPolygon
