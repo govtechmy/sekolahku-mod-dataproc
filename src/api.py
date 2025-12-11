@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any
 
 from botocore.exceptions import ClientError
@@ -10,24 +9,29 @@ from fastapi_crons import Crons
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
-from src.config.settings import get_settings
 from src.main import run_ingest
+from src.config.settings import Settings, get_settings
 from src.service.entitiRevalidate import revalidate_school_entity
 from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
-
-from src.core.db import get_entitisekolah_collection
-from src.core.jsonhelpers import build_snap_routes, build_school_list
+from src.service.builders.build_snap_routes import build_snap_routes
+from src.service.builders.build_school_list import build_school_list
 from src.core.s3 import upload_json_to_s3
+from src.core.db import get_mongo_client
 
 logger = logging.getLogger(__name__)
 app = FastAPI()
+crons = Crons()
+
+settings = get_settings()
 
 
 @app.post("/build-snap-routes")
 def build_snap_routes_job(background_tasks: BackgroundTasks) -> dict[bool, int]:
     try:
-        coll = get_entitisekolah_collection()
-        docs = list(coll.find({}, {"_id": 1, "KODSEKOLAH": 1}))
+        client = get_mongo_client()
+        db = client[settings.db_name]
+        collection = db[settings.entiti_sekolah_collection]
+        docs = list(collection.find({}, {"_id": 1, "KODSEKOLAH": 1}))
     except PyMongoError:
         logger.exception("Failed reading DB")
         raise HTTPException(status_code=500, detail="Database error")
@@ -35,7 +39,7 @@ def build_snap_routes_job(background_tasks: BackgroundTasks) -> dict[bool, int]:
     payload = build_snap_routes(docs)
 
     try:
-        upload_json_to_s3(payload, settings.S3_BUCKET_NAME, "common/snap-routes.json")
+        upload_json_to_s3(payload, settings.s3_bucket_name, "common/snap-routes.json")
     except ClientError as e:
         logger.exception("Failed uploading snap-routes.json to S3")
         error_code = e.response["Error"].get("Code", "unknown")
@@ -50,8 +54,10 @@ def build_snap_routes_job(background_tasks: BackgroundTasks) -> dict[bool, int]:
 @app.post("/build-school-list")
 def build_school_list_job(background_tasks: BackgroundTasks) -> dict[bool, int]:
     try:
-        coll = get_entitisekolah_collection()
-        docs = list(coll.find({}, {"_id": 1, "kodSekolah": 1, "namaSekolah": 1}))
+        client = get_mongo_client()
+        db = client[settings.db_name]
+        collection = db[settings.entiti_sekolah_collection]
+        docs = list(collection.find({}, {"_id": 1, "kodSekolah": 1, "namaSekolah": 1}))
     except PyMongoError:
         logger.exception("Failed reading DB")
         raise HTTPException(status_code=500, detail="Database error")
@@ -59,7 +65,7 @@ def build_school_list_job(background_tasks: BackgroundTasks) -> dict[bool, int]:
     payload = build_school_list(docs)
 
     try:
-        upload_json_to_s3(payload, settings.S3_BUCKET_NAME, "common/school-list.json")
+        upload_json_to_s3(payload, settings.s3_bucket_name, "common/school-list.json")
     except ClientError as e:
         logger.exception("Failed uploading school-list.json to S3")
         error_code = e.response["Error"].get("Code", "unknown")
@@ -99,11 +105,6 @@ def _run_ingestion_job() -> None:
     except Exception:
         logger.exception("Unexpected error while handling ingestion request")
 
-# Initialize settings to get timezone configuration
-settings = get_settings()
-crons = Crons()
-
-
 @crons.cron("0 0 * * *")
 async def daily_ingestion_job():
     """
@@ -133,7 +134,6 @@ async def daily_ingestion_job():
 @app.get("/health")
 def health_check() -> dict[str, str]:
     """Return application health status by verifying database connectivity."""
-    settings = get_settings()
     client = MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=2000)
     try:
         client.admin.command("ping")
@@ -170,7 +170,6 @@ def trigger_ingestion_endpoint(background_tasks: BackgroundTasks) -> dict[str, s
 def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Trigger revalidation of school entities into the configured S3 bucket."""
 
-    settings = get_settings()
     logger.info("Received request to revalidate school entities")
 
     background_tasks.add_task(_run_revalidate_school_entity_job, settings)
