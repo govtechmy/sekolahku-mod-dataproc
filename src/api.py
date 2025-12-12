@@ -22,40 +22,43 @@ crons = Crons()
 
 settings = get_settings()
 
+if not logging.getLogger().handlers:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
 
 @app.post("/generate-snap-routes", tags=["publisher"])
 def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[str, str | int]:
     """Generate snap-routes.json and upload to S3."""
     try:
         count = generate_and_upload_snap_routes()
+        return {"status": "received", "count": count}
     except PyMongoError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Database error while generating snap-routes: %s", e)
+        raise HTTPException(status_code=500, detail="Database error while generating snap-routes")
     except ClientError as e:
-        logger.exception("Failed uploading snap-routes.json to S3")
-        error_code = e.response["Error"].get("Code", "unknown")
-        msg = f"S3 upload failed (code={error_code})"
-        raise HTTPException(status_code=502, detail=msg)
+        logger.exception("Failed uploading snap-routes.json to S3: %s", e)
+        raise HTTPException(status_code=502, detail="S3 upload failed while generating snap-routes")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-    return {"status": "received", "count": count}
+        logger.exception("Unexpected error while generating snap-routes: %s", e)
+        raise HTTPException(status_code=500, detail="Unexpected error while generating snap-routes")
 
 @app.post("/generate-school-list", tags=["publisher"])
 def generate_school_list_endpoint(background_tasks: BackgroundTasks) -> dict[str, str | int]:
     """Generate school-list.json and upload to S3."""
     try:
         count = generate_and_upload_school_list()
+        return {"status": "received", "count": count}
     except PyMongoError as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.exception("Database error while generating school list: %s", e)
+        raise HTTPException(status_code=500, detail="Database error while generating school list")
     except ClientError as e:
-        logger.exception("Failed uploading school-list.json to S3")
-        error_code = e.response["Error"].get("Code", "unknown")
-        msg = f"S3 upload failed (code={error_code})"
-        raise HTTPException(status_code=502, detail=msg)
+        logger.exception("Failed uploading school-list.json to S3: %s", e)
+        raise HTTPException(status_code=502, detail="S3 upload failed while generating school list")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-    return {"status": "received", "count": count}
+        logger.exception("Unexpected error while generating school list: %s", e)
+        raise HTTPException(status_code=500, detail="Unexpected error while generating school list")
 
 def _run_revalidate_school_entity_job(settings: Any) -> None:
     """Execute school entity revalidation and log outcome."""
