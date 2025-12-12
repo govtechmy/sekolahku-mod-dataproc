@@ -35,13 +35,17 @@ def generate_and_upload_snap_routes() -> int:
     try:
         db = client[settings.db_name]
         collection = db[settings.entiti_sekolah_collection]
-        docs = list(collection.find({}, {"_id": 1, "KODSEKOLAH": 1}))
+        cursor = collection.find({}, {"_id": 1, "KODSEKOLAH": 1}).batch_size(settings.builders_batch_size)
+
+        payload = list(FIXED_ROUTES)
+        for doc in cursor:
+            code = doc.get("KODSEKOLAH") or str(doc.get("_id"))
+            payload.append(f"/halaman-sekolah/{code}")
+
     except PyMongoError:
         raise
     finally:
         client.close()
-
-    payload = build_snap_routes(docs)
 
     try:
         upload_json_to_s3(payload, settings.s3_bucket_name, "common/snap-routes.json")

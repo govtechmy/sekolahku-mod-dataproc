@@ -4,6 +4,7 @@ from botocore.exceptions import ClientError
 from src.config.settings import get_settings
 from src.core.db import get_mongo_client
 from src.core.s3 import upload_json_to_s3
+from src.config.settings import Settings
 
 
 def build_school_list(docs):
@@ -33,15 +34,19 @@ def generate_and_upload_school_list() -> int:
     try:
         db = client[settings.db_name]
         collection = db[settings.entiti_sekolah_collection]
-        docs = list(
-            collection.find({}, {"_id": 1, "kodSekolah": 1, "namaSekolah": 1})
-        )
+        cursor = (collection.find({}, {"_id": 1, "kodSekolah": 1, "namaSekolah": 1}).batch_size(settings.builders_batch_size))
+
+        payload = []
+        for batch_doc in cursor:
+            # Reuse build_school_list for a single-item list to keep transformation logic consistent
+            school_entries = build_school_list([batch_doc])
+            if school_entries:
+                payload.extend(school_entries)
+
     except PyMongoError:
         raise
     finally:
         client.close()
-
-    payload = build_school_list(docs)
 
     try:
         upload_json_to_s3(payload, settings.s3_bucket_name, "common/school-list.json")

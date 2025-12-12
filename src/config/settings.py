@@ -105,7 +105,7 @@ class Settings(BaseSettings):
     s3_bucket_dataproc: str = get_env_str("S3_BUCKET_DATAPROC")
     s3_prefix_sekolah: str = get_env_str("S3_PREFIX_SEKOLAH")
     s3_prefix_opendosm: str = get_env_str("S3_PREFIX_OPENDOSM", "opendosm/raw")
-
+    builders_batch_size: int = get_env_int("BUILDERS_BATCH_SIZE", 100)
 
 
 def get_settings() -> Settings:
