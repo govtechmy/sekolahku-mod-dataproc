@@ -10,7 +10,7 @@ from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
 from src.main import run_ingest
-from src.config.settings import Settings, get_settings
+from src.config.settings import get_settings
 from src.service.entitiRevalidate import revalidate_school_entity
 from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
 from src.service.builders.build_snap_routes import generate_and_upload_snap_routes
