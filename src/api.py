@@ -14,6 +14,7 @@ from src.config.settings import get_settings
 from src.main import run_ingest
 from src.service.entitiRevalidate import revalidate_school_entity
 from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
+from src.service.export_polygon import export_all_polygons
 
 if not logging.getLogger().handlers:
     logging.basicConfig(
@@ -148,6 +149,24 @@ def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[s
     background_tasks.add_task(load_polygons_sequentially)
 
     return {"status": "received request to load polygons"}
+
+
+@app.get("/export-polygons")
+def export_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
+    """Trigger export of Negeri + Parlimen polygons from MongoDB to S3 public bucket."""
+
+    def export_polygons_job():
+        try:
+            summary = export_all_polygons()
+            logger.info(f"Polygon export summary: {summary}")
+        except Exception as e:
+            logger.exception("Error occurred while exporting polygons: %s", e)
+
+    background_tasks.add_task(export_polygons_job)
+
+    return {"status": "received request to export polygons"}
+
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize and start scheduled cron jobs."""
