@@ -3,12 +3,12 @@ import logging
 from collections import defaultdict
 
 from pymongo import MongoClient
-from shapely.geometry import shape, mapping
-from shapely.validation import make_valid
+from shapely.geometry import shape, mapping, Point
+from shapely.validation import make_valid, explain_validity
 
 from src.core import s3 as s3_core
 from src.models.negeriEnum import NegeriEnum
-from src.models.negeriPolygon import NegeriPolygon
+from src.models.negeriPolygon import NegeriPolygon, NegeriPolygonCentroid
 from src.config.settings import get_settings
 
 # --------------------------
@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 mongo_client = MongoClient(settings.mongo_uri)
 db = mongo_client[settings.db_name]
 collection = db[settings.negeri_polygon_collection]
+sekolah_collection = db[settings.sekolah_collection]
 
 # S3
 s3_client = s3_core.get_s3_client()
@@ -64,21 +65,24 @@ def repair_geometry(geometry: dict, state_name: str = "") -> dict:
       "Can't extract geo keys... Edges 122 and 124 cross"
     """
     try:
-        from shapely.validation import explain_validity
+        # skip heavy repair for other states
+        if state_name not in ["SARAWAK", "SABAH"]:
+            return geometry
         
         # Convert GeoJSON to shapely geometry
         geom = shape(geometry)
-        
+
         # Check if geometry is valid
         if not geom.is_valid:
             reason = explain_validity(geom)
             logger.warning(f"Invalid geometry detected for {state_name}: {reason}")
             # Use shapely's make_valid to fix the geometry
             geom = make_valid(geom)
-            logger.info(f"✓ Geometry repaired successfully for {state_name}")
-        
+            logger.info(f"Geometry repaired successfully for {state_name}")
+
         # Convert back to GeoJSON
         return mapping(geom)
+
     except Exception as e:
         logger.error(f"Failed to repair geometry for {state_name}: {str(e)[:200]}")
         # Return original geometry if repair fails
@@ -115,93 +119,144 @@ def extract_state(obj: dict) -> str | None:
 # --------------------------
 # PROCESS FILES
 # --------------------------
+
+
 def main():
     negeri_to_geometry = {}
 
     # Load negeri geometries
-    logger.info("=" * 60)
-    logger.info("Loading NEGERI geometries")
-    logger.info("=" * 60)
+    logger.info("[Negeri] Loading state geometries from S3 prefix '%s'", negeri_prefix)
 
     negeri_keys = list_s3_json_files(bucket, negeri_prefix)
     if not negeri_keys:
-        logger.warning(f"No negeri JSON files found in s3://{bucket}/{negeri_prefix}")
+        logger.warning("[Negeri] No negeri JSON files found in s3://%s/%s", bucket, negeri_prefix)
         return
 
+    logger.info("[Negeri] Found %d negeri JSON files", len(negeri_keys))
+
     for key in negeri_keys:
-        logger.info(f"Processing negeri file: {key}")
+        logger.debug("[Negeri] Processing file: %s", key)
         obj = s3_core.read_json_from_s3(bucket, key)
         if not obj:
-            logger.warning(f"Empty JSON: {key}")
+            logger.warning("[Negeri] Empty JSON: %s", key)
             continue
 
         state_name = extract_state(obj)
         geometry = obj.get("pageProps", {}).get("geojson", {}).get("geometry")
 
         if not state_name or not geometry:
-            logger.warning(f"Missing state or geometry in {key}")
+            logger.warning("[Negeri] Missing state or geometry in %s", key)
             continue
 
         normalized = normalize_state_name(state_name)
         if not normalized:
-            logger.warning(f"Unknown negeri name: {state_name}")
+            logger.warning("[Negeri] Unknown negeri name: %s", state_name)
             continue
 
         # Repair geometry if needed (fixes self-intersecting polygons)
         repaired_geometry = repair_geometry(geometry, normalized)
-        
+
         negeri_to_geometry[NegeriEnum[normalized].value] = repaired_geometry
-        logger.info(f"✓ Loaded geometry for {normalized}")
+
+    logger.info("[Negeri] Loaded geometries for %d states", len(negeri_to_geometry))
 
     # UPSERT INTO MONGODB
-    logger.info("\n" + "=" * 60)
-    logger.info("Upserting NEGERI geometries to MongoDB")
-    logger.info("=" * 60)
+    logger.info("[Negeri] Upserting state geometries to MongoDB collection '%s'", collection.name)
 
     upserted_count = 0
     failed_count = 0
     for negeri_str, geometry in negeri_to_geometry.items():
-        try:
-            model = NegeriPolygon(
-                negeri=NegeriEnum[negeri_str],
-                geometry=geometry
+        negeri_enum = NegeriEnum[negeri_str]
+
+        # Calculate centroid of schools in this negeri (GeoJSON + raw lon/lat)
+        centroid_location, centroid_x, centroid_y = calculate_centroid(negeri_enum)
+
+        centroid_obj: NegeriPolygonCentroid | None
+        if centroid_location is not None and centroid_x is not None and centroid_y is not None:
+            centroid_obj = NegeriPolygonCentroid(
+                location=centroid_location,
+                koordinatXX=centroid_x,
+                koordinatYY=centroid_y,
             )
+        else:
+            centroid_obj = None
+
+        model = NegeriPolygon(
+            negeri=negeri_enum,
+            geometry=geometry,
+            centroid=centroid_obj,
+        )
+        try:
             collection.replace_one({"_id": negeri_str}, model.to_document(), upsert=True)
-            logger.info(f"✓ Upserted {negeri_str}")
             upserted_count += 1
         except Exception as e:
             failed_count += 1
-            error_msg = str(e)
-            
-            # Extract key error info for MongoDB geometry validation errors
-            if "Edges" in error_msg and "cross" in error_msg:
-                # Extract just the edges crossing info
-                error_summary = error_msg.split("Edge locations")[0].strip()
-                logger.error(f"MongoDB rejected {negeri_str}: {error_summary}")
-            else:
-                # For other errors, show first 200 chars
-                logger.error(f"Failed to upsert {negeri_str}: {error_msg[:200]}")
-            
-            # Continue with next state instead of crashing
-            continue
+            logger.error("[Negeri] Failed to upsert negeri '%s' into collection '%s': %s", negeri_str, collection.name, str(e)[:500],)
 
-# --------------------------
-# SUMMARY
-# --------------------------
+    # --------------------------
+    # SUMMARY
+    # --------------------------
     summary = {
         "negeri": {
             "processed": len(negeri_to_geometry),
             "succeeded": upserted_count,
             "failed": failed_count,
-            "collection": collection.name
+            "collection": collection.name,
         },
         "total_negeri_files_scanned": len(negeri_keys),
     }
 
-    logger.info("\n" + "=" * 60)
-    logger.info(f"NEGERI SUMMARY: {summary}")
-    logger.info("=" * 60)
+    logger.info("[Negeri] Summary: %s", summary)
     return summary
+
+
+def calculate_centroid(negeri: NegeriEnum) -> tuple[dict | None, float | None, float | None]:
+    """Calculate centroid of all schools in the given negeri.
+
+    - Reads from Sekolah collection in MongoDB
+    - Uses KOORDINATXX (x/longitude) and KOORDINATYY (y/latitude)
+    - Returns GeoJSON Point {"type": "Point", "coordinates": [x, y]} or None
+    """
+    cursor = sekolah_collection.find(
+        {
+            "negeri": negeri.value,
+            "location.type": "Point",
+            "location.coordinates": {"$type": "array"},
+        },
+        {"location": 1},
+    )
+
+    total_lon = 0.0 # x
+    total_lat = 0.0 # y
+    count = 0
+
+    for doc in cursor:
+        location = doc.get("location") or {}
+        coordinates = location.get("coordinates")
+        if not isinstance(coordinates, (list, tuple)) or len(coordinates) != 2:
+            continue
+
+        x, y = coordinates
+        try:
+            x = float(x)
+            y = float(y)
+        except (TypeError, ValueError):
+            continue
+
+        total_lon += x # longitude
+        total_lat += y # latitude
+        count += 1
+
+    if count == 0:
+        logger.warning(f"No valid school coordinates found for negeri {negeri.value}; centroid will be None")
+        return None, None, None
+
+    center_lon = total_lon / count
+    center_lat = total_lat / count
+
+    # Shapely/GeoJSON convention: Point(lon, lat) -> [lon, lat]
+    point = Point(center_lon, center_lat)
+    return mapping(point), center_lon, center_lat
 
 
 if __name__ == "__main__":
