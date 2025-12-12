@@ -34,7 +34,7 @@ def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[str
     except ClientError as e:
         logger.exception("Failed uploading snap-routes.json to S3")
         error_code = e.response["Error"].get("Code", "unknown")
-        msg = f"S3 upload failed (code={error_code or 'unknown'})"
+        msg = f"S3 upload failed (code={error_code})"
         raise HTTPException(status_code=502, detail=msg)
     except Exception:
         logger.exception("Failed generating snap routes (unexpected error)")
@@ -53,7 +53,7 @@ def generate_school_list_endpoint(background_tasks: BackgroundTasks) -> dict[str
     except ClientError as e:
         logger.exception("Failed uploading school-list.json to S3")
         error_code = e.response["Error"].get("Code", "unknown")
-        msg = f"S3 upload failed (code={error_code or 'unknown'})"
+        msg = f"S3 upload failed (code={error_code})"
         raise HTTPException(status_code=502, detail=msg)
     except Exception:
         logger.exception("Failed generating school list (unexpected error)")

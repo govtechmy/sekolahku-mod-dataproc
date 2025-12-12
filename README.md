@@ -365,7 +365,7 @@ The Dataproc API provides endpoints for generating static JSON files used by the
 
 ### Generate Snap Routes JSON
 
-**Endpoint:** `POST /api/generate/snap-routes`
+**Endpoint:** `POST /generate-snap-routes`
 
 Generates the snap routes JSON file containing route mappings for all schools and uploads it to S3. This file is used by the frontend to provide quick navigation and school-specific routing.
 
@@ -388,7 +388,7 @@ The endpoint creates `common/snap-routes.json` in S3 with the following structur
 
 ### Generate School Lists JSON
 
-**Endpoint:** `POST /api/generate/school-list`
+**Endpoint:** `POST /generate-school-list`
 
 Generates the school lists JSON file containing categorized lists of schools (by negeri, parlimen, etc.) and uploads it to S3. This file is used by the frontend for school discovery and filtering.
 

@@ -115,5 +115,5 @@ def get_settings() -> Settings:
     except Exception as e:
         logger.error("Configuration error while loading Settings: %s", e)
         raise RuntimeError(
-            "Invalid or missing configuration. Check your .env or environment variables."
+            f"Invalid or missing configuration: {e}. Check your .env or environment variables."
         ) from e
