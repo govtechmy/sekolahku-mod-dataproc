@@ -4,7 +4,7 @@ import logging
 from typing import Any
 
 from botocore.exceptions import ClientError
-from fastapi import BackgroundTasks, FastAPI, HTTPException, status
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi_crons import Crons
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
