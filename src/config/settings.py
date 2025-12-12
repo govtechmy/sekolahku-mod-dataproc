@@ -8,7 +8,6 @@ from typing import Optional
 import boto3
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from pydantic import ValidationError
 
 logger = logging.getLogger(__name__)
 
