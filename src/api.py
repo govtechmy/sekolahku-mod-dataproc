@@ -28,20 +28,15 @@ def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[str
     """Generate snap-routes.json and upload to S3."""
     try:
         count = generate_and_upload_snap_routes()
-    except PyMongoError:
-        logger.exception("Failed reading DB while generating snap routes")
-        raise HTTPException(status_code=500, detail="Database error")
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     except ClientError as e:
         logger.exception("Failed uploading snap-routes.json to S3")
         error_code = e.response["Error"].get("Code", "unknown")
         msg = f"S3 upload failed (code={error_code})"
         raise HTTPException(status_code=502, detail=msg)
-    except Exception:
-        logger.exception("Failed generating snap routes (unexpected error)")
-        raise HTTPException(
-            status_code=500,
-            detail={"error": "Unexpected error", "code": "UNEXPECTED_ERROR"}
-        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     return {"status": "received", "count": count}
 
@@ -50,20 +45,15 @@ def generate_school_list_endpoint(background_tasks: BackgroundTasks) -> dict[str
     """Generate school-list.json and upload to S3."""
     try:
         count = generate_and_upload_school_list()
-    except PyMongoError:
-        logger.exception("Failed reading DB while generating school list")
-        raise HTTPException(
-            status_code=500,
-            detail={"error": "Database read error", "code": "DB_READ_ERROR"}
-        )
+    except PyMongoError as e:
+        raise HTTPException(status_code=500, detail=str(e))
     except ClientError as e:
         logger.exception("Failed uploading school-list.json to S3")
         error_code = e.response["Error"].get("Code", "unknown")
         msg = f"S3 upload failed (code={error_code})"
         raise HTTPException(status_code=502, detail=msg)
-    except Exception:
-        logger.exception("Failed generating school list (unexpected error)")
-        raise HTTPException(status_code=500, detail="Unexpected error")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
     return {"status": "received", "count": count}
 
