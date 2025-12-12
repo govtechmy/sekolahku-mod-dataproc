@@ -2,7 +2,6 @@ import json
 import logging
 import time
 from typing import Optional, List
-
 import pandas as pd
 from botocore.exceptions import ClientError
 
@@ -44,6 +43,27 @@ def _latest_csv_from_s3(bucket: str, prefix: str) -> Optional[str]:
 def _read_csv_from_s3(bucket: str, s3_key: str) -> pd.DataFrame:
     response = s3.get_object(Bucket=bucket, Key=s3_key)
     return pd.read_csv(response["Body"], dtype=str).fillna("")
+
+def upload_json_to_s3(payload: dict | list, bucket: Optional[str], key: str) -> str:
+    """
+    Upload JSON to a fixed S3 key (no timestamp).
+    Used for:
+      - common/snap-routes.json
+      - common/school-list.json
+    """
+    if not bucket:
+        bucket = get_s3_bucket_name()
+
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+
+    s3.put_object(
+        Bucket=bucket,
+        Key=key,
+        Body=body,
+        ContentType="application/json; charset=utf-8"
+    )
+
+    return key
 
 def read_json_from_s3(bucket: str, key: str) -> dict | None:
     s3 = get_s3_client()
