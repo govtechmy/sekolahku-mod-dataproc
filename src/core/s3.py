@@ -2,7 +2,6 @@ import json
 import logging
 import time
 from typing import Optional, List
-import json
 import pandas as pd
 from botocore.exceptions import ClientError
 

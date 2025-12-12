@@ -38,7 +38,10 @@ def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[str
         raise HTTPException(status_code=502, detail=msg)
     except Exception:
         logger.exception("Failed generating snap routes (unexpected error)")
-        raise HTTPException(status_code=500, detail="Unexpected error")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Unexpected error", "code": "UNEXPECTED_ERROR"}
+        )
 
     return {"status": "received", "count": count}
 
@@ -49,7 +52,10 @@ def generate_school_list_endpoint(background_tasks: BackgroundTasks) -> dict[str
         count = generate_and_upload_school_list()
     except PyMongoError:
         logger.exception("Failed reading DB while generating school list")
-        raise HTTPException(status_code=500, detail="Database error")
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "Database read error", "code": "DB_READ_ERROR"}
+        )
     except ClientError as e:
         logger.exception("Failed uploading school-list.json to S3")
         error_code = e.response["Error"].get("Code", "unknown")

@@ -101,7 +101,7 @@ def _read_google_sheet(sheet_id: str, gid: str) -> Iterable[Dict[str, Any]]:
 def _load_rows(settings: Settings) -> Iterable[Dict[str, Any]]:
     csv_bytes = fetch_csv_data(settings.gsheet_id, settings.gsheet_gid)
     logger.info("Uploading CSV data to S3 bucket %s", settings.s3_bucket_dataproc)
-    s3_key = _upload_to_s3(csv_bytes, settings.s3_bucket_dataproc, settings.s3_prefix)
+    s3_key = _upload_to_s3(csv_bytes, settings.s3_bucket_dataproc, settings.s3_prefix_sekolah)
     logger.info("CSV uploaded to S3 at key: %s", s3_key)
 
     df = _read_csv_from_s3(settings.s3_bucket_dataproc, s3_key)
