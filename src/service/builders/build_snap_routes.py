@@ -47,9 +47,6 @@ def generate_and_upload_snap_routes() -> int:
     finally:
         client.close()
 
-    try:
-        upload_json_to_s3(payload, settings.s3_bucket_name, "common/snap-routes.json")
-    except ClientError:
-        raise
+    upload_json_to_s3(payload, settings.s3_bucket_name, "common/snap-routes.json")
 
     return len(payload)
