@@ -1,81 +1,65 @@
 from __future__ import annotations
 
 import logging
-import os
-from typing import Any, Optional
+from typing import Any
 
 from botocore.exceptions import ClientError
-from fastapi import BackgroundTasks, FastAPI, HTTPException, APIRouter, Header, status
+from fastapi import BackgroundTasks, FastAPI, HTTPException, status
 from fastapi_crons import Crons
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
-from src.config.settings import get_settings
 from src.main import run_ingest
+from src.config.settings import Settings, get_settings
 from src.service.entitiRevalidate import revalidate_school_entity
 from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
-
-from src.core.db import get_entitisekolah_collection
-from src.core.jsonhelpers import build_snap_routes, build_school_list
-from src.core.s3 import upload_json_to_s3
-
-if not logging.getLogger().handlers:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
+from src.service.builders.build_snap_routes import generate_and_upload_snap_routes
+from src.service.builders.build_school_list import generate_and_upload_school_list
 
 logger = logging.getLogger(__name__)
 app = FastAPI()
+crons = Crons()
 
-router = APIRouter(prefix="/api", tags=["sekolahku"])
+settings = get_settings()
 
-S3_PREFIX_SEKOLAH = "common"
-SNAP_ROUTES_KEY = f"{S3_PREFIX_SEKOLAH}/snap-routes.json"
-SCHOOL_LIST_KEY = f"{S3_PREFIX_SEKOLAH}/school-list.json"
-S3_BUCKET = os.getenv("S3_BUCKET_NAME")
 
-@router.post("/generate/snap-routes")
-def generate_snap_routes():
+@app.post("/generate-snap-routes", tags=["publisher"])
+def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[str, str | int]:
+    """Generate snap-routes.json and upload to S3."""
     try:
-        coll = get_entitisekolah_collection()
-        docs = list(coll.find({}, {"_id": 1, "KODSEKOLAH": 1}))
+        count = generate_and_upload_snap_routes()
     except PyMongoError:
-        logger.exception("Failed reading DB")
+        logger.exception("Failed reading DB while generating snap routes")
         raise HTTPException(status_code=500, detail="Database error")
-
-    payload = build_snap_routes(docs)
-
-    try:
-        upload_json_to_s3(payload, S3_BUCKET, SNAP_ROUTES_KEY)
+    except ClientError as e:
+        logger.exception("Failed uploading snap-routes.json to S3")
+        error_code = e.response["Error"].get("Code", "unknown")
+        msg = f"S3 upload failed (code={error_code or 'unknown'})"
+        raise HTTPException(status_code=502, detail=msg)
     except Exception:
-        logger.exception("Failed uploading snap-routes.json")
-        raise HTTPException(status_code=500, detail="S3 upload error")
+        logger.exception("Failed generating snap routes (unexpected error)")
+        raise HTTPException(status_code=500, detail="Unexpected error")
 
-    return {"ok": True, "count": len(payload)}
+    return {"status": "received", "count": count}
 
-
-@router.post("/generate/school-list")
-def generate_school_list():
+@app.post("/generate-school-list", tags=["publisher"])
+def generate_school_list_endpoint(background_tasks: BackgroundTasks) -> dict[str, str | int]:
+    """Generate school-list.json and upload to S3."""
     try:
-        coll = get_entitisekolah_collection()
-        docs = list(coll.find({}, {"_id": 1, "kodSekolah": 1, "namaSekolah": 1}))
+        count = generate_and_upload_school_list()
     except PyMongoError:
-        logger.exception("Failed reading DB")
+        logger.exception("Failed reading DB while generating school list")
         raise HTTPException(status_code=500, detail="Database error")
-
-    payload = build_school_list(docs)
-
-    try:
-        upload_json_to_s3(payload, S3_BUCKET, SCHOOL_LIST_KEY)
+    except ClientError as e:
+        logger.exception("Failed uploading school-list.json to S3")
+        error_code = e.response["Error"].get("Code", "unknown")
+        msg = f"S3 upload failed (code={error_code or 'unknown'})"
+        raise HTTPException(status_code=502, detail=msg)
     except Exception:
-        logger.exception("Failed uploading school-list.json")
-        raise HTTPException(status_code=500, detail="S3 upload error")
+        logger.exception("Failed generating school list (unexpected error)")
+        raise HTTPException(status_code=500, detail="Unexpected error")
 
-    return {"ok": True, "count": len(payload)}
-
-# Register all dataproc endpoints
-app.include_router(router)
+    return {"status": "received", "count": count}
 
 def _run_revalidate_school_entity_job(settings: Any) -> None:
     """Execute school entity revalidation and log outcome."""
@@ -105,11 +89,6 @@ def _run_ingestion_job() -> None:
     except Exception:
         logger.exception("Unexpected error while handling ingestion request")
 
-# Initialize settings to get timezone configuration
-settings = get_settings()
-crons = Crons()
-
-
 @crons.cron("0 0 * * *")
 async def daily_ingestion_job():
     """
@@ -136,10 +115,9 @@ async def daily_ingestion_job():
         # DO NOT re-raise - allow the server to continue running
 
 
-@app.get("/health")
+@app.get("/health", tags=["health"])
 def health_check() -> dict[str, str]:
     """Return application health status by verifying database connectivity."""
-    settings = get_settings()
     client = MongoClient(settings.mongo_uri, serverSelectionTimeoutMS=2000)
     try:
         client.admin.command("ping")
@@ -150,7 +128,7 @@ def health_check() -> dict[str, str]:
     return {"status": "ok", "database": settings.db_name}
 
 
-@app.post("/trigger-ingestion")
+@app.post("/trigger-ingestion", tags=["ingestion"])
 def trigger_ingestion_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """
     Manually trigger the full ingestion pipeline.
@@ -172,11 +150,10 @@ def trigger_ingestion_endpoint(background_tasks: BackgroundTasks) -> dict[str, s
     return {"status": "received"}
 
 
-@app.get("/revalidate-school-entity")
+@app.get("/revalidate-school-entity", tags=["publisher"])
 def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Trigger revalidation of school entities into the configured S3 bucket."""
 
-    settings = get_settings()
     logger.info("Received request to revalidate school entities")
 
     background_tasks.add_task(_run_revalidate_school_entity_job, settings)
@@ -184,7 +161,7 @@ def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict
     return {"status": "received"}
 
 
-@app.post("/load-opendosm-polygons")
+@app.post("/load-opendosm-polygons", tags=["ingestion"])
 def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Trigger loading of Negeri + Parlimen polygons from S3 to MongoDB."""
 
@@ -200,6 +177,7 @@ def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[s
     background_tasks.add_task(load_polygons_sequentially)
 
     return {"status": "received request to load polygons"}
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize and start scheduled cron jobs."""

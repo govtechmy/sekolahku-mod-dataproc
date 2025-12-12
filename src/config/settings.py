@@ -8,6 +8,7 @@ from typing import Optional
 import boto3
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import ValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -109,4 +110,10 @@ class Settings(BaseSettings):
 
 def get_settings() -> Settings:
     """Return environment settings."""
-    return Settings()
+    try:
+        return Settings()
+    except Exception as e:
+        logger.error("Configuration error while loading Settings: %s", e)
+        raise RuntimeError(
+            "Invalid or missing configuration. Check your .env or environment variables."
+        ) from e
