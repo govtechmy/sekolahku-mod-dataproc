@@ -78,11 +78,11 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_file=".env",
-        case_sensitive=False,
+        case_sensitive=True,
         populate_by_name=True,
         extra="ignore",
     )
-
+    
     mongo_uri: str = get_env_str("MONGO_URI")
     db_name: str = get_env_str("DB_NAME")
     sekolah_collection: str = get_env_str("SEKOLAH_COLLECTION", "Sekolah")
@@ -102,9 +102,11 @@ class Settings(BaseSettings):
     entiti_revalidate_max_workers: int = get_env_int("ENTITI_REVALIDATE_MAX_WORKERS", 10)
     entiti_revalidate_temp_prefix: str = get_env_str("ENTITI_REVALIDATE_TEMP_PREFIX", "temp")
     s3_bucket_dataproc: str = get_env_str("S3_BUCKET_DATAPROC")
-    s3_prefix_sekolah: str = get_env_str("S3_PREFIX_SEKOLAH")
-    s3_prefix_opendosm: str = get_env_str("S3_PREFIX_OPENDOSM", "opendosm/raw")
     builders_batch_size: int = get_env_int("BUILDERS_BATCH_SIZE", 100)
+
+    # Constants
+    s3_prefix_sekolah: str = "sekolah/raw"
+    s3_prefix_opendosm: str = "opendosm/raw"
 
 
 def get_settings() -> Settings:
