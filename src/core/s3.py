@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Optional, List
 import pandas as pd
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, ResponseStreamingError
 
 from src.core.aws import get_s3_client, get_s3_bucket_name
 
@@ -65,11 +65,27 @@ def upload_json_to_s3(payload: dict | list, bucket: Optional[str], key: str) -> 
 
     return key
 
-def read_json_from_s3(bucket: str, key: str) -> dict | None:
+def read_json_from_s3(bucket: str, key: str, *, max_retries: int = 2) -> dict | None:
+    """Read and parse a JSON object from S3 with a small retry on streaming errors."""
+
     s3 = get_s3_client()
-    try:
-        obj = s3.get_object(Bucket=bucket, Key=key)
-        return json.loads(obj["Body"].read())
-    except ClientError as e:
-        logger.warning(f"Error reading S3 object {key} from bucket {bucket}: {e}")
-        return None
+    attempt = 0
+
+    while True:
+        attempt += 1
+        try:
+            obj = s3.get_object(Bucket=bucket, Key=key)
+            body = obj["Body"].read()
+            return json.loads(body)
+        except ResponseStreamingError as e:
+            # Log and retry a couple of times for transient network issues
+            logger.warning("Streaming error while reading s3://%s/%s (attempt %d/%d): %s", bucket, key, attempt, max_retries, e)
+            if attempt >= max_retries:
+                logger.error("Giving up reading s3://%s/%s after %d attempts due to streaming errors", bucket, key, max_retries,)
+                return None
+
+            time.sleep(0.5 * attempt)
+            continue
+        except ClientError as e:
+            logger.warning("Error reading S3 object %s from bucket %s: %s", key, bucket, e)
+            return None
