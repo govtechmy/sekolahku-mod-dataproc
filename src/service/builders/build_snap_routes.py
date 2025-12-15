@@ -57,8 +57,8 @@ def generate_and_upload_snap_routes() -> int:
         client.close()
     
     key = f"{settings.s3_prefix_common}/{JSON_FILENAME}"
-    logger.info("Uploading %s to bucket=%s prefix=%s", JSON_FILENAME, settings.s3_bucket_name, key)
-    upload_json_to_s3(payload, settings.s3_bucket_name, key)
+    logger.info("Uploading %s to bucket=%s prefix=%s", JSON_FILENAME, settings.s3_bucket_public, key)
+    upload_json_to_s3(payload, settings.s3_bucket_public, key)
 
     logger.info("Successfully uploaded %s to S3", JSON_FILENAME)
 
