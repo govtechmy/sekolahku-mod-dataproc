@@ -1,9 +1,14 @@
+import logging
+
 from pymongo.errors import PyMongoError
 from botocore.exceptions import ClientError
 
 from src.config.settings import get_settings
 from src.core.db import get_mongo_client
 from src.core.s3 import upload_json_to_s3
+
+
+logger = logging.getLogger(__name__)
 
 
 FIXED_ROUTES = [
@@ -13,6 +18,8 @@ FIXED_ROUTES = [
     "/carian-sekolah",
     "/siaran",
 ]
+
+JSON_FILENAME = "snap-routes.json"
 
 
 def build_snap_routes(docs):
@@ -27,7 +34,6 @@ def generate_and_upload_snap_routes() -> int:
     """Generate snap-routes.json from MongoDB and upload to S3.
 
     Returns the number of routes generated.
-    May raise PyMongoError or ClientError which the API layer will handle.
     """
 
     settings = get_settings()
@@ -42,11 +48,18 @@ def generate_and_upload_snap_routes() -> int:
             code = doc.get("KODSEKOLAH") or str(doc.get("_id"))
             payload.append(f"/halaman-sekolah/{code}")
 
+        logger.info("Generated %d snap routes (including fixed routes)", len(payload))
+
     except PyMongoError:
+        logger.exception("MongoDB error while generating snap routes")
         raise
     finally:
         client.close()
+    
+    key = f"{settings.s3_prefix_common}/{JSON_FILENAME}"
+    logger.info("Uploading %s to bucket=%s prefix=%s", JSON_FILENAME, settings.s3_bucket_name, key)
+    upload_json_to_s3(payload, settings.s3_bucket_name, key)
 
-    upload_json_to_s3(payload, settings.s3_bucket_name, "common/snap-routes.json")
+    logger.info("Successfully uploaded %s to S3", JSON_FILENAME)
 
     return len(payload)
