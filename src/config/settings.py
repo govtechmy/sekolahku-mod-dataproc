@@ -109,6 +109,7 @@ class Settings(BaseSettings):
     s3_prefix_sekolah: str = "sekolah/raw"
     s3_prefix_opendosm: str = "opendosm/raw"
     s3_prefix_common: str = "common"
+    s3_prefix_polygon: str = "polygon"
 
 
 def get_settings() -> Settings:
