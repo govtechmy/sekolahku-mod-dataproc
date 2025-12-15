@@ -76,6 +76,9 @@ def main():
 
     urls = [row[0].strip() for row in rows[1:] if row and row[0].strip()]
     total_urls = len(urls)
+    logger.info(f"Total URLs to download: {total_urls}")
+    logger.info(f"Downloading and uploading to S3 in progress...")
+
     # Counters for tracking
     upload_success = 0
     upload_failed = 0
@@ -83,9 +86,8 @@ def main():
     # Download and upload directly to S3
     for url in urls:
         filename = extract_filename(url)
-        logger.info(f"Total URLs to download: {total_urls}")
         logger.debug(f"Downloading: {url}")
-        logger.info(f"Uploading to S3: s3://{settings.s3_bucket_dataproc}/{S3_PREFIX_OPENDOSM}{filename}")
+        logger.debug(f"Uploading to S3: s3://{settings.s3_bucket_dataproc}/{S3_PREFIX_OPENDOSM}{filename}")
 
         try:
             resp = requests.get(url, timeout=20)
@@ -110,10 +112,6 @@ def main():
             upload_failed += 1
             continue
 
-    # ---------------------------------------------------------
-    # SUMMARY
-    # ---------------------------------------------------------
-    logger.info(f"Total URLs to download: {total_urls}")
     logger.info(f"Upload successful: {upload_success}, failed: {upload_failed}")
 
 if __name__ == "__main__":
