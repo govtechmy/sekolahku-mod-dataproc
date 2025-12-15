@@ -48,7 +48,7 @@ def export_negeri_polygons() -> Dict[str, Any]:
             
             try:
                 upload_json_to_s3(
-                    data=polygon_data,
+                    payload=polygon_data,
                     bucket=settings.s3_bucket_name,
                     key=f"polygon/{negeri}/{negeri}.json"
                 )
@@ -112,7 +112,7 @@ def export_parlimen_polygons() -> Dict[str, Any]:
             
             try:
                 upload_json_to_s3(
-                    data=polygon_data,
+                    payload=polygon_data,
                     bucket=settings.s3_bucket_name,
                     key=f"polygon/{negeri}/{parlimen}.json"
                 )
