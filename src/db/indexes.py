@@ -64,12 +64,17 @@ def create_index_entiti_sekolah(db, settings):
     add_index(col, {"data.infoPentadbiran.negeri": 1}, name="negeri")
     add_index(col, {"data.infoPentadbiran.parlimen": 1}, name="parlimen")
     add_index(col, {"data.infoLokasi.location": "2dsphere"}, name="location")
+    add_index(col, {"data.infoLokasi.koordinatXX": 1}, name="koordinatXX")
+    add_index(col, {"data.infoLokasi.koordinatYY": 1}, name="koordinatYY")
 
 def create_index_negeri_polygon(db, settings):
     col = db[settings.negeri_polygon_collection]
 
     add_index(col, {"negeri": 1}, name="negeri")
     add_index(col, {"geometry": "2dsphere"}, name="geometry")
+    add_index(col, {"centroid.location": "2dsphere"}, name="location")
+    add_index(col, {"centroid.koordinatXX": 1}, name="koordinatXX")
+    add_index(col, {"centroid.koordinatYY": 1}, name="koordinatYY")
 
 def create_index_parlimen_polygon(db, settings):
     col = db[settings.parlimen_polygon_collection]
@@ -77,6 +82,9 @@ def create_index_parlimen_polygon(db, settings):
     add_index(col, {"negeri": 1}, name="negeri")
     add_index(col, {"parlimen": 1}, name="parlimen")
     add_index(col, {"geometry": "2dsphere"}, name="geometry")
+    add_index(col, {"centroid.location": "2dsphere"}, name="location")
+    add_index(col, {"centroid.koordinatXX": 1}, name="koordinatXX")
+    add_index(col, {"centroid.koordinatYY": 1}, name="koordinatYY")
 
 def main():
     settings = get_settings()

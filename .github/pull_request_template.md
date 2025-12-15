@@ -1,7 +1,11 @@
 ## Summarise the feature
 Issue ticket # (issue)
 
-Description:
+### Description:
+
+### Key Changes:
+
+### Outcome:
 
 ## Type of change
 - [ ] Bug fix (non-breaking change which fixes an issue)

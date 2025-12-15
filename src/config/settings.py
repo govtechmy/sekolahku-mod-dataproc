@@ -102,9 +102,17 @@ class Settings(BaseSettings):
     entiti_revalidate_max_workers: int = get_env_int("ENTITI_REVALIDATE_MAX_WORKERS", 10)
     entiti_revalidate_temp_prefix: str = get_env_str("ENTITI_REVALIDATE_TEMP_PREFIX", "temp")
     s3_bucket_dataproc: str = get_env_str("S3_BUCKET_DATAPROC")
-    s3_prefix: str = get_env_str("S3_PREFIX", "raw/sekolah")
+    s3_prefix_sekolah: str = get_env_str("S3_PREFIX_SEKOLAH")
     s3_prefix_opendosm: str = get_env_str("S3_PREFIX_OPENDOSM", "opendosm/raw")
+    builders_batch_size: int = get_env_int("BUILDERS_BATCH_SIZE", 100)
+
 
 def get_settings() -> Settings:
     """Return environment settings."""
-    return Settings()
+    try:
+        return Settings()
+    except Exception as e:
+        logger.error("Configuration error while loading Settings: %s", e)
+        raise RuntimeError(
+            f"Invalid or missing configuration: {e}. Check your .env or environment variables."
+        ) from e
