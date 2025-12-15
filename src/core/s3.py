@@ -73,16 +73,3 @@ def read_json_from_s3(bucket: str, key: str) -> dict | None:
     except ClientError as e:
         logger.warning(f"Error reading S3 object {key} from bucket {bucket}: {e}")
         return None
-
-def upload_json_to_s3(data: dict, bucket: str, key: str) -> None:
-    s3 = get_s3_client()
-    json_bytes = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
-    
-    s3.put_object(
-        Bucket=bucket,
-        Key=key,
-        Body=json_bytes,
-        ContentType="application/json"
-    )
-    
-    logger.info(f"Uploaded JSON to s3://{bucket}/{key}")
