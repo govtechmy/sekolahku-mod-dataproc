@@ -103,6 +103,7 @@ class Settings(BaseSettings):
     entiti_revalidate_temp_prefix: str = get_env_str("ENTITI_REVALIDATE_TEMP_PREFIX", "temp")
     s3_bucket_dataproc: str = get_env_str("S3_BUCKET_DATAPROC")
     builders_batch_size: int = get_env_int("BUILDERS_BATCH_SIZE", 100)
+    polygon_export_batch_size: int = get_env_int("POLYGON_EXPORT_BATCH_SIZE", 100)
 
     # Constants
     s3_prefix_sekolah: str = "sekolah/raw"
