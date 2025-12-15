@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import Dict, List, Any
+from typing import Dict, Any
 
 from pymongo import MongoClient
 
@@ -13,9 +13,6 @@ logger = logging.getLogger(__name__)
 def export_negeri_polygons() -> Dict[str, Any]:
     """
     Export all Negeri polygons from MongoDB to S3.
-    
-    Returns:
-        Summary dictionary with success count and any errors.
     """
     settings = get_settings()
     client = MongoClient(settings.mongo_uri)
@@ -29,11 +26,13 @@ def export_negeri_polygons() -> Dict[str, Any]:
         "errors": []
     }
     
+    logger.info("Starting Negeri polygon export")
+
     try:
-        # Fetch all negeri polygons
-        documents = collection.find({})
+        # Fetch all negeri polygons with batch processing
+        cursor = collection.find({}).batch_size(100)
         
-        for doc in documents:
+        for doc in cursor:
             negeri = doc.get("negeri")
             
             if not negeri:
@@ -41,7 +40,6 @@ def export_negeri_polygons() -> Dict[str, Any]:
                 summary["failed"] += 1
                 continue
             
-            # Prepare the JSON payload
             polygon_data = {
                 "negeri": negeri,
                 "geometry": doc.get("geometry"),
@@ -54,7 +52,7 @@ def export_negeri_polygons() -> Dict[str, Any]:
                     bucket=settings.s3_bucket_name,
                     key=f"polygon/{negeri}/{negeri}.json"
                 )
-                logger.info(f"✓ Exported Negeri polygon: {negeri} to polygon/{negeri}/{negeri}.json")
+                logger.debug(f"✓ Exported Negeri polygon: {negeri} to polygon/{negeri}/{negeri}.json")
                 summary["success"] += 1
             except Exception as e:
                 error_msg = f"Failed to export {negeri}: {str(e)}"
@@ -76,9 +74,6 @@ def export_negeri_polygons() -> Dict[str, Any]:
 def export_parlimen_polygons() -> Dict[str, Any]:
     """
     Export all Parlimen polygons from MongoDB to S3.
-    
-    Returns:
-        Summary dictionary with success count and any errors.
     """
     settings = get_settings()
     client = MongoClient(settings.mongo_uri)
@@ -92,11 +87,13 @@ def export_parlimen_polygons() -> Dict[str, Any]:
         "errors": []
     }
     
+    logger.info("Starting Parlimen polygon export")
+
     try:
-        # Fetch all parlimen polygons
-        documents = collection.find({})
+         # Fetch all parlimen polygons with batch processing
+        cursor = collection.find({}).batch_size(100)
         
-        for doc in documents:
+        for doc in cursor:
             negeri = doc.get("negeri")
             parlimen = doc.get("parlimen")
             
@@ -119,7 +116,7 @@ def export_parlimen_polygons() -> Dict[str, Any]:
                     bucket=settings.s3_bucket_name,
                     key=f"polygon/{negeri}/{parlimen}.json"
                 )
-                logger.info(f"✓ Exported Parlimen polygon: {negeri}/{parlimen} to polygon/{negeri}/{parlimen}.json")
+                logger.debug(f"✓ Exported Parlimen polygon: {negeri}/{parlimen} to polygon/{negeri}/{parlimen}.json")
                 summary["success"] += 1
             except Exception as e:
                 error_msg = f"Failed to export {negeri}/{parlimen}: {str(e)}"
@@ -140,9 +137,7 @@ def export_parlimen_polygons() -> Dict[str, Any]:
 
 def export_all_polygons() -> Dict[str, Any]:
     """
-    Ensures both Negeri and Parlimen polygons are exported to S3.
-    Provides a combined summary of the export process.
-    Used by the API endpoint to trigger polygon export.
+    Export both Negeri and Parlimen polygons to S3.
     """
     logger.info("Starting polygon export to S3")
     
