@@ -30,7 +30,7 @@ def export_negeri_polygons() -> Dict[str, Any]:
 
     try:
         # Fetch all negeri polygons with batch processing
-        cursor = collection.find({}).batch_size(100)
+        cursor = collection.find({}).batch_size(settings.polygon_export_batch_size)
         
         for doc in cursor:
             negeri = doc.get("negeri")
@@ -91,7 +91,7 @@ def export_parlimen_polygons() -> Dict[str, Any]:
 
     try:
          # Fetch all parlimen polygons with batch processing
-        cursor = collection.find({}).batch_size(100)
+        cursor = collection.find({}).batch_size(settings.polygon_export_batch_size)
         
         for doc in cursor:
             negeri = doc.get("negeri")
