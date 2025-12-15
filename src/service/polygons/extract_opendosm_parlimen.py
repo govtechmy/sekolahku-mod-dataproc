@@ -7,21 +7,14 @@ import boto3
 from urllib.parse import unquote_plus
 from src.config.settings import get_settings
 
-# Load environment variables
 logger = logging.getLogger(__name__)
 
-# Get settings instance
 settings = get_settings()
-
-# PARLIMEN_CSV_PATH = os.getenv("PARLIMEN_CSV_PATH")
-# RAW_DIR = "data_output/raw_parlimen"
-# EXTRACTED_DIR = "data_output/extracted_parlimen"
 
 PARLIMEN_CSV_PATH = "src/service/polygons/data/url_parlimen.csv"
 
-# S3 Configuration from environment
 S3_BUCKET = settings.s3_bucket_dataproc
-S3_PREFIX_OPENDOSM = "opendosm/raw/parlimen/"
+S3_PREFIX_OPENDOSM = f"{settings.s3_prefix_opendosm}/parlimen/"
 # TODO: Uncomment when ready to upload extracted files to S3
 # S3_EXTRACTED_PREFIX = "opendosm/extracted/parlimen/"
 
@@ -68,9 +61,8 @@ def extract_filename(url: str) -> str:
 def upload_to_s3(s3_client, local_path: str, s3_key: str) -> bool:
     """Upload a file to S3 bucket."""
     try:
-        logger.info(f"Uploading to S3: s3://{settings.s3_bucket_dataproc}/{s3_key}")
+        logger.debug(f"Uploading to S3: s3://{settings.s3_bucket_dataproc}/{s3_key}")
         s3_client.upload_file(local_path, settings.s3_bucket_dataproc, s3_key)
-        logger.info("Successfully uploaded to S3")
         return True
     except Exception as e:
         logger.error(f"S3 upload failed: {e}")
@@ -78,14 +70,8 @@ def upload_to_s3(s3_client, local_path: str, s3_key: str) -> bool:
 
 
 def main():
-    # No need to create local directories - uploading directly to S3
-
-    # Initialize S3 client with AWS profile
-    logger.info("Initializing S3 client...")
     s3_client = boto3.client('s3')
-    logger.info(f"Connected to S3 bucket: {settings.s3_bucket_dataproc}")
 
-    # Read CSV
     with open(PARLIMEN_CSV_PATH, newline="", encoding="utf-8-sig") as f:
         reader = csv.reader(f)
         rows = list(reader)
@@ -98,23 +84,18 @@ def main():
         raise SystemExit("CSV must have a single header named 'url'.")
 
     urls = [row[0].strip() for row in rows[1:] if row and row[0].strip()]
+    total_urls = len(urls)
 
     # Counters for tracking
-    download_success = 0
-    download_failed = 0
-    extract_success = 0
-    extract_failed = 0
+    upload_success = 0
+    upload_failed = 0
 
-    # ---------------------------------------------------------
-    # STEP 1 — Download and upload directly to S3
-    # ---------------------------------------------------------
+    # Download and upload directly to S3
     for url in urls:
         filename = extract_filename(url)
-
-        logger.info("\n=======================================================")
-        logger.info(f"Downloading: {url}")
+        logger.info(f"Total URLs to download: {total_urls}")
+        logger.debug(f"Downloading: {url}")
         logger.info(f"Uploading to S3: s3://{settings.s3_bucket_dataproc}/{S3_PREFIX_OPENDOSM}{filename}")
-        logger.info("=======================================================")
 
         try:
             resp = requests.get(url, timeout=20)
@@ -122,7 +103,6 @@ def main():
             data = resp.json()
         except Exception as e:
             logger.error(f"ERROR: {e}")
-            download_failed += 1
             continue
 
         # Upload JSON directly to S3 (no local file)
@@ -134,57 +114,17 @@ def main():
                 Body=json.dumps(data, indent=2, ensure_ascii=False),
                 ContentType='application/json'
             )
-            logger.info(f"✓ Successfully uploaded to S3")
-            download_success += 1
+            upload_success += 1
         except Exception as e:
-            logger.error(f"✗ S3 upload failed: {e}")
-            download_failed += 1
+            logger.error(f"S3 upload failed: {e}")
+            upload_failed += 1
             continue
-
-    # STEP 2 — Load from S3 and extract fields
-    for url in urls:
-        filename = extract_filename(url)
-        s3_raw_key = S3_PREFIX_OPENDOSM + filename
-
-        logger.info(f"Extracting from S3: s3://{settings.s3_bucket_dataproc}/{s3_raw_key}")
-
-        # Load JSON directly from S3
-        try:
-            response = s3_client.get_object(Bucket=settings.s3_bucket_dataproc, Key=s3_raw_key)
-            root = json.loads(response['Body'].read().decode('utf-8'))
-        except Exception as e:
-            logger.error(f"Failed to read from S3: {e}")
-            extract_failed += 1
-            continue
-
-        pageProps = root.get("pageProps", {})
-        params = pageProps.get("params", {})
-        geojson = pageProps.get("geojson", {})
-
-        extracted_data = {
-            "params": params,
-            "geojson": geojson
-        }
-
-        logger.info(f"✓ Extracted data from {filename}")
-        extract_success += 1
-
-        # TODO: Uncomment to upload extracted JSON to S3
-        # s3_extract_key = S3_EXTRACTED_PREFIX + filename
-        # upload_to_s3(s3_client, extract_path, s3_extract_key)
 
     # ---------------------------------------------------------
     # SUMMARY
     # ---------------------------------------------------------
-    logger.info("\n" + "=" * 60)
-    logger.info("===== EXTRACTION SUMMARY =====")
-    logger.info(f"Total URLs processed: {len(urls)}")
-    logger.info(f"Download successful: {download_success}")
-    logger.info(f"Download failed: {download_failed}")
-    logger.info(f"Extract successful: {extract_success}")
-    logger.info(f"Extract failed: {extract_failed}")
-        # s3_extract_key = S3_EXTRACTED_PREFIX + filename
-        # upload_to_s3(s3_client, extract_path, s3_extract_key)
+    logger.info(f"Total URLs to download: {total_urls}")
+    logger.info(f"Upload successful: {upload_success}, failed: {upload_failed}")
 
 
 if __name__ == "__main__":
