@@ -13,7 +13,7 @@ from src.main import run_ingest
 from src.config.settings import get_settings
 from src.service.entitiRevalidate import revalidate_school_entity
 from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
-from src.service.export_polygon import export_all_polygons
+from src.service.export_polygons import export_all_polygons
 from src.service.builders.build_snap_routes import generate_and_upload_snap_routes
 from src.service.builders.build_school_list import generate_and_upload_school_list
 
