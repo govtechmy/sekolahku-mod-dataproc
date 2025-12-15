@@ -179,7 +179,7 @@ def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[s
     return {"status": "received request to load polygons"}
 
 
-@app.get("/export-polygons")
+@app.post("/export-polygons-to-s3", tags=["publisher"])
 def export_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Trigger export of Negeri + Parlimen polygons from MongoDB to S3 public bucket."""
 
@@ -192,7 +192,7 @@ def export_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str
 
     background_tasks.add_task(export_polygons_job)
 
-    return {"status": "received request to export polygons"}
+    return {"status": "received request to export polygons to S3"}
 
 
 @app.on_event("startup")
