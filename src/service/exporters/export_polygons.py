@@ -49,10 +49,10 @@ def export_negeri_polygons() -> Dict[str, Any]:
             try:
                 upload_json_to_s3(
                     payload=polygon_data,
-                    bucket=settings.s3_bucket_name,
-                    key=f"polygon/{negeri}/{negeri}.json"
+                    bucket=settings.s3_bucket_public,
+                    key=f"{settings.s3_prefix_polygon}/{negeri}/{negeri}.json"
                 )
-                logger.debug(f"✓ Exported Negeri polygon: {negeri} to polygon/{negeri}/{negeri}.json")
+                logger.debug(f"Exported Negeri polygon: {negeri} to {settings.s3_prefix_polygon}/{negeri}/{negeri}.json")
                 summary["success"] += 1
             except Exception as e:
                 error_msg = f"Failed to export {negeri}: {str(e)}"
@@ -113,10 +113,10 @@ def export_parlimen_polygons() -> Dict[str, Any]:
             try:
                 upload_json_to_s3(
                     payload=polygon_data,
-                    bucket=settings.s3_bucket_name,
-                    key=f"polygon/{negeri}/{parlimen}.json"
+                    bucket=settings.s3_bucket_public,
+                    key=f"{settings.s3_prefix_polygon}/{negeri}/{parlimen}.json"
                 )
-                logger.debug(f"✓ Exported Parlimen polygon: {negeri}/{parlimen} to polygon/{negeri}/{parlimen}.json")
+                logger.debug(f"Exported Parlimen polygon: {negeri}/{parlimen} to {settings.s3_prefix_polygon}/{negeri}/{parlimen}.json")
                 summary["success"] += 1
             except Exception as e:
                 error_msg = f"Failed to export {negeri}/{parlimen}: {str(e)}"
@@ -151,9 +151,7 @@ def export_all_polygons() -> Dict[str, Any]:
         "total_failed": negeri_summary["failed"] + parlimen_summary["failed"]
     }
     
-    logger.info(
-        f"Polygon export completed: {combined_summary['total_success']} total succeeded, "
-        f"{combined_summary['total_failed']} total failed"
+    logger.info(f"Polygon export completed: {combined_summary['total_success']} total succeeded, {combined_summary['total_failed']} total failed"
     )
     
     return combined_summary

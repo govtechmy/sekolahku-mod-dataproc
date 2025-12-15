@@ -12,8 +12,8 @@ CSV_PATH=data/custom_sekolah.csv python -m src.main
 python -m src.main --entiti
 
 # Extract GeoJSON polygons from OPENDOSM to S3
-python -m src.service.polygons.extract_kawasanku_negeri
-python -m src.service.polygons.extract_kawasanku_parlimen
+python -m src.service.polygons.scrape_opendosm_negeri
+python -m src.service.polygons.scrape_opendosm_parlimen
 
 # Load extracted polygons from S3 into MongoDB
 python -m src.main --load-polygons
@@ -123,9 +123,9 @@ python -m src.main --load-polygons
 `Parlimen summary: {'parlimen': {'processed': 222, 'succeeded': 222, 'failed': 0, 'skipped': 0, 'collection': 'ParlimenPolygon'}, 'total_files_scanned': 222}`
 
 ```bash
-python -m src.service.polygons.extract_kawasanku_negeri
+python -m src.service.polygons.scrape_opendosm_negeri
 
-python -m src.service.polygons.extract_kawasanku_parlimen
+python -m src.service.polygons.scrape_opendosm_parlimen
 ```
 
 ```
@@ -321,8 +321,8 @@ The polygon loading pipeline extracts GeoJSON boundary data from OpenDOSM and po
 1. **Extract**: Download polygons from Kawasanku API and upload to S3
 
    ```bash
-   python -m src.service.polygons.extract_kawasanku_negeri
-   python -m src.service.polygons.extract_kawasanku_parlimen
+   python -m src.service.polygons.scrape_opendosm_negeri
+   python -m src.service.polygons.scrape_opendosm_parlimen
    ```
 
 2. **Load**: Read from S3 and insert into MongoDB

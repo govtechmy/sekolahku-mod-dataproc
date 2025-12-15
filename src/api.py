@@ -11,9 +11,9 @@ from pymongo.errors import PyMongoError
 
 from src.main import run_ingest
 from src.config.settings import get_settings
-from src.service.entitiRevalidate import revalidate_school_entity
+from src.service.entiti_revalidate import revalidate_school_entity
 from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
-from src.service.export_polygon import export_all_polygons
+from src.service.exporters.export_polygons import export_all_polygons
 from src.service.builders.build_snap_routes import generate_and_upload_snap_routes
 from src.service.builders.build_school_list import generate_and_upload_school_list
 
@@ -29,7 +29,7 @@ if not logging.getLogger().handlers:
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     )
 
-@app.post("/generate-snap-routes", tags=["publisher"])
+@app.post("/generate-snap-routes", tags=["s3-publisher"])
 def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[str, str | int]:
     """Generate snap-routes.json and upload to S3."""
     try:
@@ -45,7 +45,7 @@ def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[str
         logger.exception("Unexpected error while generating snap-routes: %s", e)
         raise HTTPException(status_code=500, detail="Unexpected error while generating snap-routes")
 
-@app.post("/generate-school-list", tags=["publisher"])
+@app.post("/generate-school-list", tags=["s3-publisher"])
 def generate_school_list_endpoint(background_tasks: BackgroundTasks) -> dict[str, str | int]:
     """Generate school-list.json and upload to S3."""
     try:
@@ -128,31 +128,26 @@ def health_check() -> dict[str, str]:
     return {"status": "ok", "database": settings.db_name}
 
 
-@app.post("/trigger-ingestion", tags=["ingestion"])
-def trigger_ingestion_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
+@app.post("/load-full-ingestion", tags=["ingestion"])
+def load_full_ingestion_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """
-    Manually trigger the full ingestion pipeline.
-    
-    This endpoint allows on-demand execution of the ingestion process
-    without waiting for the scheduled cron job. It runs independently
-    and does not interfere with the scheduled daily runs.
-    
-    The ingestion job runs in the background and the endpoint returns immediately.
-    Check the logs for job completion status and metrics.
-    
-    Returns:
-        Dictionary confirming that the ingestion job has been queued.
+    Trigger the full ingestion & processing pipeline from raw data source into MongoDB.
+    The pipeline includes:
+    - Sekolah raw data ingestion
+    - EntitiSekolah aggregation
+    - NegeriParlimenKodSekolah population
+    - Analitik aggregation (if data changed)
     """
-    logger.info("Received request to trigger manual ingestion")
+    logger.info("Received request to trigger full ingestion")
     
     background_tasks.add_task(_run_ingestion_job)
     
     return {"status": "received"}
 
 
-@app.get("/revalidate-school-entity", tags=["publisher"])
+@app.get("/revalidate-school-entity", tags=["s3-publisher"])
 def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
-    """Trigger revalidation of school entities into the configured S3 bucket."""
+    """Trigger revalidation of school entities into S3 bucket."""
 
     logger.info("Received request to revalidate school entities")
 
@@ -161,9 +156,12 @@ def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict
     return {"status": "received"}
 
 
-@app.post("/load-opendosm-polygons", tags=["ingestion"])
+@app.post("/load-polygons", tags=["ingestion"])
 def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
-    """Trigger loading of Negeri + Parlimen polygons from S3 to MongoDB."""
+    """Trigger the loading & processing of raw OpenDOSM Negeri & Parlimen polygons data from S3 into MongoDB.
+    The pipeline includes:
+    - centroid calculation
+    """
 
     def load_polygons_sequentially():
         try:
@@ -179,9 +177,9 @@ def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[s
     return {"status": "received request to load polygons"}
 
 
-@app.get("/export-polygons")
+@app.post("/export-polygons", tags=["s3-publisher"])
 def export_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
-    """Trigger export of Negeri + Parlimen polygons from MongoDB to S3 public bucket."""
+    """Trigger export of Negeri Polygons & Parlimen Polygons from MongoDB to S3 public bucket."""
 
     def export_polygons_job():
         try:
@@ -192,7 +190,7 @@ def export_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str
 
     background_tasks.add_task(export_polygons_job)
 
-    return {"status": "received request to export polygons"}
+    return {"status": "received request to export polygons to S3"}
 
 
 @app.on_event("startup")
