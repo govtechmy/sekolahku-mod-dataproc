@@ -18,6 +18,10 @@ python -m src.service.polygons.extract_kawasanku_parlimen
 # Load extracted polygons from S3 into MongoDB
 python -m src.main --load-polygons
 
+# Export school assets to public S3 bucket
+python -m src.main --export-assets
+python -m src.main --export-assets --asset-status-filter "ACTIVE"
+
 # Show verbosity for a single run
 python -m src.main --log-level DEBUG
 ```
@@ -155,6 +159,13 @@ uvicorn src.api:app --reload
   - Independent from the scheduled daily job
 
 - **`GET /revalidate-school-entity`** - Trigger revalidation of school entities to S3
+
+- **`POST /export-school-assets`** - Export school assets (logo, hero, gallery) to public S3 bucket
+  
+  - Copies assets from source bucket to target bucket with structure: `negeri/parliament/sekolah_kod/assets/`
+  - Query parameter: `status_filter` (default: "ACTIVE")
+  - Generates manifest file listing exported schools and missing assets
+  - See [ASSET_EXPORT_GUIDE.md](ASSET_EXPORT_GUIDE.md) for detailed documentation
 
 ### Scheduled Cron Jobs
 

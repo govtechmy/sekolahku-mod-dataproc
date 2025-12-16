@@ -15,6 +15,7 @@ from src.service.entitiRevalidate import revalidate_school_entity
 from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
 from src.service.builders.build_snap_routes import generate_and_upload_snap_routes
 from src.service.builders.build_school_list import generate_and_upload_school_list
+from src.service.assets import export_sekolah_assets
 
 logger = logging.getLogger(__name__)
 app = FastAPI()
@@ -157,6 +158,48 @@ def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict
 
     background_tasks.add_task(_run_revalidate_school_entity_job, settings)
 
+    return {"status": "received"}
+
+
+@app.post("/export-school-assets", tags=["publisher"])
+def export_school_assets_endpoint(
+    background_tasks: BackgroundTasks,
+    status_filter: str = "ACTIVE"
+) -> dict[str, str]:
+    """
+    Export school assets (logo, hero, gallery) to public S3 bucket.
+    
+    This endpoint copies assets from the source bucket to the target bucket
+    following the structure: negeri/parliament/sekolah_kod/assets/
+    
+    Args:
+        status_filter: Filter schools by status (default: ACTIVE)
+    
+    Returns:
+        Dictionary confirming that the export job has been queued.
+    """
+    logger.info(f"Received request to export school assets (status={status_filter})")
+    
+    def _run_asset_export_job():
+        try:
+            summary = export_sekolah_assets(settings, status_filter)
+            logger.info(
+                "Asset export completed: bucket=%s processed=%s logos=%s heroes=%s gallery=%s",
+                summary.get("bucket"),
+                summary.get("sekolahProcessed"),
+                summary.get("logosCopied"),
+                summary.get("heroesCopied"),
+                summary.get("galleryImagesCopied"),
+            )
+        except PyMongoError:
+            logger.exception("MongoDB error while exporting assets")
+        except ClientError:
+            logger.exception("S3 error while exporting assets")
+        except Exception:
+            logger.exception("Unexpected error while exporting assets")
+    
+    background_tasks.add_task(_run_asset_export_job)
+    
     return {"status": "received"}
 
 

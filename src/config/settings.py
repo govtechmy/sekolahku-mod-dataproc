@@ -104,7 +104,12 @@ class Settings(BaseSettings):
     s3_bucket_dataproc: str = get_env_str("S3_BUCKET_DATAPROC")
     s3_prefix_sekolah: str = get_env_str("S3_PREFIX_SEKOLAH")
     s3_prefix_opendosm: str = get_env_str("S3_PREFIX_OPENDOSM", "opendosm/raw")
+    s3_prefix_assets_source: str = get_env_str("S3_PREFIX_ASSETS_SOURCE", "assets/source")
+    s3_prefix_assets_temp: str = get_env_str("S3_PREFIX_ASSETS_TEMP", "assets/temp")
     builders_batch_size: int = get_env_int("BUILDERS_BATCH_SIZE", 100)
+    asset_export_batch_size: int = get_env_int("ASSET_EXPORT_BATCH_SIZE", 50)
+    asset_export_max_workers: int = get_env_int("ASSET_EXPORT_MAX_WORKERS", 5)
+    asset_export_source_bucket: str = get_env_str("ASSET_EXPORT_SOURCE_BUCKET", "")
 
 
 def get_settings() -> Settings:
