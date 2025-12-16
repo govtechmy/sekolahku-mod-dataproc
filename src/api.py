@@ -16,6 +16,7 @@ from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
 from src.service.exporters.export_polygons import export_all_polygons
 from src.service.builders.build_snap_routes import generate_and_upload_snap_routes
 from src.service.builders.build_school_list import generate_and_upload_school_list
+from src.pipeline.malaysia_polygon import run_malaysia_polygon_pipeline
 
 logger = logging.getLogger(__name__)
 app = FastAPI()
@@ -156,8 +157,8 @@ def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict
     return {"status": "received"}
 
 
-@app.post("/load-polygons", tags=["ingestion"])
-def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
+@app.post("/load-negeri-parlimen-polygons", tags=["ingestion"])
+def load_negeri_parlimen_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Trigger the loading & processing of raw OpenDOSM Negeri & Parlimen polygons data from S3 into MongoDB.
     The pipeline includes:
     - centroid calculation
@@ -174,7 +175,7 @@ def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[s
 
     background_tasks.add_task(load_polygons_sequentially)
 
-    return {"status": "received request to load polygons"}
+    return {"status": "received request to load Negeri & Parlimen polygons"}
 
 
 @app.post("/export-polygons", tags=["s3-publisher"])
@@ -207,3 +208,22 @@ async def shutdown_event():
     logger.info("Stopping scheduled cron jobs")
     await crons.stop()
     logger.info("Cron jobs stopped")
+
+
+@app.post("/load-malaysia-polygons", tags=["ingestion"])
+def load_malaysia_polygons_endpoint() -> dict[str, str | int]:
+    """Trigger the loading of MalaysiaPolygon collection.
+    The pipeline includes:
+    - the source data is from NegeriPolygon collection
+    - merging all negeri polygons into a single malaysia polygon
+    - calculating centroid
+    """
+    try:
+        count = run_malaysia_polygon_pipeline()
+        return { "status": "received request to load Malaysia Polygons", "count": count }
+    except PyMongoError as e:
+        logger.exception("Database error while loading Malaysia polygons: %s", e)
+        raise HTTPException(status_code=500, detail="Database error while loading Malaysia polygons")
+    except Exception as e:
+        logger.exception("Unexpected error while loading Malaysia polygons: %s", e)
+        raise HTTPException(status_code=500, detail="Unexpected error while loading Malaysia polygons")
