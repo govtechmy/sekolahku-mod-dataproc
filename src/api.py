@@ -157,8 +157,8 @@ def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict
     return {"status": "received"}
 
 
-@app.post("/load-polygons", tags=["ingestion"])
-def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
+@app.post("/load-negeri-parlimen-polygons", tags=["ingestion"])
+def load_negeri_parlimen_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Trigger the loading & processing of raw OpenDOSM Negeri & Parlimen polygons data from S3 into MongoDB.
     The pipeline includes:
     - centroid calculation
@@ -175,7 +175,7 @@ def load_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[s
 
     background_tasks.add_task(load_polygons_sequentially)
 
-    return {"status": "received request to load polygons"}
+    return {"status": "received request to load Negeri & Parlimen polygons"}
 
 
 @app.post("/export-polygons", tags=["s3-publisher"])
