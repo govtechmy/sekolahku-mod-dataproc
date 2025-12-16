@@ -7,7 +7,7 @@ from .helpers import (
     normalise_segment,
     upload_to_s3,
 )
-from .entitiSekolahService import revalidate_school_entity
+from .entiti_sekolah_service import revalidate_school_entity
 
 __all__ = [
     "build_parlimen_path",

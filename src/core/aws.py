@@ -6,4 +6,4 @@ def get_s3_client():
     return boto3.client("s3")
 
 def get_s3_bucket_name() -> str:
-    return get_settings().s3_bucket_name
+    return get_settings().s3_bucket_public

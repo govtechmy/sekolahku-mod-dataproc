@@ -78,11 +78,11 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_file=".env",
-        case_sensitive=False,
+        case_sensitive=True,
         populate_by_name=True,
         extra="ignore",
     )
-
+    
     mongo_uri: str = get_env_str("MONGO_URI")
     db_name: str = get_env_str("DB_NAME")
     sekolah_collection: str = get_env_str("SEKOLAH_COLLECTION", "Sekolah")
@@ -97,16 +97,21 @@ class Settings(BaseSettings):
     gsheet_worksheet_name: str = get_env_str("GSHEET_WORKSHEET_NAME", "Sheet1")
     batch_size: int = get_env_int("BATCH_SIZE", 500)
     port: int = get_env_int("PORT", 8000)
-    s3_bucket_name: str = get_env_str("S3_BUCKET_NAME", "my.gov.digital.sekolahku-public-dev")
+    s3_bucket_public: str = get_env_str("S3_BUCKET_PUBLIC", "my.gov.digital.sekolahku-public-dev")
+    s3_bucket_dataproc: str = get_env_str("S3_BUCKET_DATAPROC")
     entiti_revalidate_batch_size: int = get_env_int("ENTITI_REVALIDATE_BATCH_SIZE", 100)
     entiti_revalidate_max_workers: int = get_env_int("ENTITI_REVALIDATE_MAX_WORKERS", 10)
     entiti_revalidate_temp_prefix: str = get_env_str("ENTITI_REVALIDATE_TEMP_PREFIX", "temp")
-    s3_bucket_dataproc: str = get_env_str("S3_BUCKET_DATAPROC")
-    s3_prefix_sekolah: str = get_env_str("S3_PREFIX_SEKOLAH")
-    s3_prefix_opendosm: str = get_env_str("S3_PREFIX_OPENDOSM", "opendosm/raw")
     s3_prefix_assets_source: str = get_env_str("S3_PREFIX_ASSETS_SOURCE", "assets/source")
     s3_prefix_assets_temp: str = get_env_str("S3_PREFIX_ASSETS_TEMP", "assets/temp")
     builders_batch_size: int = get_env_int("BUILDERS_BATCH_SIZE", 100)
+    polygon_export_batch_size: int = get_env_int("POLYGON_EXPORT_BATCH_SIZE", 100)
+
+    # Constants
+    s3_prefix_sekolah: str = "sekolah/raw"
+    s3_prefix_opendosm: str = "opendosm/raw"
+    s3_prefix_common: str = "common"
+    s3_prefix_polygon: str = "polygon"
     asset_export_batch_size: int = get_env_int("ASSET_EXPORT_BATCH_SIZE", 50)
     asset_export_max_workers: int = get_env_int("ASSET_EXPORT_MAX_WORKERS", 5)
     asset_export_source_bucket: str = get_env_str("ASSET_EXPORT_SOURCE_BUCKET", "")
