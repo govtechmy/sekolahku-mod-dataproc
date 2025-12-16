@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Sequence, Set, Tuple
 import os
@@ -44,21 +43,13 @@ EAST_MALAYSIA_STATES: Set[str] = {
 }
 
 
-@dataclass
-class RegionPolygon:
-    region: str
-    geometry: BaseGeometry
-    centroid: BaseGeometry
-    created_at: datetime
-
-
 def _get_db():
-    
+    """Return a MongoDB database handle using configured DB name."""
+
     client = get_mongo_client()
     if not settings.db_name:
         raise ValueError("DB_NAME environment variable is not set")
     return client[settings.db_name]
-
 
 def _mongo_geojson_to_shape(geojson: Dict[str, Any]) -> BaseGeometry:
     """Convert a GeoJSON geometry dict from MongoDB into a Shapely geometry."""
@@ -70,17 +61,6 @@ def _mongo_geojson_to_shape(geojson: Dict[str, Any]) -> BaseGeometry:
         return shape(geojson)
     except Exception as exc:
         raise ValueError(f"Invalid GeoJSON geometry: {exc}") from exc
-
-def _load_negeri_collection() -> Collection:
-
-    db = _get_db()
-    return db[settings.negeri_polygon_collection]
-
-def _load_malaysia_collection() -> Collection:
-
-    db = _get_db()
-    collection_name = settings.malaysia_polygon_collection
-    return db[collection_name]
 
 def load_negeri_geodataframe(negeri_coll: Collection) -> gpd.GeoDataFrame:
     """Load all NegeriPolygon documents into a GeoDataFrame.
@@ -121,10 +101,10 @@ def dissolve_region(
 
     negeri_set = {n.upper() for n in negeri_names}
 
-    working = negeri_gdf.copy()
-    working["negeri_upper"] = working["negeri"].str.upper()
+    negeri_gdf_copy = negeri_gdf.copy()
+    negeri_gdf_copy["negeri_upper"] = negeri_gdf_copy["negeri"].str.upper()
 
-    region_gdf = working[working["negeri_upper"].isin(negeri_set)]
+    region_gdf = negeri_gdf_copy[negeri_gdf_copy["negeri_upper"].isin(negeri_set)]
     if region_gdf.empty:
         raise RuntimeError(f"No negeri found for region {region_label}")
 
@@ -139,12 +119,37 @@ def dissolve_region(
     return dissolved[["region", "geometry"]]
 
 
-def build_region_polygons(negeri_gdf: gpd.GeoDataFrame) -> Iterable[RegionPolygon]:
-    """Create RegionPolygon objects for West and East Malaysia.
+def _calculate_centroids_from_polygons(regions_gdf: gpd.GeoDataFrame) -> gpd.GeoSeries:
+    """
+    Compute an accurate centroid for a polygon or multipolygon.
+    EPSG:4326 -> EPSG:3857 -> centroid -> EPSG:4326
+
+    Workflow:
+      1. Convert the geometry into a GeoDataFrame (EPSG:4326)
+      2. Reproject to EPSG:3857 (meters) for accurate geometric calculations
+      3. Compute centroid in EPSG:3857
+      4. Reproject centroid back to EPSG:4326 for GeoJSON storage
+
+    Returns:
+        A Shapely Point geometry in EPSG:4326 (lon, lat).
+    """
+
+    # Project to Web Mercator for accurate centroid
+    projected = regions_gdf.to_crs("EPSG:3857")
+    projected_centroids = projected.geometry.centroid
+
+    # Convert back to lat/lon for MongoDB storage
+    centroids = projected_centroids.to_crs("EPSG:4326")
+    return centroids
+
+
+def build_region_polygons(negeri_gdf: gpd.GeoDataFrame) -> Iterable[MalaysiaPolygon]:
+    """Create MalaysiaPolygon models for West and East Malaysia.
 
     1. Dissolve West Malaysia states.
     2. Dissolve East Malaysia states.
     3. Compute centroids.
+    4. Build MalaysiaPolygon models.
     """
 
     west_gdf = dissolve_region(negeri_gdf, negeri_names=WEST_MALAYSIA_STATES, region_label="WEST_MALAYSIA")
@@ -152,43 +157,22 @@ def build_region_polygons(negeri_gdf: gpd.GeoDataFrame) -> Iterable[RegionPolygo
 
     combined = gpd.GeoDataFrame(pd.concat([west_gdf, east_gdf], ignore_index=True), crs=negeri_gdf.crs)
 
-    # Project to Web Mercator for accurate centroid
-    projected = combined.to_crs("EPSG:3857")
-    projected_centroids = projected.geometry.centroid
-
-    # Convert back to lat/lon for MongoDB storage
-    centroids = projected_centroids.to_crs("EPSG:4326")
+    centroids = _calculate_centroids_from_polygons(combined)
 
     now = datetime.now(timezone.utc)
 
     for idx, row in combined.iterrows():
         centroid_geom = centroids.iloc[idx]
-        yield RegionPolygon(
-            region=row["region"],
-            geometry=row["geometry"],
-            centroid=centroid_geom,
-            created_at=now,
-        )
-
-
-def persist_malaysia_polygons(region_polygons: Iterable[RegionPolygon]) -> None:
-    """Insert or update region polygons into MalaysiaPolygon collection."""
-
-    coll = _load_malaysia_collection()
-
-    models: list[MalaysiaPolygon] = []
-    for rp in region_polygons:
-        geom_geojson = mapping(rp.geometry)
-        centroid_geojson = mapping(rp.centroid)
 
         # Boundary polygon as GeoJSONPolygon
+        geom_geojson = mapping(row["geometry"])
         boundary = GeoJSONPolygon(
             type=geom_geojson["type"],
             coordinates=geom_geojson["coordinates"],
         )
 
         # Centroid as structured Centroid with coordinates and GeoJSON location
-        x, y = centroid_geojson["coordinates"]
+        x, y = mapping(centroid_geom)["coordinates"]
         location = GeoJSONPoint(coordinates=(float(x), float(y)))
         centroid = Centroid(
             location=location,
@@ -196,13 +180,20 @@ def persist_malaysia_polygons(region_polygons: Iterable[RegionPolygon]) -> None:
             koordinatYY=float(y),
         )
 
-        model = MalaysiaPolygon(
-            region=rp.region,
+        yield MalaysiaPolygon(
+            region=row["region"],
             geometry=boundary,
             centroid=centroid,
-            createdAt=rp.created_at,
+            createdAt=now,
         )
-        models.append(model)
+
+
+def persist_malaysia_polygons(region_polygons: Iterable[MalaysiaPolygon]) -> None:
+    """Insert or update region polygons into MalaysiaPolygon collection."""
+    db = _get_db()
+    coll: Collection = db[settings.malaysia_polygon_collection]
+
+    models: list[MalaysiaPolygon] = list(region_polygons)
 
     if not models:
         raise ValueError("No region polygons to persist")
@@ -232,8 +223,8 @@ def persist_malaysia_polygons(region_polygons: Iterable[RegionPolygon]) -> None:
 
 def run_malaysia_polygon_pipeline() -> None:
     """End-to-end pipeline entry point."""
-
-    negeri_coll = _load_negeri_collection()
+    db = _get_db()
+    negeri_coll: Collection = db[settings.negeri_polygon_collection]
     negeri_gdf = load_negeri_geodataframe(negeri_coll)
 
     region_polygons = list(build_region_polygons(negeri_gdf))

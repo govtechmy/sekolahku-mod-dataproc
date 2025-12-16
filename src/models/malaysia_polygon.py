@@ -16,17 +16,14 @@ def _utc_now() -> datetime:
 
 
 class GeoJSONPolygon(BaseModel):
-    """Generic GeoJSON Polygon/MultiPolygon representation for region boundary."""
+    """GeoJSON Polygon/MultiPolygon representation for region boundary."""
 
     type: Literal["Polygon", "MultiPolygon"] = Field(..., description="GeoJSON geometry type")
     coordinates: List = Field(..., description="GeoJSON coordinates array")
 
 
 class GeoJSONPoint(BaseModel):
-    """GeoJSON Point representation used for centroid.location.
-
-    Mirrors the style used in EntitiSekolah.InfoLokasi.location.
-    """
+    """GeoJSON Point representation used for centroid.location."""
 
     type: Literal["Point"] = Field("Point", description="GeoJSON geometry type")
     coordinates: Tuple[float, float] = Field(..., description="(longitude, latitude) coordinate pair")
@@ -43,12 +40,8 @@ class Centroid(BaseModel):
 class MalaysiaPolygon(BaseModel):
     """Region-level Malaysia polygon document.
 
-    Represents a dissolved polygon for either West or East Malaysia, with
-    its corresponding centroid for convenience.
+    Represents a dissolved polygon for either West or East Malaysia, with centroid.
     """
-
-    # Collection name is managed at the pipeline/config level; the model keeps
-    # only the document structure.
     collection_name: ClassVar[str] = "MalaysiaPolygon"
 
     region: str = Field(..., description="Region identifier, e.g. WEST_MALAYSIA or EAST_MALAYSIA")
@@ -63,7 +56,6 @@ class MalaysiaPolygon(BaseModel):
 
         document = self.model_dump(exclude_none=True, by_alias=True)
 
-        # Ensure centroid.location.coordinates is stored as a list for MongoDB
         coords = document["centroid"]["location"]["coordinates"]
         if isinstance(coords, tuple):
             document["centroid"]["location"]["coordinates"] = list(coords)
