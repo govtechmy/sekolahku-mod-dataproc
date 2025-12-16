@@ -145,7 +145,7 @@ def load_full_ingestion_endpoint(background_tasks: BackgroundTasks) -> dict[str,
     return {"status": "received"}
 
 
-@app.get("/revalidate-school-entity", tags=["s3-publisher"])
+@app.post("/revalidate-school-entity", tags=["s3-publisher"])
 def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Trigger revalidation of school entities into S3 bucket."""
 
