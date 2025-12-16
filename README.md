@@ -148,11 +148,29 @@ uvicorn src.api:app --reload
   - Returns `{"status": "ok", "database": "<DB_NAME>"}` when database is reachable
   - Returns `503 Service Unavailable` if database is unreachable
 
-- **`POST /trigger-ingestion`** - Manually trigger the full ingestion pipeline
+- **`POST /load-full-ingestion`** - Trigger the full ingestion pipeline on-demand
 
-  - Executes the complete data ingestion process on-demand
-  - Returns detailed metrics and summary of all pipeline stages
+  - Executes the complete data ingestion
   - Independent from the scheduled daily job
+
+  **Usage :**
+
+  ```bash
+  # Trigger ingestion
+  curl -X POST http://localhost:8000/load-full-ingestion
+  ```
+
+  **Monitoring Job Status:**
+
+  Full logs including success/failure status are displayed in the terminal where the uvicorn server is running. After triggering the endpoint, check the server terminal for:
+
+  - `"Received request to trigger full ingestion"` - Job started
+  - `"Manual ingestion job completed successfully"` - Job succeeded
+  - `"MongoDB error while handling ingestion request"` - Job failed (database issue)
+  - `"Unexpected error while handling ingestion request"` - Job failed (other errors)
+
+  Full stack traces and detailed error information are logged for troubleshooting.
+
 
 - **`GET /revalidate-school-entity`** - Trigger revalidation of school entities to S3
 
@@ -177,13 +195,6 @@ The FastAPI service includes **automated daily ingestion** via `fastapi-crons`:
 The cron job produces detailed logs with start/end times, duration, and metrics for each pipeline stage (ingestion, EntitiSekolah, NegeriParlimenKodSekolah, AnalitikSekolah).
 
 **Important**: Failed jobs are logged but do **not** crash the server. The job retries at the next scheduled time.
-
-#### Manual vs Scheduled Ingestion
-
-- **Scheduled**: Automatic at 00:00 daily for regular updates
-- **Manual**: `POST /trigger-ingestion` for on-demand runs, testing, or recovery
-
-Both execute the same pipeline, log comprehensive metrics, and handle errors gracefully.
 
 ## Data Model
 
