@@ -165,7 +165,6 @@ uvicorn src.api:app --reload
   - Copies assets from source bucket to target bucket with structure: `negeri/parliament/sekolah_kod/assets/`
   - Query parameter: `status_filter` (default: "ACTIVE")
   - Generates manifest file listing exported schools and missing assets
-  - See [ASSET_EXPORT_GUIDE.md](ASSET_EXPORT_GUIDE.md) for detailed documentation
 
 ### Scheduled Cron Jobs
 
