@@ -91,6 +91,7 @@ class Settings(BaseSettings):
     negeri_parlimen_kod_sekolah_collection: str = get_env_str("NEGERI_PARLIMEN_KOD_SEKOLAH_COLLECTION", "NegeriParlimenKodSekolah")
     negeri_polygon_collection: str = get_env_str("NEGERI_POLYGON_COLLECTION", "NegeriPolygon")
     parlimen_polygon_collection: str = get_env_str("PARLIMEN_POLYGON_COLLECTION", "ParlimenPolygon")
+    malaysia_polygon_collection: str = get_env_str("MALAYSIA_POLYGON_COLLECTION", "MalaysiaPolygon")
     csv_path: str = get_env_str("CSV_PATH", "data/sekolah.csv")
     gsheet_id: str = get_env_str("GSHEET_ID")
     gsheet_gid: str = get_env_str("GSHEET_GID")
