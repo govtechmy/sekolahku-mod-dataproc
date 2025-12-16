@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Sequence, Set, Tuple
 import os
+import logging
 
 import geopandas as gpd
 import pandas as pd
@@ -16,7 +17,7 @@ from src.core.db import get_mongo_client
 from src.models.malaysia_polygon import Centroid, GeoJSONPoint, GeoJSONPolygon, MalaysiaPolygon
 from src.models.negeriEnum import NegeriEnum
 
-
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 WEST_MALAYSIA_STATES: Set[str] = {
@@ -69,7 +70,6 @@ def _mongo_geojson_to_shape(geojson: Dict[str, Any]) -> BaseGeometry:
         return shape(geojson)
     except Exception as exc:
         raise ValueError(f"Invalid GeoJSON geometry: {exc}") from exc
-
 
 def _load_negeri_collection() -> Collection:
 
@@ -151,8 +151,6 @@ def build_region_polygons(negeri_gdf: gpd.GeoDataFrame) -> Iterable[RegionPolygo
     east_gdf = dissolve_region(negeri_gdf, negeri_names=EAST_MALAYSIA_STATES, region_label="EAST_MALAYSIA")
 
     combined = gpd.GeoDataFrame(pd.concat([west_gdf, east_gdf], ignore_index=True), crs=negeri_gdf.crs)
-
-    # centroids = combined.geometry.centroid
 
     # Project to Web Mercator for accurate centroid
     projected = combined.to_crs("EPSG:3857")
@@ -241,7 +239,10 @@ def run_malaysia_polygon_pipeline() -> None:
     region_polygons = list(build_region_polygons(negeri_gdf))
     persist_malaysia_polygons(region_polygons)
 
-    print(f"Inserted {len(region_polygons)} MalaysiaPolygon documents.")
+    count = len(region_polygons)
+    logger.info(f"Successfully inserted {count} MalaysiaPolygon documents.")
+
+    return count
 
 
 if __name__ == "__main__":
