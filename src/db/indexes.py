@@ -86,6 +86,15 @@ def create_index_parlimen_polygon(db, settings):
     add_index(col, {"centroid.koordinatXX": 1}, name="koordinatXX")
     add_index(col, {"centroid.koordinatYY": 1}, name="koordinatYY")
 
+def create_index_malaysia_polygon(db, settings):
+    col = db[settings.malaysia_polygon_collection]
+
+    add_index(col, {"region": 1}, name="region")
+    add_index(col, {"geometry": "2dsphere"}, name="geometry")
+    add_index(col, {"centroid.location": "2dsphere"}, name="location")
+    add_index(col, {"centroid.koordinatXX": 1}, name="koordinatXX")
+    add_index(col, {"centroid.koordinatYY": 1}, name="koordinatYY")
+
 def main():
     settings = get_settings()
     db = MongoClient(settings.mongo_uri)[settings.db_name]
@@ -95,6 +104,7 @@ def main():
     create_index_entiti_sekolah(db, settings)
     create_index_negeri_polygon(db, settings)
     create_index_parlimen_polygon(db, settings)
+    create_index_malaysia_polygon(db, settings)
 
     logger.info("Indexes added successfully.")
 
