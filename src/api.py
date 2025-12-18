@@ -13,6 +13,7 @@ from src.main import run_ingest
 from src.config.settings import get_settings
 from src.service.entiti_revalidate import revalidate_school_entity
 from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
+from src.service.polygons import scrape_opendosm_negeri, scrape_opendosm_parlimen
 from src.service.exporters.export_polygons import export_all_polygons
 from src.service.builders.build_snap_routes import generate_and_upload_snap_routes
 from src.service.builders.build_school_list import generate_and_upload_school_list
@@ -78,7 +79,6 @@ def _run_revalidate_school_entity_job(settings: Any) -> None:
         summary.get("bucket"),
         summary.get("processed"),
     )
-
 
 def _run_ingestion_job() -> None:
     """Execute ingestion pipeline and log outcome."""
@@ -155,6 +155,29 @@ def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict
     background_tasks.add_task(_run_revalidate_school_entity_job, settings)
 
     return {"status": "received"}
+
+
+@app.post("/scrape-opendosm-polygons", tags=["ingestion"])
+def scrape_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
+    """Scrape OpenDOSM polygon data (Negeri and Parlimen) from source URLs and upload to S3.
+    """
+    
+    def scrape_polygons_job():
+        try:
+            scrape_opendosm_negeri.main()
+            logger.info("Negeri scraping completed successfully")
+        except Exception as e:
+            logger.exception("Error occurred while scraping Negeri data: %s", e)
+        
+        try:
+            scrape_opendosm_parlimen.main()
+            logger.info("Parlimen scraping completed successfully")
+        except Exception as e:
+            logger.exception("Error occurred while scraping Parlimen data: %s", e)
+
+    background_tasks.add_task(scrape_polygons_job)
+
+    return {"status": "received request to scrape OpenDOSM Negeri & Parlimen data"}
 
 
 @app.post("/load-negeri-parlimen-polygons", tags=["ingestion"])
