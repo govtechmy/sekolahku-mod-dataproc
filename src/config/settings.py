@@ -107,6 +107,8 @@ class Settings(BaseSettings):
     entiti_revalidate_temp_prefix: str = get_env_str("ENTITI_REVALIDATE_TEMP_PREFIX", "temp")
     builders_batch_size: int = get_env_int("BUILDERS_BATCH_SIZE", 100)
     polygon_export_batch_size: int = get_env_int("POLYGON_EXPORT_BATCH_SIZE", 100)
+    asset_export_batch_size: int = get_env_int("ASSET_EXPORT_BATCH_SIZE", 100)
+    asset_export_max_workers: int = get_env_int("ASSET_EXPORT_MAX_WORKERS", 10)
 
     # Constants
     s3_prefix_sekolah: str = "sekolah/raw"
@@ -115,8 +117,6 @@ class Settings(BaseSettings):
     s3_prefix_polygon: str = "polygon"
     s3_prefix_assets_source: str = "assets/source"
     s3_prefix_assets_temp: str = "assets/temp"
-    asset_export_batch_size: int = get_env_int("ASSET_EXPORT_BATCH_SIZE", 50)
-    asset_export_max_workers: int = get_env_int("ASSET_EXPORT_MAX_WORKERS", 5)
 
 
 def get_settings() -> Settings:

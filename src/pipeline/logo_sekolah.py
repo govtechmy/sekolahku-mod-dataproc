@@ -14,7 +14,7 @@ from src.models.logo_sekolah import LogoSekolah
 
 logger = logging.getLogger(__name__)
 
-CSV_PATH = Path("/Users/asyiq/Documents/github/sekolahku-mod-dataproc/data/tbi_institusi_induk.csv")
+CSV_PATH = Path("/Users/mydigital/Documents/Github/sekolahku-mod-dataproc/data/tbi_institusi_induk.csv")
 
 csv.field_size_limit(sys.maxsize)
 
