@@ -14,7 +14,7 @@ from shapely.geometry.base import BaseGeometry
 from src.config.settings import get_settings
 from src.core.db import get_mongo_client
 from src.models.malaysia_polygon import Centroid, GeoJSONPoint, GeoJSONPolygon, MalaysiaPolygon
-from src.models.negeriEnum import NegeriEnum
+from src.models.negeri_enum import NegeriEnum
 
 logger = logging.getLogger(__name__)
 settings = get_settings()

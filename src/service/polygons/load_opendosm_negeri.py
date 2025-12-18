@@ -7,8 +7,8 @@ from shapely.geometry import shape, mapping, Point
 from shapely.validation import make_valid, explain_validity
 
 from src.core import s3 as s3_core
-from src.models.negeriEnum import NegeriEnum
-from src.models.negeriPolygon import NegeriPolygon, NegeriPolygonCentroid
+from src.models.negeri_enum import NegeriEnum
+from src.models.negeri_polygon import NegeriPolygon, NegeriPolygonCentroid
 from src.config.settings import get_settings
 
 # --------------------------
