@@ -12,7 +12,7 @@ from src.pipeline import (
 )
 from src.service.polygons.load_opendosm_negeri import main as load_negeri_polygons
 from src.service.polygons.load_opendosm_parlimen import main as load_parlimen_polygons
-from src.service.assets import export_sekolah_assets
+from src.service.assets import process_csv_assets
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +28,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--analitik", action="store_true", help="Compute Analitik aggregation after ingestion")
     parser.add_argument("--negeri-parlimen-kod-sekolah", action="store_true", help="Populate NegeriParlimenKodSekolah collection from Sekolah and exit")
     parser.add_argument("--load-polygons", action="store_true", help="Load OpenDOSM polygon data from S3 into MongoDB and exit")
-    parser.add_argument("--export-assets", action="store_true", help="Export school assets (logo, hero, gallery) to public S3 bucket and exit")
-    parser.add_argument("--asset-status-filter", default="ACTIVE", help="Filter schools by status when exporting assets (default: ACTIVE)")
+    parser.add_argument("--process-csv-assets", help="Process assets from CSV file (s3://bucket/key or local path) and upload to S3")
     return parser.parse_args()
 
 
@@ -88,10 +87,9 @@ def main() -> None:
     logging.basicConfig(level=getattr(logging, args.log_level.upper(), logging.INFO))
     settings = configure_settings(args)
 
-    if getattr(args, "export_assets", False):
-        status_filter = getattr(args, "asset_status_filter", "ACTIVE")
-        summary = export_sekolah_assets(settings, status_filter)
-        logger.info("Asset export summary: %s", summary)
+    if args.process_csv_assets:
+        summary = process_csv_assets(settings, args.process_csv_assets)
+        logger.info("CSV asset processing summary: %s", summary)
         return
 
     if getattr(args, "load_polygons", False):

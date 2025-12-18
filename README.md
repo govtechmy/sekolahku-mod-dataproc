@@ -18,10 +18,6 @@ python -m src.service.polygons.scrape_opendosm_parlimen
 # Load extracted polygons from S3 into MongoDB
 python -m src.main --load-polygons
 
-# Export school assets to public S3 bucket
-python -m src.main --export-assets
-python -m src.main --export-assets --asset-status-filter "ACTIVE"
-
 # Show verbosity for a single run
 python -m src.main --log-level DEBUG
 ```
@@ -33,6 +29,7 @@ Configuration (source, paths, Mongo connection, etc.) is controlled entirely thr
 - `--entiti` triggers the EntitiSekolah aggregation pipeline.
 - `--analitik` triggers the AnalitikSekolah aggregation pipeline.
 - `--load-polygons` loads OpenDOSM polygon seed data from S3 into `NegeriPolygon` and `ParlimenPolygon` collections
+- `--process-csv-assets <path>` processes CSV with base64-encoded images, validates, decodes, and uploads to S3
 - `--log-level <LEVEL>` adjusts logging verbosity for the current process (choose from `DEBUG`, `INFO`, `WARNING`, `ERROR`).
 
 The `--entiti` flag writes to the `EntitiSekolah` collection. The `--analitik` flag writes to the `AnalitikSekolah` collection. The `--load-polygons` flag reads from S3 and writes to the `NegeriPolygon` and `ParlimenPolygon` collections.
@@ -178,11 +175,69 @@ uvicorn src.api:app --reload
 
 - **`GET /revalidate-school-entity`** - Trigger revalidation of school entities to S3
 
-- **`POST /export-school-assets`** - Export school assets (logo, hero, gallery) to public S3 bucket
+- **`POST /process-csv-assets`** - Process base64-encoded images from CSV and upload to S3
+
+  - Reads CSV file with base64-encoded logo images (S3 path or local)
+  - Parses `data:image/<type>;base64,<encoded>` format
+  - Matches schools in MongoDB `Sekolah` collection (only ACTIVE schools)
+  - Uploads decoded images to S3 public bucket at path: `{negeri}/{parlimen}/{kodSekolah}/assets/logo.{ext}`
+  - Stores S3 URLs in MongoDB `SekolahAssets` collection
+
+  **CSV Format Requirements:**
+  - `KOD_INSTITUSI` - KodSekolah (must exist in Sekolah collection with status "ACTIVE")
+  - `LOGO` - Base64-encoded logo image with data URL format: `data:image/png;base64,<encoded_data>`
+
+  **Usage:**
+
+  ```bash
+  # API endpoint 
+  curl -X POST \
+    'http://127.0.0.1:8000/process-csv-assets?csv_path=s3://my.gov.digital.sekolahku-dataproc-bucket-dev/assets/raw/tbi_institusi_induk.csv' \
+    -H 'accept: application/json' \
+    -d ''
+
+
+  # CLI command (logs appear in current terminal)
+  python -m src.main --process-csv-assets s3://my.gov.digital.sekolahku-dataproc-bucket-dev/assets/raw/tbi_institusi_induk.csv
+  ```
+
+  **Response:**
   
-  - Copies assets from source bucket to target bucket with structure: `negeri/parliament/sekolah_kod/assets/`
-  - Query parameter: `status_filter` (default: "ACTIVE")
-  - Generates manifest file listing exported schools and missing assets
+  The API endpoint returns immediately and processes in the background:
+  
+  ```json
+  {
+    "status": "received",
+    "csv_path": "s3://my.gov.digital.sekolahku-dataproc-bucket-dev/assets/raw/tbi_institusi_induk.csv"
+  }
+  ```
+  
+  **Monitoring:**
+  
+  - **API endpoint**: Check the **Python terminal** where uvicorn is running for logs
+  - **CLI command**: Logs appear in your current terminal
+  
+  You'll see output like:
+  ```
+  CSV asset processing completed: uploaded=9253 skipped=70 failed=0
+  ```
+
+  **Output Structure in MongoDB SekolahAssets Collection:**
+  ```json
+  {
+    "_id": "WBA0031",
+    "logo": "https://my.gov.digital.sekolahku-public-dev.s3.ap-southeast-1.amazonaws.com/WILAYAH-PERSEKUTUAN-KUALA-LUMPUR/BANDAR-TUN-RAZAK/WBA0031/assets/logo.png",
+    "gallery": [],
+    "hero": null,
+    "status": "ACTIVE",
+    "updatedAt": "2025-12-18T10:30:00.000Z"
+  }
+  ```
+  
+  **Return Values:**
+  - `uploaded` - Number of logos successfully uploaded to S3
+  - `skipped` - Number of schools skipped (no logo data, not found, or not ACTIVE)
+  - `failed` - Number of processing failures (invalid base64, S3 errors, etc.)
 
 ### Scheduled Cron Jobs
 
@@ -330,6 +385,48 @@ Array of assistance/funding type statistics, each containing:
 | `jenis`   | str   | `Bantuan` type (e.g., "SK", "SBK")                    |
 | `peratus` | float | Percentage of total `sekolah`                         |
 | `total`   | int   | Absolute count of `sekolah` with this assistance type |
+
+---
+
+## SekolahAssets Collection
+
+The `SekolahAssets` collection stores S3 URLs for school logo images that have been processed from CSV files containing base64-encoded images.
+
+### SekolahAssets Document Structure
+
+| Field       | Type              | Notes                                                          |
+| ----------- | ----------------- | -------------------------------------------------------------- |
+| `_id`       | str               | Document ID, set to `kodSekolah` (ensures uniqueness)          |
+| `logo`      | Optional[str]     | S3 URL for logo image, or `null` if decode failed/not present |
+| `gallery`   | list[str]         | Empty array (reserved for future use)                          |
+| `hero`      | Optional[str]     | `null` (reserved for future use)                               |
+| `status`    | str               | Always "ACTIVE" (only ACTIVE schools are processed)            |
+| `updatedAt` | datetime (string) | ISO 8601 timestamp when the record was last updated            |
+
+### Key Features
+
+- **Authoritative Source**: `kodSekolah`, `status`, `negeri`, and `parlimen` are fetched from the `Sekolah` collection, ensuring data consistency
+- **CSV Matching**: Uses `KOD_INSTITUSI` from CSV to match against `_id` in Sekolah collection
+- **Status Filtering**: Only processes schools with `status = "ACTIVE"`
+- **Simple Processing**: Sequential row-by-row processing with exception handling
+- **Data URL Format**: Parses `data:image/<type>;base64,<encoded>` format from CSV
+- **S3 Structure**: Assets stored at `s3://{bucket}/{negeri}/{parlimen}/{kodSekolah}/assets/logo.{ext}`
+- **Path Normalization**: Negeri and Parlimen names converted to uppercase with spaces replaced by hyphens
+
+### Example Document
+
+```json
+{
+  "_id": "WBA0031",
+  "logo": "https://my.gov.digital.sekolahku-public-dev.s3.ap-southeast-1.amazonaws.com/WILAYAH-PERSEKUTUAN-KUALA-LUMPUR/BANDAR-TUN-RAZAK/WBA0031/assets/logo.png",
+  "gallery": [],
+  "hero": null,
+  "status": "ACTIVE",
+  "updatedAt": "2025-12-18T10:30:00.000Z"
+}
+```
+
+**Note:** The path format uses hyphens instead of underscores (e.g., `WILAYAH-PERSEKUTUAN-KUALA-LUMPUR` instead of `WILAYAH_PERSEKUTUAN_KUALA_LUMPUR`)
 
 ---
 

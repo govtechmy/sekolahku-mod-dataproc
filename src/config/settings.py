@@ -88,6 +88,7 @@ class Settings(BaseSettings):
     sekolah_collection: str = get_env_str("SEKOLAH_COLLECTION", "Sekolah")
     entiti_sekolah_collection: str = get_env_str("ENTITI_SEKOLAH_COLLECTION", "EntitiSekolah")
     analitik_sekolah_collection: str = get_env_str("ANALITIK_SEKOLAH_COLLECTION", "AnalitikSekolah")
+    asset_sekolah_collection: str = get_env_str("ASSET_SEKOLAH_COLLECTION", "AssetSekolah")
     negeri_parlimen_kod_sekolah_collection: str = get_env_str("NEGERI_PARLIMEN_KOD_SEKOLAH_COLLECTION", "NegeriParlimenKodSekolah")
     negeri_polygon_collection: str = get_env_str("NEGERI_POLYGON_COLLECTION", "NegeriPolygon")
     parlimen_polygon_collection: str = get_env_str("PARLIMEN_POLYGON_COLLECTION", "ParlimenPolygon")
@@ -103,8 +104,6 @@ class Settings(BaseSettings):
     entiti_revalidate_batch_size: int = get_env_int("ENTITI_REVALIDATE_BATCH_SIZE", 100)
     entiti_revalidate_max_workers: int = get_env_int("ENTITI_REVALIDATE_MAX_WORKERS", 10)
     entiti_revalidate_temp_prefix: str = get_env_str("ENTITI_REVALIDATE_TEMP_PREFIX", "temp")
-    s3_prefix_assets_source: str = get_env_str("S3_PREFIX_ASSETS_SOURCE", "assets/source")
-    s3_prefix_assets_temp: str = get_env_str("S3_PREFIX_ASSETS_TEMP", "assets/temp")
     builders_batch_size: int = get_env_int("BUILDERS_BATCH_SIZE", 100)
     polygon_export_batch_size: int = get_env_int("POLYGON_EXPORT_BATCH_SIZE", 100)
 
@@ -113,9 +112,10 @@ class Settings(BaseSettings):
     s3_prefix_opendosm: str = "opendosm/raw"
     s3_prefix_common: str = "common"
     s3_prefix_polygon: str = "polygon"
+    s3_prefix_assets_source: str = "assets/source"
+    s3_prefix_assets_temp: str = "assets/temp"
     asset_export_batch_size: int = get_env_int("ASSET_EXPORT_BATCH_SIZE", 50)
     asset_export_max_workers: int = get_env_int("ASSET_EXPORT_MAX_WORKERS", 5)
-    asset_export_source_bucket: str = get_env_str("ASSET_EXPORT_SOURCE_BUCKET", "")
 
 
 def get_settings() -> Settings:

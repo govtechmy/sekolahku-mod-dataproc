@@ -1,5 +1,5 @@
-"""Asset export service for copying sekolah assets to public S3 bucket."""
+"""Asset processing service for handling sekolah assets."""
 
-from .assets_export import export_sekolah_assets
+from .assets_process import process_csv_assets
 
-__all__ = ["export_sekolah_assets"]
+__all__ = ["process_csv_assets"]

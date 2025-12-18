@@ -6,6 +6,7 @@ from typing import Any
 from botocore.exceptions import ClientError
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi_crons import Crons
+from pydantic import BaseModel
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
@@ -17,13 +18,21 @@ from src.service.exporters.export_polygons import export_all_polygons
 from src.service.builders.build_snap_routes import generate_and_upload_snap_routes
 from src.service.builders.build_school_list import generate_and_upload_school_list
 from src.pipeline.malaysia_polygon import run_malaysia_polygon_pipeline
-from src.service.assets import export_sekolah_assets
+from src.service.assets import process_csv_assets
 
 logger = logging.getLogger(__name__)
 app = FastAPI()
 crons = Crons()
 
 settings = get_settings()
+
+
+# -----------------------------------------------------------------------------
+# Request Models
+# -----------------------------------------------------------------------------
+
+class ProcessCsvAssetsRequest(BaseModel):
+    csv_path: str
 
 if not logging.getLogger().handlers:
     logging.basicConfig(
@@ -158,46 +167,44 @@ def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict
     return {"status": "received"}
 
 
-@app.post("/export-school-assets", tags=["publisher"])
-def export_school_assets_endpoint(
+@app.post("/process-csv-assets", tags=["s3-publisher"])
+def process_csv_assets_endpoint(
+    payload: ProcessCsvAssetsRequest,
     background_tasks: BackgroundTasks,
-    status_filter: str = "ACTIVE"
 ) -> dict[str, str]:
     """
-    Export school assets (logo, hero, gallery) to public S3 bucket.
+    Process sekolah assets from CSV file and upload to S3.
     
-    This endpoint copies assets from the source bucket to the target bucket
-    following the structure: negeri/parliament/sekolah_kod/assets/
+    Reads a CSV file containing base64-encoded images, validates and decodes them,
+    uploads to S3 public bucket, and stores metadata in MongoDB Assets collection.
     
-    Args:
-        status_filter: Filter schools by status (default: ACTIVE)
+    Request Body:
+        {
+            "csv_path": "s3://bucket/key or local path"
+        }
     
     Returns:
-        Dictionary confirming that the export job has been queued.
+        Dictionary confirming that the processing job has been queued.
     """
-    logger.info(f"Received request to export school assets (status={status_filter})")
+    csv_path = payload.csv_path
     
-    def _run_asset_export_job():
+    logger.info("Received request to process CSV assets from: %s", csv_path)
+    
+    def _run_csv_asset_processing_job():
         try:
-            summary = export_sekolah_assets(settings, status_filter)
+            summary = process_csv_assets(settings, csv_path)
             logger.info(
-                "Asset export completed: bucket=%s processed=%s logos=%s heroes=%s gallery=%s",
-                summary.get("bucket"),
-                summary.get("sekolahProcessed"),
-                summary.get("logosCopied"),
-                summary.get("heroesCopied"),
-                summary.get("galleryImagesCopied"),
+                "CSV asset processing completed: uploaded=%s skipped=%s failed=%s",
+                summary.get("uploaded"),
+                summary.get("skipped"),
+                summary.get("failed"),
             )
-        except PyMongoError:
-            logger.exception("MongoDB error while exporting assets")
-        except ClientError:
-            logger.exception("S3 error while exporting assets")
         except Exception:
-            logger.exception("Unexpected error while exporting assets")
+            logger.exception("CSV asset processing failed")
     
-    background_tasks.add_task(_run_asset_export_job)
+    background_tasks.add_task(_run_csv_asset_processing_job)
     
-    return {"status": "received"}
+    return {"status": "received", "csv_path": csv_path}
 
 
 @app.post("/load-negeri-parlimen-polygons", tags=["ingestion"])
