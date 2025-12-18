@@ -95,6 +95,11 @@ def create_index_malaysia_polygon(db, settings):
     add_index(col, {"centroid.koordinatXX": 1}, name="koordinatXX")
     add_index(col, {"centroid.koordinatYY": 1}, name="koordinatYY")
 
+def create_index_logo_sekolah(db, settings):
+    col = db[settings.logo_sekolah_collection]
+
+    add_index(col, {"KOD_INSTITUSI": 1}, unique=True, name="KOD_INSTITUSI_unique")
+
 def main():
     settings = get_settings()
     db = MongoClient(settings.mongo_uri)[settings.db_name]

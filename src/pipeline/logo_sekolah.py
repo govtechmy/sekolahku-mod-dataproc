@@ -94,6 +94,12 @@ def upsert_logo_sekolah_from_csv(
 	if not csv_path.exists():
 		raise FileNotFoundError(f"CSV not found: {csv_path}")
 
+	# First, count total rows in the CSV for visibility
+	with csv_path.open("r", newline="", encoding="utf-8-sig") as f:
+		reader = csv.DictReader(f)
+		total_rows = sum(1 for _ in reader)
+
+	print(f"Total rows in source CSV: {total_rows}")
 	print(f"Starting upsert from data: {csv_path}")
 
 	coll = _get_mongo_collection()
@@ -123,12 +129,13 @@ def upsert_logo_sekolah_from_csv(
 	if ops:
 		coll.bulk_write(ops, ordered=False)
 
+	print(f"Finished upsert. Total documents processed from CSV: {total}")
 	return total
 
 
 def run() -> None:
 	"""Entry point to run the logo sekolah pipeline from CLI or orchestrator."""
-
+	print("Starting to logo sekolah pipeline...")
 	total = upsert_logo_sekolah_from_csv()
 	print(f"Upserted {total} records into 'LogoSekolah' collection from tbi_institusi_induk.csv")
 
