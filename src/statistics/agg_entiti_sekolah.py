@@ -7,7 +7,7 @@ from pydantic import ValidationError
 from pymongo.collection import Collection
 
 from src.models import Sekolah
-from src.models.entitiSekolah import EntitiSekolah
+from src.models.entiti_sekolah import EntitiSekolah
 
 logger = logging.getLogger(__name__)
 

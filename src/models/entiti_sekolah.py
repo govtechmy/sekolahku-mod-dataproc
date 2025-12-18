@@ -9,7 +9,7 @@ from pydantic import ConfigDict
 from typing_extensions import Literal
 from src.config.settings import get_settings
 from src.models.sekolah import SekolahStatus
-from src.models.negeriEnum import NegeriEnum
+from src.models.negeri_enum import NegeriEnum
 
 
 if TYPE_CHECKING:  # pragma: no cover - imported for type checking only

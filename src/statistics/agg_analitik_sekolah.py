@@ -7,7 +7,7 @@ from typing import Any, Dict, List
 from pydantic import ValidationError
 from pymongo.collection import Collection
 
-from src.models.analitikSekolah import AnalitikSekolah, AnalitikSekolahData
+from src.models.analitik_sekolah import AnalitikSekolah, AnalitikSekolahData
 
 logger = logging.getLogger(__name__)
 
@@ -148,7 +148,7 @@ def compute_analitik_sekolah(collection: Collection) -> List[Dict[str, Any]]:
     )
 
     try:
-        analitik = AnalitikSekolah(
+        analitik_sekolah = AnalitikSekolah(
             id="1",
             jumlahSekolah=jumlah_sekolah,
             jumlahGuru=jumlah_guru,
@@ -159,7 +159,7 @@ def compute_analitik_sekolah(collection: Collection) -> List[Dict[str, Any]]:
         logger.error("Failed to validate analytics document: %s", exc)
         return []
 
-    document = analitik.to_document()
+    document = analitik_sekolah.to_document()
     document["_id"] = "1"
     return [document]
 

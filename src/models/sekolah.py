@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from src.config.settings import get_settings
-from src.models.negeriEnum import NegeriEnum
+from src.models.negeri_enum import NegeriEnum
 
 
 MISSING_VALUES = {"TIADA", "", "NONE", "-", "--", "BELUM ADA"}

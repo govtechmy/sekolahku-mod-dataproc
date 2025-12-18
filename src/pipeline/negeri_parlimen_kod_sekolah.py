@@ -8,7 +8,7 @@ from pymongo import MongoClient, UpdateOne
 from pymongo.collection import Collection
 
 from src.config.settings import Settings, get_settings
-from src.models.negeriParlimenKodSekolah import NegeriParlimenKodSekolah
+from src.models.negeri_parlimen_kod_sekolah import NegeriParlimenKodSekolah
 from src.models.sekolah import Sekolah
 from src.pipeline.ingestion import _chunked
 

@@ -6,8 +6,8 @@ from shapely.geometry import shape, mapping, Point
 from shapely.validation import make_valid
 
 from src.core import s3 as s3_core
-from src.models.negeriEnum import NegeriEnum
-from src.models.parlimenPolygon import ParlimenPolygon, ParlimenPolygonCentroid
+from src.models.negeri_enum import NegeriEnum
+from src.models.parlimen_polygon import ParlimenPolygon, ParlimenPolygonCentroid
 from src.config.settings import get_settings
 
 # --------------------------

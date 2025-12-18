@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from pydantic import BaseModel, Field
 from src.config.settings import get_settings
-from src.models.negeriEnum import NegeriEnum
+from src.models.negeri_enum import NegeriEnum
 
 _settings = get_settings()
 
