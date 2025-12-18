@@ -171,7 +171,7 @@ uvicorn src.api:app --reload
 
   Full stack traces and detailed error information are logged for troubleshooting.
 
-- **`POST /scrape-opendosm-polygons`** - Scrape OpenDOSM polygon data and upload to S3
+- **`POST /scrape-opendosm-negeri-parlimen-polygons`** - Scrape OpenDOSM polygon data (Negeri and Parlimen) and upload to S3.
 
   - Downloads GeoJSON files from OpenDOSM for all Negeri (states) and Parlimen (parliamentary constituencies)
   - Uploads raw polygon data to S3 bucket for later processing

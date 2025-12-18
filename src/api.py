@@ -157,7 +157,7 @@ def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict
     return {"status": "received"}
 
 
-@app.post("/scrape-opendosm-polygons", tags=["ingestion"])
+@app.post("/scrape-opendosm-negeri-parlimen-polygons", tags=["scraping"])
 def scrape_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
     """Scrape OpenDOSM polygon data (Negeri and Parlimen) from source URLs and upload to S3.
     """
