@@ -13,7 +13,7 @@ import json
 import logging
 import pandas as pd
 from collections import defaultdict
-from typing import Dict, Optional
+from typing import Dict, Optional, Set
 
 from pymongo import MongoClient
 
@@ -39,11 +39,14 @@ def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[
     """
     Load CSV from S3 and return mapping:
     { kodSekolah -> base64 logo data or None }
-
     Only schools that exist in Sekolah collection are included.
     """
+
+    # Preload all existing sekolah IDs once to avoid per-row DB lookups.
+    existing_sekolah_ids: Set[str] = set(sekolah_col.distinct("_id"))
+
     s3_key = f"{settings.s3_prefix_assets}/{settings.asset_logo_csv_filename}"
-    logger.info("Loading asset logo CSV from S3 in chunks: bucket=%s key=%s", settings.s3_bucket_dataproc,s3_key,)
+    logger.info("Loading asset logo CSV from S3 in chunks: bucket=%s key=%s", settings.s3_bucket_dataproc, s3_key)
 
     s3_client = get_s3_client()
     response = s3_client.get_object(Bucket=settings.s3_bucket_dataproc, Key=s3_key)
@@ -79,7 +82,7 @@ def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[
             kod_institusi = kod_institusi.strip()
 
             # Only consider schools that exist in DB. The CSV may contain upcoming schools not yet in DB and should be skipped. Business logic.
-            if not sekolah_col.find_one({"_id": kod_institusi}, {"_id": 1}):
+            if kod_institusi not in existing_sekolah_ids:
                 csv_upcoming_schools_not_in_db += 1
                 continue
 
@@ -90,7 +93,6 @@ def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[
         logger.debug("CSV logo map progress: %d rows scanned, %d matched to sekolah, current map size=%d", total_rows, matched_rows, len(logo_map))
 
     logger.info("Finished building logo map: %d sekolah entries | rows scanned=%d | matched=%d | csv_upcoming_schools_not_in_db=%d", len(logo_map), total_rows, matched_rows, csv_upcoming_schools_not_in_db)
-
 
     return logo_map
 
