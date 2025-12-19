@@ -54,6 +54,7 @@ def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[
     logo_map: Dict[str, Optional[str]] = {}
     total_rows = 0
     matched_rows = 0
+    csv_upcoming_schools_not_in_db = 0
 
     for df_chunk in pd.read_csv(
         body,
@@ -77,8 +78,9 @@ def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[
 
             kod_institusi = kod_institusi.strip()
 
-            # Only consider schools that exist in DB
+            # Only consider schools that exist in DB. The CSV may contain upcoming schools not yet in DB and should be skipped. Business logic.
             if not sekolah_col.find_one({"_id": kod_institusi}, {"_id": 1}):
+                csv_upcoming_schools_not_in_db += 1
                 continue
 
             matched_rows += 1
@@ -87,7 +89,8 @@ def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[
 
         logger.debug("CSV logo map progress: %d rows scanned, %d matched to sekolah, current map size=%d", total_rows, matched_rows, len(logo_map))
 
-    logger.info("Finished building logo map: %d sekolah entries (rows scanned=%d, matched=%d)", len(logo_map), total_rows, matched_rows)
+    logger.info("Finished building logo map: %d sekolah entries | rows scanned=%d | matched=%d | csv_upcoming_schools_not_in_db=%d", len(logo_map), total_rows, matched_rows, csv_upcoming_schools_not_in_db)
+
 
     return logo_map
 
