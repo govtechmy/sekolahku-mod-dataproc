@@ -179,13 +179,11 @@ uvicorn src.api:app --reload
 
   - Reads CSV file with base64-encoded logo images (S3 path or local)
   - Parses `data:image/<type>;base64,<encoded>` format
-  - Matches schools in MongoDB `Sekolah` collection (only ACTIVE schools)
+  - Processes **ALL schools in MongoDB `Sekolah` collection** (regardless of CSV presence)
+  - Schools in CSV: Logo uploaded if base64 data exists
+  - Schools NOT in CSV: Asset record created with `logo: null`
   - Uploads decoded images to S3 public bucket at path: `{negeri}/{parlimen}/{kodSekolah}/assets/logo.{ext}`
-  - Stores S3 URLs in MongoDB `SekolahAssets` collection
-
-  **CSV Format Requirements:**
-  - `KOD_INSTITUSI` - KodSekolah (must exist in Sekolah collection with status "ACTIVE")
-  - `LOGO` - Base64-encoded logo image with data URL format: `data:image/png;base64,<encoded_data>`
+  - Stores S3 URLs in MongoDB `AssetSekolah` collection
 
   **Usage:**
 
@@ -222,22 +220,27 @@ uvicorn src.api:app --reload
   CSV asset processing completed: uploaded=9253 skipped=70 failed=0
   ```
 
-  **Output Structure in MongoDB SekolahAssets Collection:**
+  **Output Structure in MongoDB AssetSekolah Collection:**
   ```json
   {
     "_id": "WBA0031",
-    "logo": "https://my.gov.digital.sekolahku-public-dev.s3.ap-southeast-1.amazonaws.com/WILAYAH-PERSEKUTUAN-KUALA-LUMPUR/BANDAR-TUN-RAZAK/WBA0031/assets/logo.png",
-    "gallery": [],
-    "hero": null,
     "status": "ACTIVE",
+    "s3_urls": {
+      "json": null,
+      "logo": "https://my.gov.digital.sekolahku-public-dev.s3.ap-southeast-1.amazonaws.com/WILAYAH-PERSEKUTUAN-KUALA-LUMPUR/BANDAR-TUN-RAZAK/WBA0031/assets/logo.png",
+      "gallery": null,
+      "hero": null
+    },
     "updatedAt": "2025-12-18T10:30:00.000Z"
   }
   ```
   
   **Return Values:**
   - `uploaded` - Number of logos successfully uploaded to S3
-  - `skipped` - Number of schools skipped (no logo data, not found, or not ACTIVE)
-  - `failed` - Number of processing failures (invalid base64, S3 errors, etc.)
+  - `skipped` - Number of schools in CSV but not in MongoDB (ignored)
+  - `failed` - Number of processing failures (missing negeri/parlimen, invalid base64, S3 errors, etc.)
+  - `total_schools_in_db` - Total schools processed from MongoDB
+  - `total_schools_in_csv` - Total schools found in CSV
 
 ### Scheduled Cron Jobs
 
@@ -388,40 +391,52 @@ Array of assistance/funding type statistics, each containing:
 
 ---
 
-## SekolahAssets Collection
+## AssetSekolah Collection
 
-The `SekolahAssets` collection stores S3 URLs for school logo images that have been processed from CSV files containing base64-encoded images.
+The `AssetSekolah` collection stores S3 URLs for school assets (logos, images, JSON files). **Every school in the `Sekolah` collection gets an entry**, regardless of whether they have assets in the CSV.
 
-### SekolahAssets Document Structure
+### AssetSekolah Document Structure
 
-| Field       | Type              | Notes                                                          |
-| ----------- | ----------------- | -------------------------------------------------------------- |
-| `_id`       | str               | Document ID, set to `kodSekolah` (ensures uniqueness)          |
-| `logo`      | Optional[str]     | S3 URL for logo image, or `null` if decode failed/not present |
-| `gallery`   | list[str]         | Empty array (reserved for future use)                          |
-| `hero`      | Optional[str]     | `null` (reserved for future use)                               |
-| `status`    | str               | Always "ACTIVE" (only ACTIVE schools are processed)            |
-| `updatedAt` | datetime (string) | ISO 8601 timestamp when the record was last updated            |
+| Field       | Type              | Notes                                                                    |
+| ----------- | ----------------- | ------------------------------------------------------------------------ |
+| `_id`       | str               | Document ID, set to `kodSekolah` (matches `Sekolah._id`)                |
+| `status`    | Optional[str]     | School status from `Sekolah` collection (e.g., "ACTIVE", "INACTIVE", null) |
+| `s3_urls`   | object            | Contains S3 URLs for all asset types                                     |
+| `s3_urls.json`    | Optional[str] | S3 URL for JSON data (reserved for future use)                          |
+| `s3_urls.logo`    | Optional[str] | S3 URL for logo image, or `null` if not available                       |
+| `s3_urls.gallery` | Optional[str] | S3 URL for gallery images (reserved for future use)                     |
+| `s3_urls.hero`    | Optional[str] | S3 URL for hero image (reserved for future use)                         |
+| `updatedAt` | datetime (string) | ISO 8601 timestamp when the record was last updated                      |
 
-### Key Features
 
-- **Authoritative Source**: `kodSekolah`, `status`, `negeri`, and `parlimen` are fetched from the `Sekolah` collection, ensuring data consistency
-- **CSV Matching**: Uses `KOD_INSTITUSI` from CSV to match against `_id` in Sekolah collection
-- **Status Filtering**: Only processes schools with `status = "ACTIVE"`
-- **Simple Processing**: Sequential row-by-row processing with exception handling
-- **Data URL Format**: Parses `data:image/<type>;base64,<encoded>` format from CSV
-- **S3 Structure**: Assets stored at `s3://{bucket}/{negeri}/{parlimen}/{kodSekolah}/assets/logo.{ext}`
-- **Path Normalization**: Negeri and Parlimen names converted to uppercase with spaces replaced by hyphens
+### Example Documents
 
-### Example Document
-
+**School with logo:**
 ```json
 {
   "_id": "WBA0031",
-  "logo": "https://my.gov.digital.sekolahku-public-dev.s3.ap-southeast-1.amazonaws.com/WILAYAH-PERSEKUTUAN-KUALA-LUMPUR/BANDAR-TUN-RAZAK/WBA0031/assets/logo.png",
-  "gallery": [],
-  "hero": null,
   "status": "ACTIVE",
+  "s3_urls": {
+    "json": null,
+    "logo": "https://my.gov.digital.sekolahku-public-dev.s3.ap-southeast-1.amazonaws.com/WILAYAH-PERSEKUTUAN-KUALA-LUMPUR/BANDAR-TUN-RAZAK/WBA0031/assets/logo.png",
+    "gallery": null,
+    "hero": null
+  },
+  "updatedAt": "2025-12-18T10:30:00.000Z"
+}
+```
+
+**School without logo (not in CSV or no logo data):**
+```json
+{
+  "_id": "ABC0001",
+  "status": "ACTIVE",
+  "s3_urls": {
+    "json": null,
+    "logo": null,
+    "gallery": null,
+    "hero": null
+  },
   "updatedAt": "2025-12-18T10:30:00.000Z"
 }
 ```
