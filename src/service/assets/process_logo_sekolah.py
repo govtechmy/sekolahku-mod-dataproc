@@ -10,6 +10,7 @@ Process CSV assets:
 from __future__ import annotations
 
 import logging
+import pandas as pd
 from collections import defaultdict
 from typing import Dict, Optional
 
@@ -19,6 +20,7 @@ from src.config.settings import Settings, get_settings
 from src.core.s3 import _read_csv_from_s3, get_s3_client
 from src.models.asset_sekolah import AssetSekolah, S3Urls
 from src.service.assets.helpers import parse_image_data_url, _utc_now
+
 
 settings = get_settings()
 
@@ -39,29 +41,49 @@ def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[
     Only schools that exist in Sekolah collection are included.
     """
     s3_key = f"{settings.s3_prefix_assets}/{settings.asset_logo_csv_filename}"
-    logger.info("Loading asset logo CSV from S3: bucket=%s key=%s", settings.s3_bucket_dataproc, s3_key)
+    logger.info("Loading asset logo CSV from S3 in chunks: bucket=%s key=%s", settings.s3_bucket_dataproc,s3_key,)
 
-    df = _read_csv_from_s3(settings.s3_bucket_dataproc, s3_key)
-    rows = df.to_dict(orient="records")
-    rows = rows[:10]   # test only
+    s3_client = get_s3_client()
+    response = s3_client.get_object(Bucket=settings.s3_bucket_dataproc, Key=s3_key)
+    body = response["Body"]
+
+    chunksize = 1000
 
     logo_map: Dict[str, Optional[str]] = {}
+    total_rows = 0
+    matched_rows = 0
 
-    for row in rows:
-        kod_institusi = row.get("KOD_INSTITUSI")
-        if not kod_institusi:
-            continue
+    for df_chunk in pd.read_csv(
+        body,
+        dtype=str,
+        chunksize=chunksize,
+        usecols=["KOD_INSTITUSI", "LOGO"], # only read necessary columns
+    ):
+        df_chunk = df_chunk.fillna("")
 
-        kod_institusi = kod_institusi.strip()
+        rows = df_chunk.to_dict(orient="records")
 
-        # Only consider schools that exist in DB
-        if not sekolah_col.find_one({"_id": kod_institusi}, {"_id": 1}):
-            continue
+        for row in rows:
+            total_rows += 1
 
-        logo_data = row.get("LOGO")
-        logo_map[kod_institusi] = logo_data.strip() if logo_data else None
+            kod_institusi = row.get("KOD_INSTITUSI")
+            if not kod_institusi:
+                continue
 
-    logger.info("Loaded %d sekolah entries from CSV", len(logo_map))
+            kod_institusi = kod_institusi.strip()
+
+            # Only consider schools that exist in DB
+            if not sekolah_col.find_one({"_id": kod_institusi}, {"_id": 1}):
+                continue
+
+            matched_rows += 1
+            logo_data = row.get("LOGO")
+            logo_map[kod_institusi] = logo_data.strip() if logo_data else None
+
+        logger.info("CSV logo map progress: %d rows scanned, %d matched to sekolah, current map size=%d", total_rows, matched_rows, len(logo_map))
+
+    logger.info("Finished building logo map: %d sekolah entries (rows scanned=%d, matched=%d)", len(logo_map), total_rows, matched_rows)
+
     return logo_map
 
 
