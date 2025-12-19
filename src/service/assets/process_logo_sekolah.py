@@ -49,7 +49,7 @@ def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[
     response = s3_client.get_object(Bucket=settings.s3_bucket_dataproc, Key=s3_key)
     body = response["Body"]
 
-    max_rows = 10
+    max_rows = 50000 # limit for test run. Set to higher value or remove for full run.
 
     logo_map: Dict[str, Optional[str]] = {}
     total_rows = 0
@@ -58,7 +58,7 @@ def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[
     for df_chunk in pd.read_csv(
         body,
         dtype=str,
-        chunksize=settings.asset_logo_csv_chunksize,
+        chunksize=settings.asset_logo_csv_batch_size,
         usecols=["KOD_INSTITUSI", "LOGO"], # only read necessary columns
     ):
         df_chunk = df_chunk.fillna("")
