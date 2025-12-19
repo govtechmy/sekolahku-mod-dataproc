@@ -108,7 +108,6 @@ class Settings(BaseSettings):
     builders_batch_size: int = get_env_int("BUILDERS_BATCH_SIZE", 100)
     polygon_export_batch_size: int = get_env_int("POLYGON_EXPORT_BATCH_SIZE", 100)
     asset_export_batch_size: int = get_env_int("ASSET_EXPORT_BATCH_SIZE", 100)
-    asset_export_max_workers: int = get_env_int("ASSET_EXPORT_MAX_WORKERS", 10)
     asset_logo_csv_filename: str = get_env_str("ASSET_LOGO_CSV_FILENAME", "tbi_institusi_induk.csv")
     asset_logo_csv_batch_size: int = get_env_int("ASSET_LOGO_CSV_BATCH_SIZE", 500)
 
