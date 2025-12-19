@@ -26,10 +26,11 @@ crons = Crons()
 
 settings = get_settings()
 
-logging.basicConfig(
-    level=getattr(logging, settings.log_level.upper(), logging.INFO),
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-)
+if not logging.getLogger().handlers:
+    logging.basicConfig(
+        level=getattr(logging, settings.log_level.upper(), logging.INFO),
+        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    )
 
 @app.post("/generate-snap-routes", tags=["s3-publisher"])
 def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[str, str | int]:
