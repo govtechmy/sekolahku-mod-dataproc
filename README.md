@@ -240,8 +240,8 @@ uvicorn src.api:app --reload
   - Iterates over **all** schools in the `Sekolah` collection
     - If `negeri` is missing, the school is counted as failed and skipped
     - If `parlimen` is missing, no S3 upload happens but an `AssetSekolah` record is still created/updated
-    - If a valid `LOGO` data URL exists and both `negeri` and `parlimen` are present, uploads the decoded image to the public S3 bucket at `{negeri}/{parlimen}/{kodSekolah}/assets/logo.{ext}` and stores the full S3 URL in `s3_urls.logo`
-    - If no logo is available, `s3_urls.logo` is set to `null` but the document still exists
+    - If a valid `LOGO` data URL exists and both `negeri` and `parlimen` are present, uploads the decoded image to the public S3 bucket at `{negeri}/{parlimen}/{kodSekolah}/assets/logo.{ext}` and stores the full S3 URL in `s3Url.logo`
+    - If no logo is available, `s3Url.logo` is set to `null` but the document still exists
   - Writes a grouped error/skip report to `src/service/assets/error.txt` for diagnostics
 
   **Usage:**
@@ -419,11 +419,11 @@ The `AssetSekolah` collection stores S3 URLs for school assets (logos, images, J
 | ----------- | ----------------- | ------------------------------------------------------------------------ |
 | `_id`       | str               | Document ID, set to `kodSekolah` (matches `Sekolah._id`)                |
 | `status`    | Optional[str]     | School status from `Sekolah` collection (e.g., "ACTIVE", "INACTIVE", null) |
-| `s3_urls`   | object            | Contains S3 URLs for all asset types                                     |
-| `s3_urls.json`    | Optional[str] | S3 URL for JSON data (reserved for future use)                          |
-| `s3_urls.logo`    | Optional[str] | S3 URL for logo image, or `null` if not available                       |
-| `s3_urls.gallery` | Optional[str] | S3 URL for gallery images (reserved for future use)                     |
-| `s3_urls.hero`    | Optional[str] | S3 URL for hero image (reserved for future use)                         |
+| `s3Url`   | object            | Contains S3 URLs for all asset types                                     |
+| `s3Url.json`    | Optional[str] | S3 URL for JSON data (reserved for future use)                          |
+| `s3Url.logo`    | Optional[str] | S3 URL for logo image, or `null` if not available                       |
+| `s3Url.gallery` | Optional[str] | S3 URL for gallery images (reserved for future use)                     |
+| `s3Url.hero`    | Optional[str] | S3 URL for hero image (reserved for future use)                         |
 | `updatedAt` | datetime (string) | ISO 8601 timestamp when the record was last updated                      |
 
 
@@ -434,7 +434,7 @@ The `AssetSekolah` collection stores S3 URLs for school assets (logos, images, J
 {
   "_id": "WBA0031",
   "status": "ACTIVE",
-  "s3_urls": {
+  "s3Url": {
     "json": null,
     "logo": "https://my.gov.digital.sekolahku-public-dev.s3.ap-southeast-1.amazonaws.com/WILAYAH-PERSEKUTUAN-KUALA-LUMPUR/BANDAR-TUN-RAZAK/WBA0031/assets/logo.png",
     "gallery": null,
@@ -449,7 +449,7 @@ The `AssetSekolah` collection stores S3 URLs for school assets (logos, images, J
 {
   "_id": "ABC0001",
   "status": "ACTIVE",
-  "s3_urls": {
+  "s3Url": {
     "json": null,
     "logo": null,
     "gallery": null,

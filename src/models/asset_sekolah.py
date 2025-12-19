@@ -28,7 +28,7 @@ class AssetSekolah(BaseModel):
     
     kodSekolah: str = Field(..., description="School code (matches Sekolah._id)")
     status: Optional[str] = Field(default=None, description="School status from Sekolah collection")
-    s3_urls: S3Urls = Field(..., description="S3 URLs for all asset types")
+    s3Url: S3Urls = Field(..., description="S3 URLs for all asset types")
     updatedAt: datetime = Field(default_factory=_utc_now, description="Last updated timestamp in UTC")
     
     def to_document(self) -> Dict[str, Any]:
@@ -38,10 +38,10 @@ class AssetSekolah(BaseModel):
             "_id": self.kodSekolah,
             "kodSekolah": self.kodSekolah,
             "status": self.status,
-            "s3_urls": {
-                "logo": self.s3_urls.logo,
-                "gallery": self.s3_urls.gallery,
-                "hero": self.s3_urls.hero,
+            "s3Url": {
+                "logo": self.s3Url.logo,
+                "gallery": self.s3Url.gallery,
+                "hero": self.s3Url.hero,
             },
             "updatedAt": self.updatedAt,
         }

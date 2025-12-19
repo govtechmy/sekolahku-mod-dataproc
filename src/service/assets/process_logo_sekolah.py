@@ -112,7 +112,7 @@ def process_single_sekolah(*, sekolah: dict, logo_map: Dict[str, Optional[str]],
     return AssetSekolah(
         kodSekolah=kod_sekolah,
         status=status,
-        s3_urls=S3Urls(logo=logo_url),
+        s3Url=S3Urls(logo=logo_url),
     )
 
 
@@ -151,7 +151,7 @@ def process_csv_assets(settings: Settings) -> dict:
                 settings=settings,
             )
 
-            if asset.s3_urls.logo:
+            if asset.s3Url.logo:
                 uploaded += 1
             else:
                 skipped += 1
