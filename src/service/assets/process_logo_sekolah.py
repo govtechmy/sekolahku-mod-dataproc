@@ -2,23 +2,23 @@
 Process CSV assets:
 - Read CSV from S3 or local with KOD_INSTITUSI, NAMA_PENUH_INSTITUSI, LOGO columns
 - Match KOD_INSTITUSI with Sekolah collection _id
-- Validate school status is ACTIVE
 - Decode base64 logo to proper image format
 - Upload to public S3 bucket: negeri/parlimen/kodSekolah/assets/logo.{ext}
 - Store metadata in AssetSekolah collection with S3 URL
 """
+
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
+from typing import Dict, Optional
 
 from pymongo import MongoClient
 
 from src.config.settings import Settings, get_settings
 from src.core.s3 import _read_csv_from_s3, get_s3_client
 from src.models.asset_sekolah import AssetSekolah, S3Urls
-from src.service.assets.helpers import (parse_image_data_url, _utc_now, chunked)
-import logging
-
+from src.service.assets.helpers import parse_image_data_url, _utc_now
 
 settings = get_settings()
 
@@ -30,248 +30,159 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 s3 = get_s3_client()
 
+
+def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[str]]:
+    """
+    Load CSV from S3 and return mapping:
+    { kodSekolah -> base64 logo data or None }
+
+    Only schools that exist in Sekolah collection are included.
+    """
+    s3_key = f"{settings.s3_prefix_assets}/{settings.asset_logo_csv_filename}"
+    logger.info("Loading asset logo CSV from S3: bucket=%s key=%s", settings.s3_bucket_dataproc, s3_key)
+
+    df = _read_csv_from_s3(settings.s3_bucket_dataproc, s3_key)
+    rows = df.to_dict(orient="records")
+    rows = rows[:10]   # test only
+
+    logo_map: Dict[str, Optional[str]] = {}
+
+    for row in rows:
+        kod_institusi = row.get("KOD_INSTITUSI")
+        if not kod_institusi:
+            continue
+
+        kod_institusi = kod_institusi.strip()
+
+        # Only consider schools that exist in DB
+        if not sekolah_col.find_one({"_id": kod_institusi}, {"_id": 1}):
+            continue
+
+        logo_data = row.get("LOGO")
+        logo_map[kod_institusi] = logo_data.strip() if logo_data else None
+
+    logger.info("Loaded %d sekolah entries from CSV", len(logo_map))
+    return logo_map
+
+
+def upload_logo_to_s3(*, logo_data_url: str, negeri: str, parlimen: str, kod_sekolah: str, settings: Settings) -> str:
+    """
+    Decode base64 logo and upload to public S3.
+    Returns public S3 URL.
+    """
+    ext, img_bytes = parse_image_data_url(logo_data_url)
+
+    key = f"{negeri}/{parlimen}/{kod_sekolah}/assets/logo.{ext}"
+
+    s3.put_object(
+        Bucket=settings.s3_bucket_public,
+        Key=key,
+        Body=img_bytes,
+        ContentType=f"image/{ext}",
+    )
+
+    return f"https://{settings.s3_bucket_public}.s3.amazonaws.com/{key}"
+
+
+def process_single_sekolah(*, sekolah: dict, logo_map: Dict[str, Optional[str]], settings: Settings) -> AssetSekolah:
+    """
+    Process a single sekolah document:
+    - optionally upload logo
+    - always return AssetSekolah model
+    """
+    kod_sekolah = sekolah["_id"]
+    status = sekolah.get("status")
+
+    negeri = sekolah.get("negeri")
+    parlimen = sekolah.get("parlimen")
+
+    logo_url: Optional[str] = None
+    logo_data = logo_map.get(kod_sekolah)
+
+    # Upload only if all required fields exist
+    if negeri and parlimen and logo_data:
+        logo_url = upload_logo_to_s3(
+            logo_data_url=logo_data,
+            negeri=negeri,
+            parlimen=parlimen,
+            kod_sekolah=kod_sekolah,
+            settings=settings,
+        )
+
+    return AssetSekolah(
+        kodSekolah=kod_sekolah,
+        status=status,
+        s3_urls=S3Urls(logo=logo_url),
+    )
+
+
 def process_csv_assets(settings: Settings) -> dict:
     """
-    Process logo CSV from S3 into AssetSekolah collection.
+    Orchestrate full pipeline:
+    CSV -> lookup kodSekolah -> iterate Sekolah -> upload S3 -> upsert AssetSekolah
     """
-
     mongo = MongoClient(settings.mongo_uri)
-    
     db = mongo[settings.db_name]
+
     sekolah_col = db[settings.sekolah_collection]
     assets_col = db[settings.asset_sekolah_collection]
 
-    s3_bucket_dataproc = settings.s3_bucket_dataproc
-    s3_prefix_assets = settings.s3_prefix_assets
-    asset_logo_csv_filename = settings.asset_logo_csv_filename
+    logo_map = load_csv_logo_map(settings=settings, sekolah_col=sekolah_col)
 
-    s3_key = f"{s3_prefix_assets}/{asset_logo_csv_filename}"
+    uploaded = failed = skipped = 0
+    skipped_reasons = defaultdict(int)
 
-    logger.info("Loading asset logo CSV from S3: bucket=%s key=%s", s3_bucket_dataproc, s3_key)
+    total = 0
 
-    df = _read_csv_from_s3(s3_bucket_dataproc, s3_key)
-    rows = df.to_dict(orient="records")
-    
-    asset_export_batch_size = settings.asset_export_batch_size
-    
-    logger.debug("=" * 20)
-    logger.debug(f"Starting CSV asset processing (batch size: {asset_export_batch_size})")
+    cursor = sekolah_col.find({}).batch_size(settings.asset_export_batch_size)
 
-    uploaded = skipped = failed = 0
-    skipped_reasons = []
-    failed_reasons = []
-    
-    csv_logo_map = {}
 
-    for chunk_num, chunk in enumerate(chunked(rows, asset_export_batch_size), 1):
-        logger.debug(f"Processing chunk {chunk_num} - Reading CSV data")
-        
-        for row in chunk:
-            # Handle None or empty KOD_INSTITUSI
-            kod_raw = row.get("KOD_INSTITUSI")
-            if not kod_raw:
-                skipped += 1
-                skipped_reasons.append({"kodSekolah": "UNKNOWN", "reason": "Missing KOD_INSTITUSI in CSV"})
-                continue
-
-            kod_institusi = kod_raw.strip()
-
-            # Check if school exists in DB
-            sekolah = sekolah_col.find_one({"_id": kod_institusi})
-            if not sekolah:
-                skipped += 1
-                skipped_reasons.append({"kodSekolah": kod_institusi, "reason": "KodSekolah in CSV but not in MongoDB (ignored)"})
-                continue
-            
-            # Get LOGO data from CSV (can be null/empty)
-            data_url = row.get("LOGO")
-            if data_url:
-                data_url = data_url.strip()
-            
-            # Store logo URL in map (even if empty/null)
-            csv_logo_map[kod_institusi] = data_url if data_url else None
-        
-        logger.debug(f"Chunk {chunk_num} complete: Collected {len(csv_logo_map)} sekolah from CSV")
-        logger.debug("Processing all sekolah in MongoDB...")
-    
-    # Use cursor with batch_size for efficient streaming
-    cursor = sekolah_col.find({}).batch_size(asset_export_batch_size)
-    total_processed = 0
-    
-    logger.debug("Fetching documents from MongoDB: db=%s collection=%s", settings.db_name, settings.sekolah_collection)
-    
     for sekolah in cursor:
+        total += 1
         kod_sekolah = sekolah["_id"]
-        status = sekolah.get("status", None)
-        total_processed += 1
-        
+
         try:
-            # Get logo URL from CSV if available
-            logo_data_url = csv_logo_map.get(kod_sekolah, None)
-            
-            # Get negeri and parlimen (already cleaned in Sekolah collection)
-            negeri = sekolah.get("negeri")
-            parlimen = sekolah.get("parlimen")
-            
-            # Check if negeri is missing - skip entirely
-            if not negeri:
-                failed += 1
-                failed_reasons.append({"kodSekolah": kod_sekolah, "reason": "Missing negeri in DB"})
-                continue
-            
-            # Prepare S3 URLs structure using model
-            logo_url = None
-            
-            # If parlimen is missing, we can't upload to S3, but still create AssetSekolah record
-            if not parlimen:
-                skipped += 1
-                skipped_reasons.append({"kodSekolah": kod_sekolah, "reason": "Missing parlimen in DB - S3 upload skipped"})
-            else:
-                if logo_data_url:
-                    try:
-                        ext, img_bytes = parse_image_data_url(logo_data_url)
-
-                        logo_key = f"{negeri}/{parlimen}/{kod_sekolah}/assets/logo.{ext}"
-                        s3.put_object(
-                            Bucket=settings.s3_bucket_public,
-                            Key=logo_key,
-                            Body=img_bytes,
-                            ContentType=f"image/{ext}",
-                        )
-                        
-                        logo_url = f"https://{settings.s3_bucket_public}.s3.amazonaws.com/{logo_key}"
-                        uploaded += 1
-                        
-                    except Exception as e:
-                        failed += 1
-                        failed_reasons.append({"kodSekolah": kod_sekolah, "reason": f"Failed to upload logo: {str(e)}"})
-                        logger.error(f"Failed processing logo for {kod_sekolah}: {str(e)}")
-
-            # Create AssetSekolah model and convert to document
-            asset_sekolah = AssetSekolah(
-                kodSekolah=kod_sekolah,
-                status=status,
-                s3_urls=S3Urls(logo=logo_url)
+            asset = process_single_sekolah(
+                sekolah=sekolah,
+                logo_map=logo_map,
+                settings=settings,
             )
-            
-            # Update AssetSekolah collection
+
+            if asset.s3_urls.logo:
+                uploaded += 1
+            else:
+                skipped += 1
+
+                if not logo_map.get(kod_sekolah):
+                    skipped_reasons["no_logo_in_csv"] += 1
+                elif not sekolah.get("negeri"):
+                    skipped_reasons["missing_negeri"] += 1
+                elif not sekolah.get("parlimen"):
+                    skipped_reasons["missing_parlimen"] += 1
+                else:
+                    skipped_reasons["unknown"] += 1
+
             assets_col.update_one(
-                {"_id": kod_sekolah},
-                {"$set": asset_sekolah.to_document()},
+                {"_id": asset.kodSekolah},
+                {"$set": asset.to_document()},
                 upsert=True,
             )
-            
-            if total_processed % 1000 == 0:
-                logger.debug(f"Progress: Processed {total_processed} sekolah (uploaded={uploaded}, failed={failed})")
+
+            if total % 1000 == 0:
+                logger.info("Progress: %d processed | uploaded=%d failed=%d", total, uploaded, failed)
 
         except Exception as e:
             failed += 1
-            failed_reasons.append({"kodSekolah": kod_sekolah, "reason": str(e)})
-            logger.error(f"Failed processing {kod_sekolah}: {str(e)}")
+            logger.error("Failed processing %s: %s", kod_sekolah, e)
 
-    logger.debug(f"Processed all MongoDB sekolah: total={total_processed}, uploaded={uploaded}, failed={failed}")
-
-    # Check for sekolah in DB but not in CSV
-    logger.debug("Checking for sekolah in DB but not in CSV...")
-    
-    db_school_codes = set(school["_id"] for school in sekolah_col.find({}, {"_id": 1}))
-    csv_school_codes = set(csv_logo_map.keys())
-    
-    db_not_in_csv = db_school_codes - csv_school_codes
-    
-    logger.debug(f"Total sekolah in DB: {len(db_school_codes)}")
-    logger.debug(f"Total sekolah in CSV: {len(csv_school_codes)}")
-    logger.debug(f"Schools in DB but NOT in CSV (logo set to null): {len(db_not_in_csv)}")
-    
-    if db_not_in_csv:
-        by_status = defaultdict(int)
-        for kod_sekolah in db_not_in_csv:
-            school = sekolah_col.find_one({"_id": kod_sekolah}, {"status": 1})
-            if school:
-                by_status[school.get("status", None)] += 1
-        
-        for status, count in by_status.items():
-            logger.debug(f"  {status}: {count} sekolah")
-    
-    # Log summary
-    logger.info(f"Successfully completed CSV asset processing")
-    logger.info(f"Uploaded: {uploaded} | Skipped: {skipped} | Failed: {failed}")
-    logger.info(f"Total documents upserted to AssetSekolah collection: {total_processed}")
-
-    all_reasons = []
-    
-    # Add skipped reasons
-    if skipped_reasons:
-        logger.debug(f"Skipped sekolah ({len(skipped_reasons)} total):")
-        for item in skipped_reasons:
-            all_reasons.append(item)
-
-        by_reason = defaultdict(list)
-        for item in skipped_reasons:
-            by_reason[item["reason"]].append(item["kodSekolah"])
-        
-        for reason, sekolah in by_reason.items():
-            logger.debug(f"  {reason}: {len(sekolah)} sekolah")
-            school_strs = [str(s) if s is not None else "None" for s in sekolah]
-            if len(school_strs) <= 50:
-                logger.debug(f"Schools: {', '.join(school_strs)}")
-            else:
-                logger.debug(f"Schools (first 50): {', '.join(school_strs[:50])} ... and {len(school_strs) - 50} more")
-    
-    if failed_reasons:
-        logger.info(f" Not processed sekolah due to missing assets ({len(failed_reasons)} total):")
-        for item in failed_reasons:
-            all_reasons.append(item)
-        
-        by_reason = defaultdict(list)
-        for item in failed_reasons:
-            by_reason[item["reason"]].append(item["kodSekolah"])
-        
-        len_limit = 50
-        for reason, sekolah in by_reason.items():
-            logger.debug(f"{reason}: {len(sekolah)} sekolah")
-            school_strs = [str(s) if s is not None else "None" for s in sekolah]
-            if len(school_strs) <= 50:
-                logger.debug(f"Schools: {', '.join(school_strs)}")
-            else:
-                logger.debug(f"Schools (first {len_limit}): {', '.join(school_strs[:len_limit])} ... and {len(school_strs) - len_limit} more")
-
-    if all_reasons:
-        by_reason = defaultdict(list)
-        for item in all_reasons:
-            by_reason[item["reason"]].append(item["kodSekolah"])
-        
-        error_filename = "src/service/assets/error.txt"
-        generate_summary(error_filename, "ERROR", by_reason)
+    logger.info("Completed Asset Logo processing.")
+    logger.info("Total processed: %d", total)
+    logger.info("Uploaded logos: %d | Skipped: %d | Failed: %d", uploaded, skipped, failed)
 
     return {
+        "total_processed": total,
         "uploaded": uploaded,
         "skipped": skipped,
         "failed": failed,
-        "total_schools_in_db": len(db_school_codes),
-        "total_schools_in_csv": len(csv_school_codes),
-        "db_not_in_csv": len(db_not_in_csv),
+        "skipped_breakdown": dict(skipped_reasons),
     }
-
-
-def generate_summary(filename: str, report_type: str, reasons_dict: dict) -> None:
-    """Write a consolidated report with all reasons and sekolah."""
-    import os
-    os.makedirs(os.path.dirname(filename), exist_ok=True)
-    
-    total_schools = sum(len(sekolah) for sekolah in reasons_dict.values())
-    
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(f"{report_type} School report\n")
-        f.write(f"Total sekolah: {total_schools}\n")
-        f.write(f"Generated: {_utc_now().isoformat()}\n")
-        
-        for reason, sekolah in reasons_dict.items():
-            f.write(f"Reason: {reason}\n")
-            f.write(f"Total sekolah: {len(sekolah)}\n")
-
-            for i, kod_sekolah in enumerate(sekolah, 1):
-                kod_str = str(kod_sekolah) if kod_sekolah is not None else "None"
-                f.write(f"{i}. {kod_str}\n")
-
-    logger.debug(f"Wrote {total_schools} sekolah to {filename}")
