@@ -9,49 +9,52 @@ Process CSV assets:
 """
 from __future__ import annotations
 
-import csv
-import io
-import logging
-import sys
 from collections import defaultdict
 
-import boto3
 from pymongo import MongoClient
 
-from src.config.settings import Settings
+from src.config.settings import Settings, get_settings
+from src.core.s3 import _read_csv_from_s3, get_s3_client
 from src.models.asset_sekolah import AssetSekolah, S3Urls
-from src.service.assets.helpers import (
-    parse_image_data_url,
-    _utc_now,
-    chunked,
+from src.service.assets.helpers import (parse_image_data_url, _utc_now, chunked)
+import logging
+
+
+settings = get_settings()
+
+logging.basicConfig(
+    level=getattr(logging, settings.log_level.upper(), logging.INFO),
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
 )
 
 logger = logging.getLogger(__name__)
-if not logging.getLogger().handlers:
-    logging.basicConfig(
-        level=logging.DEBUG,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
+s3 = get_s3_client()
 
-logging.getLogger("botocore").setLevel(logging.WARNING)
-logging.getLogger("boto3").setLevel(logging.WARNING)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.getLogger("pymongo").setLevel(logging.WARNING)
-logging.getLogger("s3transfer").setLevel(logging.WARNING)
+def process_csv_assets(settings: Settings) -> dict:
+    """Process logo CSV from S3 into AssetSekolah collection.
 
+    The CSV location is derived entirely from environment-driven settings:
+    - S3_BUCKET_DATAPROC
+    - s3_prefix_assets_source
+    - ASSET_LOGO_CSV_FILENAME
+    """
 
-csv.field_size_limit(sys.maxsize)
-
-
-def process_csv_assets(settings: Settings, csv_path: str) -> dict:
-    s3 = boto3.client("s3")
     mongo = MongoClient(settings.mongo_uri)
     
     db = mongo[settings.db_name]
     sekolah_col = db[settings.sekolah_collection]
     assets_col = db[settings.asset_sekolah_collection]
 
-    rows = _load_csv(s3, csv_path)
+    s3_bucket_dataproc = settings.s3_bucket_dataproc
+    s3_prefix_assets_source = settings.s3_prefix_assets_source
+    asset_logo_csv_filename = settings.asset_logo_csv_filename
+
+    s3_key = f"{s3_prefix_assets_source}/{asset_logo_csv_filename}" if s3_prefix_assets_source else asset_logo_csv_filename
+
+    logger.info("Loading asset logo CSV from S3: bucket=%s key=%s", s3_bucket_dataproc, s3_key)
+
+    df = _read_csv_from_s3(s3_bucket_dataproc, s3_key)
+    rows = df.to_dict(orient="records")
     
     asset_export_batch_size = settings.asset_export_batch_size
     
@@ -150,7 +153,7 @@ def process_csv_assets(settings: Settings, csv_path: str) -> dict:
 
             # Create AssetSekolah model and convert to document
             asset_sekolah = AssetSekolah(
-                kod_sekolah=kod_sekolah,
+                kodSekolah=kod_sekolah,
                 status=status,
                 s3_urls=S3Urls(logo=logo_url)
             )
@@ -217,8 +220,7 @@ def process_csv_assets(settings: Settings, csv_path: str) -> dict:
             if len(school_strs) <= 50:
                 logger.debug(f"Schools: {', '.join(school_strs)}")
             else:
-                logger.debug(f"Schools (first 50): {', '.join(school_strs[:50])}")
-                logger.debug(f"... and {len(school_strs) - 50} more")
+                logger.debug(f"Schools (first 50): {', '.join(school_strs[:50])} ... and {len(school_strs) - 50} more")
     
     if failed_reasons:
         logger.info(f" Not processed sekolah due to missing assets ({len(failed_reasons)} total):")
@@ -244,7 +246,7 @@ def process_csv_assets(settings: Settings, csv_path: str) -> dict:
             by_reason[item["reason"]].append(item["kodSekolah"])
         
         error_filename = "src/service/assets/error.txt"
-        _write_consolidated_report(error_filename, "ERROR", by_reason)
+        generate_summary(error_filename, "ERROR", by_reason)
 
     return {
         "uploaded": uploaded,
@@ -256,15 +258,8 @@ def process_csv_assets(settings: Settings, csv_path: str) -> dict:
     }
 
 
-def _write_consolidated_report(filename: str, report_type: str, reasons_dict: dict) -> None:
-    """
-    Write a consolidated report with all reasons and sekolah.
-    
-    Args:
-        filename: Path to output file
-        report_type: "SKIPPED" or "FAILED"
-        reasons_dict: Dictionary mapping reason -> list of school codes
-    """
+def generate_summary(filename: str, report_type: str, reasons_dict: dict) -> None:
+    """Write a consolidated report with all reasons and sekolah."""
     import os
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     
@@ -284,21 +279,3 @@ def _write_consolidated_report(filename: str, report_type: str, reasons_dict: di
                 f.write(f"{i}. {kod_str}\n")
 
     logger.debug(f"Wrote {total_schools} sekolah to {filename}")
-
-
-def _load_csv(s3, path: str):
-    """
-    Load CSV and return a DictReader for streaming.
-    
-    Returns an iterator that yields rows as dictionaries.
-    This is more memory-efficient than loading the entire CSV into memory.
-    """
-    if path.startswith("s3://"):
-        bucket, key = path.replace("s3://", "").split("/", 1)
-        obj = s3.get_object(Bucket=bucket, Key=key)
-        body = obj["Body"]
-        stream = io.TextIOWrapper(body, encoding="utf-8")
-    else:
-        stream = open(path, "r", encoding="utf-8")
-
-    return csv.DictReader(stream)

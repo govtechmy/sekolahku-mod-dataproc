@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-
 from botocore.exceptions import ClientError
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi_crons import Crons
@@ -27,16 +26,10 @@ crons = Crons()
 
 settings = get_settings()
 
-
-# -----------------------------------------------------------------------------
-# Request Models
-# -----------------------------------------------------------------------------
-
-if not logging.getLogger().handlers:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
+logging.basicConfig(
+    level=getattr(logging, settings.log_level.upper(), logging.INFO),
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
 
 @app.post("/generate-snap-routes", tags=["s3-publisher"])
 def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[str, str | int]:
@@ -187,37 +180,24 @@ def scrape_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict
     return {"status": "received request to scrape OpenDOSM Negeri & Parlimen data"}
 
 
-@app.post("/process-csv-assets", tags=["s3-publisher"])
-def process_csv_assets_endpoint(
-    background_tasks: BackgroundTasks,
-) -> dict[str, str]:
+@app.post("/export-asset-logo", tags=["s3-publisher"])
+def export_asset_logo(background_tasks: BackgroundTasks) -> dict[str, str]:
     """
-    Process sekolah assets from CSV file and upload to S3.
-    
-    Reads a CSV file containing base64-encoded images, validates and decodes them,
-    uploads to S3 public bucket, and stores metadata in MongoDB Assets collection.
-    
-    The CSV path is configured via the ASSET_LOGO_SEKOLAH_CSV environment variable.
+    Trigger processing of logo csv into S3 public & Mongodb AssetSekolah collection.
     """
-    csv_path = settings.asset_logo_sekolah_csv
+
+    logger.info("Received request to process and export asset logo")
     
-    logger.info("Received request to process CSV assets from: %s", csv_path)
-    
-    def _run_csv_asset_processing_job():
+    def _run_csv_asset_logo_job():
         try:
-            summary = process_csv_assets(settings, csv_path)
-            logger.info(
-                "CSV asset processing completed: uploaded=%s skipped=%s failed=%s",
-                summary.get("uploaded"),
-                summary.get("skipped"),
-                summary.get("failed"),
-            )
-        except Exception:
-            logger.exception("CSV asset processing failed")
+            summary = process_csv_assets(settings)
+            logger.info("Successfully processed and export asset logo: uploaded=%s skipped=%s failed=%s", summary.get("uploaded"), summary.get("skipped"), summary.get("failed"),)
+        except Exception as e:
+            logger.exception(f"Failed to process asset logo export: {e}")
     
-    background_tasks.add_task(_run_csv_asset_processing_job)
-    
-    return {"status": "received", "csv_path": csv_path}
+    background_tasks.add_task(_run_csv_asset_logo_job)
+
+    return {"status": "received"}
 
 
 @app.post("/load-negeri-parlimen-polygons", tags=["ingestion"])

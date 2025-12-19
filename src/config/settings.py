@@ -83,6 +83,7 @@ class Settings(BaseSettings):
         extra="ignore",
     )
     
+    log_level: str = get_env_str("LOG_LEVEL", "INFO")
     mongo_uri: str = get_env_str("MONGO_URI")
     db_name: str = get_env_str("DB_NAME")
     sekolah_collection: str = get_env_str("SEKOLAH_COLLECTION", "Sekolah")
@@ -97,7 +98,6 @@ class Settings(BaseSettings):
     csv_path: str = get_env_str("CSV_PATH", "data/sekolah.csv")
     gsheet_id: str = get_env_str("GSHEET_ID")
     gsheet_gid: str = get_env_str("GSHEET_GID")
-    gsheet_worksheet_name: str = get_env_str("GSHEET_WORKSHEET_NAME", "Sheet1")
     batch_size: int = get_env_int("BATCH_SIZE", 500)
     port: int = get_env_int("PORT", 8000)
     s3_bucket_public: str = get_env_str("S3_BUCKET_PUBLIC", "my.gov.digital.sekolahku-public-dev")
@@ -109,15 +109,14 @@ class Settings(BaseSettings):
     polygon_export_batch_size: int = get_env_int("POLYGON_EXPORT_BATCH_SIZE", 100)
     asset_export_batch_size: int = get_env_int("ASSET_EXPORT_BATCH_SIZE", 100)
     asset_export_max_workers: int = get_env_int("ASSET_EXPORT_MAX_WORKERS", 10)
-    asset_logo_sekolah_csv: str = get_env_str("ASSET_LOGO_SEKOLAH_CSV", "s3://my.gov.digital.sekolahku-dataproc-bucket-dev/assets/raw/tbi_institusi_induk.csv")
+    asset_logo_csv_filename: str = get_env_str("ASSET_LOGO_CSV_FILENAME", "tbi_institusi_induk.csv")
 
     # Constants
     s3_prefix_sekolah: str = "sekolah/raw"
     s3_prefix_opendosm: str = "opendosm/raw"
     s3_prefix_common: str = "common"
     s3_prefix_polygon: str = "polygon"
-    s3_prefix_assets_source: str = "assets/source"
-    s3_prefix_assets_temp: str = "assets/temp"
+    s3_prefix_assets_source: str = "assets/raw"
 
 
 def get_settings() -> Settings:
