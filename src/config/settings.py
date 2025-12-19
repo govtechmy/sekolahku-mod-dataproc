@@ -109,6 +109,7 @@ class Settings(BaseSettings):
     polygon_export_batch_size: int = get_env_int("POLYGON_EXPORT_BATCH_SIZE", 100)
     asset_export_batch_size: int = get_env_int("ASSET_EXPORT_BATCH_SIZE", 100)
     asset_export_max_workers: int = get_env_int("ASSET_EXPORT_MAX_WORKERS", 10)
+    asset_logo_sekolah_csv: str = get_env_str("ASSET_LOGO_SEKOLAH_CSV", "s3://my.gov.digital.sekolahku-dataproc-bucket-dev/assets/raw/tbi_institusi_induk.csv")
 
     # Constants
     s3_prefix_sekolah: str = "sekolah/raw"

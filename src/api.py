@@ -32,9 +32,6 @@ settings = get_settings()
 # Request Models
 # -----------------------------------------------------------------------------
 
-class ProcessCsvAssetsRequest(BaseModel):
-    csv_path: str
-
 if not logging.getLogger().handlers:
     logging.basicConfig(
         level=logging.INFO,
@@ -192,7 +189,6 @@ def scrape_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict
 
 @app.post("/process-csv-assets", tags=["s3-publisher"])
 def process_csv_assets_endpoint(
-    payload: ProcessCsvAssetsRequest,
     background_tasks: BackgroundTasks,
 ) -> dict[str, str]:
     """
@@ -200,8 +196,10 @@ def process_csv_assets_endpoint(
     
     Reads a CSV file containing base64-encoded images, validates and decodes them,
     uploads to S3 public bucket, and stores metadata in MongoDB Assets collection.
+    
+    The CSV path is configured via the ASSET_LOGO_SEKOLAH_CSV environment variable.
     """
-    csv_path = payload.csv_path
+    csv_path = settings.asset_logo_sekolah_csv
     
     logger.info("Received request to process CSV assets from: %s", csv_path)
     

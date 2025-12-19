@@ -191,7 +191,7 @@ uvicorn src.api:app --reload
 
 - **`POST /process-csv-assets`** - Process base64-encoded images from CSV and upload to S3
 
-  - Reads CSV file with base64-encoded logo images (S3 path or local)
+  - Reads CSV file with base64-encoded logo images from path configured in `ASSET_LOGO_SEKOLAH_CSV` environment variable
   - Parses `data:image/<type>;base64,<encoded>` format
   - Processes **ALL schools in MongoDB `Sekolah` collection** (regardless of CSV presence)
   - Schools in CSV: Logo uploaded if base64 data exists
@@ -203,11 +203,9 @@ uvicorn src.api:app --reload
 
   ```bash
   # API endpoint 
-  curl -X POST \
-    'http://127.0.0.1:8000/process-csv-assets?csv_path=s3://my.gov.digital.sekolahku-dataproc-bucket-dev/assets/raw/tbi_institusi_induk.csv' \
+  curl -X POST 'http://127.0.0.1:8000/process-csv-assets' \
     -H 'accept: application/json' \
     -d ''
-
 
   # CLI command (logs appear in current terminal)
   python -m src.main --process-csv-assets s3://my.gov.digital.sekolahku-dataproc-bucket-dev/assets/raw/tbi_institusi_induk.csv
