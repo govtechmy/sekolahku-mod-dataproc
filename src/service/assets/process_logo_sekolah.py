@@ -68,10 +68,7 @@ def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[
         for row in rows:
             total_rows += 1
             if total_rows > max_rows:
-                logger.info(
-                    "Reached max_rows=%d for logo CSV test run, stopping early",
-                    max_rows,
-                )
+                logger.info("Reached max_rows=%d for logo CSV test run, stopping early", max_rows)
                 return logo_map
 
             kod_institusi = row.get("KOD_INSTITUSI")
@@ -88,7 +85,7 @@ def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[
             logo_data = row.get("LOGO")
             logo_map[kod_institusi] = logo_data.strip() if logo_data else None
 
-        logger.info("CSV logo map progress: %d rows scanned, %d matched to sekolah, current map size=%d", total_rows, matched_rows, len(logo_map))
+        logger.debug("CSV logo map progress: %d rows scanned, %d matched to sekolah, current map size=%d", total_rows, matched_rows, len(logo_map))
 
     logger.info("Finished building logo map: %d sekolah entries (rows scanned=%d, matched=%d)", len(logo_map), total_rows, matched_rows)
 
@@ -171,6 +168,8 @@ def process_csv_assets(settings: Settings) -> dict:
 
     manifests = []  # collect per-sekolah manifest entries
 
+    logger.info("Starting processing of %d sekolah for logo assets...", total_schools)
+
     for sekolah in cursor:
         total += 1
         kod_sekolah = sekolah["_id"]
@@ -222,7 +221,7 @@ def process_csv_assets(settings: Settings) -> dict:
 
             percent = int((total / total_schools) * 100)
             if percent != last_logged_percent and percent % 10 == 0:
-                logger.info("Progress: %d%% (%d/%d) | uploaded=%d skipped=%d failed=%d", percent, total, total_schools,uploaded, skipped, failed)
+                logger.debug("Progress: %d%% (%d/%d) | uploaded=%d skipped=%d failed=%d", percent, total, total_schools,uploaded, skipped, failed)
                 last_logged_percent = percent
 
         except Exception as e:
@@ -243,7 +242,7 @@ def process_csv_assets(settings: Settings) -> dict:
         ContentType="application/json",
     )
 
-    logger.info("Uploaded overall manifest.json to s3://%s/%s", settings.s3_bucket_public, manifest_key)
+    logger.info("Uploaded manifest.json to s3://%s/%s", settings.s3_bucket_public, manifest_key)
 
     logger.info("Completed Asset Logo processing.")
     logger.info("Total processed: %d | Uploaded logos: %d | Skipped: %d | Failed: %d", total, uploaded, skipped, failed)
