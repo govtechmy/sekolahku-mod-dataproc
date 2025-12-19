@@ -116,7 +116,7 @@ class Settings(BaseSettings):
     s3_prefix_opendosm: str = "opendosm/raw"
     s3_prefix_common: str = "common"
     s3_prefix_polygon: str = "polygon"
-    s3_prefix_assets_source: str = "assets/raw"
+    s3_prefix_assets: str = "assets/raw"
 
 
 def get_settings() -> Settings:

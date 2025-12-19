@@ -31,12 +31,8 @@ logger = logging.getLogger(__name__)
 s3 = get_s3_client()
 
 def process_csv_assets(settings: Settings) -> dict:
-    """Process logo CSV from S3 into AssetSekolah collection.
-
-    The CSV location is derived entirely from environment-driven settings:
-    - S3_BUCKET_DATAPROC
-    - s3_prefix_assets_source
-    - ASSET_LOGO_CSV_FILENAME
+    """
+    Process logo CSV from S3 into AssetSekolah collection.
     """
 
     mongo = MongoClient(settings.mongo_uri)
@@ -46,10 +42,10 @@ def process_csv_assets(settings: Settings) -> dict:
     assets_col = db[settings.asset_sekolah_collection]
 
     s3_bucket_dataproc = settings.s3_bucket_dataproc
-    s3_prefix_assets_source = settings.s3_prefix_assets_source
+    s3_prefix_assets = settings.s3_prefix_assets
     asset_logo_csv_filename = settings.asset_logo_csv_filename
 
-    s3_key = f"{s3_prefix_assets_source}/{asset_logo_csv_filename}" if s3_prefix_assets_source else asset_logo_csv_filename
+    s3_key = f"{s3_prefix_assets}/{asset_logo_csv_filename}"
 
     logger.info("Loading asset logo CSV from S3: bucket=%s key=%s", s3_bucket_dataproc, s3_key)
 
