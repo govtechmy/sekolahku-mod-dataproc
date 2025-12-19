@@ -232,27 +232,33 @@ uvicorn src.api:app --reload
   CSV asset processing completed: uploaded=9253 skipped=70 failed=0
   ```
 
-  **Output Structure in MongoDB AssetSekolah Collection:**
-  ```json
-  {
-    "_id": "WBA0031",
-    "status": "ACTIVE",
-    "s3_urls": {
-      "json": null,
-      "logo": "https://my.gov.digital.sekolahku-public-dev.s3.ap-southeast-1.amazonaws.com/WILAYAH-PERSEKUTUAN-KUALA-LUMPUR/BANDAR-TUN-RAZAK/WBA0031/assets/logo.png",
-      "gallery": null,
-      "hero": null
-    },
-    "updatedAt": "2025-12-18T10:30:00.000Z"
-  }
+- **`POST /export-asset-logo`** - Export logo assets from CSV to S3 public bucket and MongoDB `AssetSekolah`
+
+  - Loads the logo CSV from the dataproc S3 bucket using settings: `s3_bucket_dataproc`, `s3_prefix_assets`, and `asset_logo_csv_filename`
+  - Expects columns `KOD_INSTITUSI`, `NAMA_PENUH_INSTITUSI`, `LOGO`
+  - Matches `KOD_INSTITUSI` to `_id` in the `Sekolah` collection; rows whose codes are not in MongoDB are skipped
+  - Iterates over **all** schools in the `Sekolah` collection
+    - If `negeri` is missing, the school is counted as failed and skipped
+    - If `parlimen` is missing, no S3 upload happens but an `AssetSekolah` record is still created/updated
+    - If a valid `LOGO` data URL exists and both `negeri` and `parlimen` are present, uploads the decoded image to the public S3 bucket at `{negeri}/{parlimen}/{kodSekolah}/assets/logo.{ext}` and stores the full S3 URL in `s3_urls.logo`
+    - If no logo is available, `s3_urls.logo` is set to `null` but the document still exists
+  - Writes a grouped error/skip report to `src/service/assets/error.txt` for diagnostics
+
+  **Usage:**
+
+  ```bash
+  curl -X POST 'http://127.0.0.1:8000/export-asset-logo' \
+    -H 'accept: application/json' \
+    -d ''
   ```
-  
-  **Return Values:**
-  - `uploaded` - Number of logos successfully uploaded to S3
-  - `skipped` - Number of schools in CSV but not in MongoDB (ignored)
-  - `failed` - Number of processing failures (missing negeri/parlimen, invalid base64, S3 errors, etc.)
-  - `total_schools_in_db` - Total schools processed from MongoDB
-  - `total_schools_in_csv` - Total schools found in CSV
+
+  The endpoint returns immediately with:
+
+  ```json
+  {"status": "received"}
+  ```
+
+  Processing continues in the background; check the application logs for `uploaded`, `skipped`, and `failed` counts, and inspect `src/service/assets/error.txt` for detailed school lists by reason.
 
 ### Scheduled Cron Jobs
 
