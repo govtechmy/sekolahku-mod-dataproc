@@ -9,6 +9,7 @@ Process CSV assets:
 
 from __future__ import annotations
 
+import json
 import logging
 import pandas as pd
 from collections import defaultdict
@@ -19,7 +20,8 @@ from pymongo import MongoClient
 from src.config.settings import Settings, get_settings
 from src.core.s3 import _read_csv_from_s3, get_s3_client
 from src.models.asset_sekolah import AssetSekolah, S3Urls
-from src.service.assets.helpers import parse_image_data_url, _utc_now
+from src.service.assets.helpers import parse_image_data_url, _utc_now, build_manifest
+from src.service.assets.logo_enum import LogoReason, LogoStatus
 
 
 settings = get_settings()
@@ -167,6 +169,7 @@ def process_csv_assets(settings: Settings) -> dict:
     total_schools = sekolah_col.count_documents({})
     last_logged_percent = -1
 
+    manifests = []  # collect per-sekolah manifest entries
 
     for sekolah in cursor:
         total += 1
@@ -179,34 +182,68 @@ def process_csv_assets(settings: Settings) -> dict:
                 settings=settings,
             )
 
+            logo_status: LogoStatus
+            logo_reason: Optional[LogoReason] = None
+
             if asset.s3Url.logo:
                 uploaded += 1
+                logo_status = LogoStatus.UPLOADED
             else:
                 skipped += 1
 
                 if not logo_map.get(kod_sekolah):
-                    skipped_reasons["no_logo_in_csv"] += 1
+                    logo_reason = LogoReason.NO_LOGO_IN_CSV
                 elif not sekolah.get("negeri"):
-                    skipped_reasons["missing_negeri"] += 1
+                    logo_reason = LogoReason.MISSING_NEGERI
                 elif not sekolah.get("parlimen"):
-                    skipped_reasons["missing_parlimen"] += 1
+                    logo_reason = LogoReason.MISSING_PARLIMEN
                 else:
-                    skipped_reasons["unknown"] += 1
+                    logo_reason = LogoReason.UNKNOWN
 
+                skipped_reasons[logo_reason.value] += 1
+                logo_status = LogoStatus.SKIPPED
+
+            # upsert asset record
             assets_col.update_one(
                 {"_id": asset.kodSekolah},
                 {"$set": asset.to_document()},
                 upsert=True,
             )
-            percent = int((total / total_schools) * 100)
 
+            # build per-sekolah manifest entry and collect
+            manifests.append(
+                build_manifest(
+                    sekolah=sekolah,
+                    logo_status=logo_status,
+                    logo_reason=logo_reason,
+                    logo_url=asset.s3Url.logo,
+                )
+            )
+
+            percent = int((total / total_schools) * 100)
             if percent != last_logged_percent and percent % 10 == 0:
-                logger.info("Progress: %d%% (%d/%d) | uploaded=%d skipped=%d failed=%d", percent, total, total_schools, uploaded, skipped, failed)
+                logger.info("Progress: %d%% (%d/%d) | uploaded=%d skipped=%d failed=%d", percent, total, total_schools,uploaded, skipped, failed)
                 last_logged_percent = percent
 
         except Exception as e:
             failed += 1
             logger.error("Failed processing %s: %s", kod_sekolah, e)
+
+    overall_manifest = {
+        "generatedAt": _utc_now().isoformat(),
+        "totalSekolah": len(manifests),
+        "sekolah": manifests,
+    }
+
+    manifest_key = "manifest.json"
+    s3.put_object(
+        Bucket=settings.s3_bucket_public,
+        Key=manifest_key,
+        Body=json.dumps(overall_manifest, ensure_ascii=False).encode("utf-8"),
+        ContentType="application/json",
+    )
+
+    logger.info("Uploaded overall manifest.json to s3://%s/%s", settings.s3_bucket_public, manifest_key)
 
     logger.info("Completed Asset Logo processing.")
     logger.info("Total processed: %d | Uploaded logos: %d | Skipped: %d | Failed: %d", total, uploaded, skipped, failed)
