@@ -52,8 +52,6 @@ def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[
     response = s3_client.get_object(Bucket=settings.s3_bucket_dataproc, Key=s3_key)
     body = response["Body"]
 
-    max_rows = 50000 # limit for test run. Set to higher value or remove for full run.
-
     logo_map: Dict[str, Optional[str]] = {}
     total_rows = 0
     matched_rows = 0
@@ -71,9 +69,6 @@ def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[
 
         for row in rows:
             total_rows += 1
-            if total_rows > max_rows:
-                logger.info("Reached max_rows=%d for logo CSV test run, stopping early", max_rows)
-                return logo_map
 
             kod_institusi = row.get("KOD_INSTITUSI")
             if not kod_institusi:
