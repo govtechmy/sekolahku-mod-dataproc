@@ -30,23 +30,25 @@ def _utc_now() -> datetime:
     """Return timezone-aware UTC datetime."""
     return datetime.now(timezone.utc)
 
-
-def chunked(data: Iterable[T], size: int) -> Generator[list[T], None, None]:
+def build_manifest(
+    *,
+    sekolah: dict,
+    logo_status: str,
+    logo_reason: Optional[str],
+    logo_url: Optional[str],
+) -> dict:
     """
-    Yield successive chunks from an iterable.
-    
-    Args:
-        data: Iterable to chunk
-        size: Size of each chunk
-        
-    Yields:
-        Lists of items, each with at most 'size' elements
+    Build per-sekolah manifest.json content.
     """
-    batch = []
-    for item in data:
-        batch.append(item)
-        if len(batch) == size:
-            yield batch
-            batch = []
-    if batch:
-        yield batch
+    return {
+        "kodSekolah": sekolah["_id"],
+        "status": sekolah.get("status"),
+        "negeri": sekolah.get("negeri"),
+        "parlimen": sekolah.get("parlimen"),
+        "logo": {
+            "status": logo_status,   # uploaded | skipped | failed
+            "reason": logo_reason,
+            "s3_url": logo_url,
+        },
+        "generatedAt": _utc_now().isoformat(),
+    }
