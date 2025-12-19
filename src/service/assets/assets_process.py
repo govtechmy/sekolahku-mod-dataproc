@@ -198,7 +198,6 @@ def process_csv_assets(settings: Settings, csv_path: str) -> dict:
     
     if db_not_in_csv:
         # Log summary by status
-        from collections import defaultdict
         by_status = defaultdict(int)
         for kod_sekolah in db_not_in_csv:
             school = sekolah_col.find_one({"_id": kod_sekolah}, {"status": 1})
@@ -222,7 +221,6 @@ def process_csv_assets(settings: Settings, csv_path: str) -> dict:
             all_reasons.append(item)
         
         # Group by reason for logging
-        from collections import defaultdict
         by_reason = defaultdict(list)
         for item in skipped_reasons:
             by_reason[item["reason"]].append(item["kodSekolah"])
@@ -244,7 +242,6 @@ def process_csv_assets(settings: Settings, csv_path: str) -> dict:
             all_reasons.append(item)
         
         # Group by reason for logging
-        from collections import defaultdict
         by_reason = defaultdict(list)
         for item in failed_reasons:
             by_reason[item["reason"]].append(item["kodSekolah"])
@@ -261,7 +258,6 @@ def process_csv_assets(settings: Settings, csv_path: str) -> dict:
 
     # Write consolidated error.txt with all skipped and failed schools
     if all_reasons:
-        from collections import defaultdict
         by_reason = defaultdict(list)
         for item in all_reasons:
             by_reason[item["reason"]].append(item["kodSekolah"])

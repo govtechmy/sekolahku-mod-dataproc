@@ -200,14 +200,6 @@ def process_csv_assets_endpoint(
     
     Reads a CSV file containing base64-encoded images, validates and decodes them,
     uploads to S3 public bucket, and stores metadata in MongoDB Assets collection.
-    
-    Request Body:
-        {
-            "csv_path": "s3://bucket/key or local path"
-        }
-    
-    Returns:
-        Dictionary confirming that the processing job has been queued.
     """
     csv_path = payload.csv_path
     

@@ -14,7 +14,9 @@ from src.models.logo_sekolah import LogoSekolah
 
 logger = logging.getLogger(__name__)
 
-CSV_PATH = Path("/Users/mydigital/Documents/Github/sekolahku-mod-dataproc/data/tbi_institusi_induk.csv")
+# Project base directory: three levels up from this file (src/pipeline/logo_sekolah.py -> project root)
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+CSV_PATH = BASE_DIR / "data" / "tbi_institusi_induk.csv"
 
 csv.field_size_limit(sys.maxsize)
 
@@ -64,7 +66,7 @@ def _csv_rows_to_models(csv_path: Path) -> Iterable[LogoSekolah]:
 
 			if not kod:
 				# Skip malformed rows
-				print("Row %d skipped: missing KOD_INSTITUSI", idx)
+				logger.info("Row %d skipped: missing KOD_INSTITUSI", idx)
 				continue
 
 			model = LogoSekolah(
@@ -94,7 +96,7 @@ def upsert_logo_sekolah_from_csv(
 	if not csv_path.exists():
 		raise FileNotFoundError(f"CSV not found: {csv_path}")
 
-	print(f"Starting upsert from data: {csv_path}")
+	logger.info(f"Starting upsert from data: {csv_path}")
 
 	coll = _get_mongo_collection()
 	ops: List[UpdateOne] = []
@@ -114,7 +116,7 @@ def upsert_logo_sekolah_from_csv(
 		processed += 1
 
 		if processed % 1000 == 0:
-			print(f"Total updated: ", processed)
+			logger.info(f"Total updated: {processed}")
 
 		if len(ops) >= batch_size:
 			coll.bulk_write(ops, ordered=False)
@@ -130,7 +132,7 @@ def run() -> None:
 	"""Entry point to run the logo sekolah pipeline from CLI or orchestrator."""
 
 	total = upsert_logo_sekolah_from_csv()
-	print(f"Upserted {total} records into 'LogoSekolah' collection from tbi_institusi_induk.csv")
+	logger.info(f"Upserted {total} records into 'LogoSekolah' collection from tbi_institusi_induk.csv")
 
 
 if __name__ == "__main__":
