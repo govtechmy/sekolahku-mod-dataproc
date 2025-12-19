@@ -136,6 +136,9 @@ def process_csv_assets(settings: Settings) -> dict:
 
     cursor = sekolah_col.find({}).batch_size(settings.asset_export_batch_size)
 
+    total_schools = sekolah_col.count_documents({})
+    last_logged_percent = -1
+
 
     for sekolah in cursor:
         total += 1
@@ -167,17 +170,20 @@ def process_csv_assets(settings: Settings) -> dict:
                 {"$set": asset.to_document()},
                 upsert=True,
             )
+            percent = int((total / total_schools) * 100)
 
-            if total % 1000 == 0:
-                logger.info("Progress: %d processed | uploaded=%d failed=%d", total, uploaded, failed)
+            if percent != last_logged_percent and percent % 10 == 0:
+                logger.info("Progress: %d%% (%d/%d) | uploaded=%d skipped=%d failed=%d", percent, total, total_schools, uploaded, skipped, failed)
+                last_logged_percent = percent
 
         except Exception as e:
             failed += 1
             logger.error("Failed processing %s: %s", kod_sekolah, e)
 
     logger.info("Completed Asset Logo processing.")
-    logger.info("Total processed: %d", total)
-    logger.info("Uploaded logos: %d | Skipped: %d | Failed: %d", uploaded, skipped, failed)
+    logger.info("Total processed: %d | Uploaded logos: %d | Skipped: %d | Failed: %d", total, uploaded, skipped, failed)
+    if skipped_reasons:
+        logger.info("Skip reasons: %s", dict(skipped_reasons))
 
     return {
         "total_processed": total,
