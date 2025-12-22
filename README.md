@@ -189,7 +189,7 @@ uvicorn src.api:app --reload
 
 - **`GET /revalidate-school-entity`** - Trigger revalidation of school entities to S3
 
-- **`POST /process-csv-assets`** - Process base64-encoded images from CSV and upload to S3
+- **`POST /export-asset-logo`** - Process base64-encoded images from CSV and upload to S3
 
   - Reads CSV file with base64-encoded logo images from path configured in `ASSET_LOGO_SEKOLAH_CSV` environment variable
   - Parses `data:image/<type>;base64,<encoded>` format
@@ -202,7 +202,7 @@ uvicorn src.api:app --reload
   **Usage:**
 
   ```bash
-  curl -X POST 'http://127.0.0.1:8000/process-csv-assets' \
+  curl -X POST 'http://127.0.0.1:8000/export-asset-logo' \
     -H 'accept: application/json' \
     -d ''
   ```
@@ -465,7 +465,6 @@ The `AssetSekolah` collection stores S3 URLs for school assets (logos, images, J
 | `_id`       | str               | Document ID, set to `kodSekolah` (matches `Sekolah._id`)                |
 | `status`    | Optional[str]     | School status from `Sekolah` collection (e.g., "ACTIVE", "INACTIVE", null) |
 | `s3Url`   | object            | Contains S3 URLs for all asset types                                     |
-| `s3Url.json`    | Optional[str] | S3 URL for JSON data (reserved for future use)                          |
 | `s3Url.logo`    | Optional[str] | S3 URL for logo image, or `null` if not available                       |
 | `s3Url.gallery` | Optional[str] | S3 URL for gallery images (reserved for future use)                     |
 | `s3Url.hero`    | Optional[str] | S3 URL for hero image (reserved for future use)                         |
@@ -480,7 +479,6 @@ The `AssetSekolah` collection stores S3 URLs for school assets (logos, images, J
   "_id": "WBA0031",
   "status": "ACTIVE",
   "s3Url": {
-    "json": null,
     "logo": "https://my.gov.digital.sekolahku-public-dev.s3.amazonaws.com/PERAK/TAPAH/ABA0001/assets/logo.jpg",
     "gallery": null,
     "hero": null
@@ -495,7 +493,6 @@ The `AssetSekolah` collection stores S3 URLs for school assets (logos, images, J
   "_id": "ABC0001",
   "status": "ACTIVE",
   "s3Url": {
-    "json": null,
     "logo": null,
     "gallery": null,
     "hero": null

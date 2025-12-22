@@ -194,7 +194,7 @@ def export_asset_logo(background_tasks: BackgroundTasks) -> dict[str, str]:
             summary = process_csv_assets(settings)
             logger.info("Successfully processed and export asset logo: uploaded=%s skipped=%s failed=%s", summary.get("uploaded"), summary.get("skipped"), summary.get("failed"),)
         except Exception as e:
-            logger.exception(f"Failed to process asset logo export: {e}")
+            logger.exception(f"Failed to process asset logo export")
     
     background_tasks.add_task(_run_csv_asset_logo_job)
 

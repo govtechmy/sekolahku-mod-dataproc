@@ -221,7 +221,7 @@ def process_csv_assets(settings: Settings) -> dict:
 
             percent = int((total / total_schools) * 100)
             if percent != last_logged_percent and percent % 10 == 0:
-                logger.debug("Progress: %d%% (%d/%d) | uploaded=%d skipped=%d failed=%d", percent, total, total_schools,uploaded, skipped, failed)
+                logger.debug("Progress: %d%% (%d/%d) | uploaded=%d skipped=%d failed=%d", percent, total, total_schools, uploaded, skipped, failed)
                 last_logged_percent = percent
 
         except Exception as e:
