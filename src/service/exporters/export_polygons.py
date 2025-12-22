@@ -1,6 +1,7 @@
 import json
 import logging
 from typing import Dict, Any
+from concurrent.futures import ThreadPoolExecutor
 
 from pymongo import MongoClient
 
@@ -32,35 +33,46 @@ def export_negeri_polygons() -> Dict[str, Any]:
         # Fetch all negeri polygons with batch processing
         cursor = collection.find({}).batch_size(settings.polygon_export_batch_size)
         
-        for doc in cursor:
-            negeri = doc.get("negeri")
-            
-            if not negeri:
-                logger.warning("Skipping document without 'negeri' field")
-                summary["failed"] += 1
-                continue
-            
-            polygon_data = {
-                "negeri": negeri,
-                "geometry": doc.get("geometry"),
-                "updatedAt": doc.get("updatedAt").isoformat() if doc.get("updatedAt") else None
-            }
-            
-            try:
-                upload_json_to_s3(
+        # Use thread pool for parallel S3 uploads (documents are independent)
+        with ThreadPoolExecutor(max_workers=settings.entiti_revalidate_max_workers) as executor:
+            futures = []
+
+            for doc in cursor:
+                negeri = doc.get("negeri")
+
+                if not negeri:
+                    logger.warning("Skipping document without 'negeri' field")
+                    summary["failed"] += 1
+                    continue
+
+                polygon_data = {
+                    "negeri": negeri,
+                    "geometry": doc.get("geometry"),
+                    "updatedAt": doc.get("updatedAt").isoformat() if doc.get("updatedAt") else None
+                }
+
+                key = f"{settings.s3_prefix_polygon}/{negeri}/{negeri}.json"
+
+                future = executor.submit(
+                    upload_json_to_s3,
                     payload=polygon_data,
                     bucket=settings.s3_bucket_public,
-                    key=f"{settings.s3_prefix_polygon}/{negeri}/{negeri}.json"
+                    key=key
                 )
-                logger.debug(f"Exported Negeri polygon: {negeri} to {settings.s3_prefix_polygon}/{negeri}/{negeri}.json")
-                summary["success"] += 1
-            except Exception as e:
-                error_msg = f"Failed to export {negeri}: {str(e)}"
-                logger.error(error_msg)
-                summary["failed"] += 1
-                summary["errors"].append(error_msg)
-        
-        logger.info(f"Negeri polygon export completed: {summary['success']} succeeded, {summary['failed']} failed")
+                futures.append((future, negeri, key))
+
+            for future, negeri, key in futures:
+                try:
+                    future.result()
+                    logger.debug(f"Exported Negeri polygon: {negeri} to {key}")
+                    summary["success"] += 1
+                except Exception as e:
+                    error_msg = f"Failed to export {negeri}: {str(e)}"
+                    logger.error(error_msg)
+                    summary["failed"] += 1
+                    summary["errors"].append(error_msg)
+
+        logger.info("Negeri polygon export completed: %d succeeded, %d failed", summary["success"], summary["failed"],)
         
     except Exception as e:
         logger.exception(f"Error during negeri polygon export: {e}")
@@ -93,38 +105,51 @@ def export_parlimen_polygons() -> Dict[str, Any]:
          # Fetch all parlimen polygons with batch processing
         cursor = collection.find({}).batch_size(settings.polygon_export_batch_size)
         
-        for doc in cursor:
-            negeri = doc.get("negeri")
-            parlimen = doc.get("parlimen")
-            
-            if not negeri or not parlimen:
-                logger.warning(f"Skipping document without 'negeri' or 'parlimen' field: {doc.get('_id')}")
-                summary["failed"] += 1
-                continue
-            
-            # Prepare the JSON payload
-            polygon_data = {
-                "negeri": negeri,
-                "parlimen": parlimen,
-                "geometry": doc.get("geometry"),
-                "updatedAt": doc.get("updatedAt").isoformat() if doc.get("updatedAt") else None
-            }
-            
-            try:
-                upload_json_to_s3(
+        # Use thread pool for parallel S3 uploads (documents are independent)
+        with ThreadPoolExecutor(max_workers=settings.entiti_revalidate_max_workers) as executor:
+            futures = []
+
+            for doc in cursor:
+                negeri = doc.get("negeri")
+                parlimen = doc.get("parlimen")
+
+                if not negeri or not parlimen:
+                    logger.warning(
+                        "Skipping document without 'negeri' or 'parlimen' field: %s",
+                        doc.get("_id"),
+                    )
+                    summary["failed"] += 1
+                    continue
+
+                polygon_data = {
+                    "negeri": negeri,
+                    "parlimen": parlimen,
+                    "geometry": doc.get("geometry"),
+                    "updatedAt": doc.get("updatedAt").isoformat() if doc.get("updatedAt") else None
+                }
+
+                key = f"{settings.s3_prefix_polygon}/{negeri}/{parlimen}.json"
+
+                future = executor.submit(
+                    upload_json_to_s3,
                     payload=polygon_data,
                     bucket=settings.s3_bucket_public,
-                    key=f"{settings.s3_prefix_polygon}/{negeri}/{parlimen}.json"
+                    key=key
                 )
-                logger.debug(f"Exported Parlimen polygon: {negeri}/{parlimen} to {settings.s3_prefix_polygon}/{negeri}/{parlimen}.json")
-                summary["success"] += 1
-            except Exception as e:
-                error_msg = f"Failed to export {negeri}/{parlimen}: {str(e)}"
-                logger.error(error_msg)
-                summary["failed"] += 1
-                summary["errors"].append(error_msg)
-        
-        logger.info(f"Parlimen polygon export completed: {summary['success']} succeeded, {summary['failed']} failed")
+                futures.append((future, negeri, parlimen, key))
+
+            for future, negeri, parlimen, key in futures:
+                try:
+                    future.result()
+                    logger.debug("Exported Parlimen polygon: %s/%s to %s", negeri, parlimen, key)
+                    summary["success"] += 1
+                except Exception as e:
+                    error_msg = f"Failed to export {negeri}/{parlimen}: {str(e)}"
+                    logger.error(error_msg)
+                    summary["failed"] += 1
+                    summary["errors"].append(error_msg)
+
+        logger.info("Parlimen polygon export completed: %d succeeded, %d failed", summary["success"], summary["failed"],)
         
     except Exception as e:
         logger.exception(f"Error during parlimen polygon export: {e}")
@@ -151,7 +176,6 @@ def export_all_polygons() -> Dict[str, Any]:
         "total_failed": negeri_summary["failed"] + parlimen_summary["failed"]
     }
     
-    logger.info(f"Polygon export completed: {combined_summary['total_success']} total succeeded, {combined_summary['total_failed']} total failed"
-    )
+    logger.info("Polygon export completed: %d total succeeded, %d total failed", combined_summary["total_success"], combined_summary["total_failed"])
     
     return combined_summary

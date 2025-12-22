@@ -2,6 +2,8 @@ import csv
 import json
 import logging
 import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 import requests
 import boto3
 from urllib.parse import unquote_plus
@@ -20,6 +22,7 @@ S3_PREFIX_OPENDOSM = f"{settings.s3_prefix_opendosm}/parlimen/"
 
 _settings = get_settings()
 
+
 def print_schema(obj, indent=0):
     pad = " " * indent
     if isinstance(obj, dict):
@@ -37,13 +40,14 @@ def print_schema(obj, indent=0):
 def extract_filename(url: str) -> str:
     """
     Extract and format filename as: STATE_P.XXX_NAME.json
+
     Example: PULAU_PINANG_P.044_TANJONG.json
 
     URL format: ...kawasanku/Kedah/parlimen/P.010%20Kuala%20Kedah.json?state=Kedah&id=P.010+Kuala+Kedah
     """
     # Extract state from query parameter and decode URL encoding
     state_param = url.split("state=")[-1].split("&")[0]
-    # Decode URL encoding: %20 and + both become spaces, then replace spaces with _    
+    # Decode URL encoding: %20 and + both become spaces, then replace spaces with _
     state = unquote_plus(state_param).upper().replace(" ", "_")
 
     filename = url.split("/")[-1].split("?")[0]
@@ -69,8 +73,44 @@ def upload_to_s3(s3_client, local_path: str, s3_key: str) -> bool:
         return False
 
 
+def _fetch_and_upload(s3_client, url: str) -> tuple[bool, str]:
+    """Fetch a single URL and upload its JSON to S3.
+
+    Returns (success, url) so caller can update counters.
+    """
+    filename = extract_filename(url)
+    logger.debug("Downloading: %s", url)
+    logger.debug(
+        "Uploading to S3: s3://%s/%s%s",
+        settings.s3_bucket_dataproc,
+        S3_PREFIX_OPENDOSM,
+        filename,
+    )
+
+    try:
+        resp = requests.get(url, timeout=20)
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:  # noqa: BLE001
+        logger.error("ERROR fetching %s: %s", url, e)
+        return False, url
+
+    s3_raw_key = S3_PREFIX_OPENDOSM + filename
+    try:
+        s3_client.put_object(
+            Bucket=settings.s3_bucket_dataproc,
+            Key=s3_raw_key,
+            Body=json.dumps(data, indent=2, ensure_ascii=False),
+            ContentType="application/json",
+        )
+        return True, url
+    except Exception as e:  # noqa: BLE001
+        logger.error("S3 upload failed for %s: %s", url, e)
+        return False, url
+
+
 def main():
-    s3_client = boto3.client('s3')
+    s3_client = boto3.client("s3")
 
     with open(PARLIMEN_CSV_PATH, newline="", encoding="utf-8-sig") as f:
         reader = csv.reader(f)
@@ -86,47 +126,29 @@ def main():
     urls = [row[0].strip() for row in rows[1:] if row and row[0].strip()]
     total_urls = len(urls)
     logger.info(f"Total URLs to download: {total_urls}")
-    logger.info(f"Downloading and uploading to S3 in progress...")
+    logger.info("Downloading and uploading to S3 in progress...")
 
     # Counters for tracking
     upload_success = 0
     upload_failed = 0
 
-    # Download and upload directly to S3
-    for url in urls:
-        filename = extract_filename(url)
-        logger.debug(f"Downloading: {url}")
-        logger.debug(f"Uploading to S3: s3://{settings.s3_bucket_dataproc}/{S3_PREFIX_OPENDOSM}{filename}")
+    # Use thread workers for I/O-bound HTTP+S3 operations
+    with ThreadPoolExecutor(max_workers=settings.entiti_revalidate_max_workers) as executor:
+        future_to_url = {executor.submit(_fetch_and_upload, s3_client, url): url for url in urls}
 
-        try:
-            resp = requests.get(url, timeout=20)
-            resp.raise_for_status()
-            data = resp.json()
-        except Exception as e:
-            logger.error(f"ERROR: {e}")
-            continue
+        for future in as_completed(future_to_url):
+            success, url = future.result()
+            if success:
+                upload_success += 1
+            else:
+                upload_failed += 1
 
-        # Upload JSON directly to S3 (no local file)
-        s3_raw_key = S3_PREFIX_OPENDOSM + filename
-        try:
-            s3_client.put_object(
-                Bucket=settings.s3_bucket_dataproc,
-                Key=s3_raw_key,
-                Body=json.dumps(data, indent=2, ensure_ascii=False),
-                ContentType='application/json'
-            )
-            upload_success += 1
-        except Exception as e:
-            logger.error(f"S3 upload failed: {e}")
-            upload_failed += 1
-            continue
-
-    logger.info(f"Upload successful: {upload_success}, failed: {upload_failed}")
+    logger.info("Upload successful: %d, failed: %d", upload_success, upload_failed)
 
 
 if __name__ == "__main__":
     logging.basicConfig(
         level=logging.INFO,
-        format='%(asctime)s - %(levelname)s - %(message)s'
+        format="%(asctime)s - %(levelname)s - %(message)s",
     )
     main()
