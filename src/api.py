@@ -15,6 +15,7 @@ from src.service.entiti_revalidate import revalidate_school_entity
 from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
 from src.service.polygons import scrape_opendosm_negeri, scrape_opendosm_parlimen
 from src.service.exporters.export_polygons import export_all_polygons
+from src.service.exporters.export_centroids import export_all_centroids
 from src.service.builders.build_snap_routes import generate_and_upload_snap_routes
 from src.service.builders.build_school_list import generate_and_upload_school_list
 from src.pipeline.malaysia_polygon import run_malaysia_polygon_pipeline
@@ -215,6 +216,23 @@ def export_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str
     background_tasks.add_task(export_polygons_job)
 
     return {"status": "received request to export polygons to S3"}
+
+
+@app.post("/export-centroids", tags=["s3-publisher"])
+def export_centroids_endpoint() -> dict[str, Any]:
+    """Export centroid-only polygon data to the public S3 bucket."""
+    try:
+        summary = export_all_centroids()
+        return {"status": "completed", "summary": summary}
+    except PyMongoError as e:
+        logger.exception("Database error while exporting centroids: %s", e)
+        raise HTTPException(status_code=500, detail="Database error while exporting centroids")
+    except ClientError as e:
+        logger.exception("S3 error while exporting centroids: %s", e)
+        raise HTTPException(status_code=502, detail="S3 upload failed while exporting centroids")
+    except Exception as e:
+        logger.exception("Unexpected error while exporting centroids: %s", e)
+        raise HTTPException(status_code=500, detail="Unexpected error while exporting centroids")
 
 
 @app.on_event("startup")
