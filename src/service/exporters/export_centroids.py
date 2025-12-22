@@ -17,7 +17,7 @@ def export_negeri_centroids() -> Dict[str, Any]:
     db = client[settings.db_name]
     collection = db[settings.negeri_polygon_collection]
 
-    summary: Dict[str, Any] = {"type": "negeri", "success": 0, "failed": 0, "skipped": 0, "errors": []}
+    summary: Dict[str, Any] = {"type": "negeri", "success": 0, "failed": 0, "skipped": 0, "errors": [], "keys": []}
 
     try:
         cursor = collection.find({}, {"_id": 0, "negeri": 1, "centroid": 1}).batch_size(settings.polygon_export_batch_size)
@@ -42,6 +42,7 @@ def export_negeri_centroids() -> Dict[str, Any]:
                 try:
                     future.result()
                     summary["success"] += 1
+                    summary["keys"].append(key)
                 except Exception as e:
                     logger.exception("Failed exporting centroid for negeri=%s to key=%s", negeri, key)
                     summary["failed"] += 1
@@ -61,7 +62,7 @@ def export_parlimen_centroids() -> Dict[str, Any]:
     db = client[settings.db_name]
     collection = db[settings.parlimen_polygon_collection]
 
-    summary: Dict[str, Any] = {"type": "parlimen", "success": 0, "failed": 0, "skipped": 0, "errors": []}
+    summary: Dict[str, Any] = {"type": "parlimen", "success": 0, "failed": 0, "skipped": 0, "errors": [], "keys": []}
 
     try:
         cursor = collection.find({}, {"_id": 0, "parlimen": 1, "centroid": 1}).batch_size(settings.polygon_export_batch_size)
@@ -86,6 +87,7 @@ def export_parlimen_centroids() -> Dict[str, Any]:
                 try:
                     future.result()
                     summary["success"] += 1
+                    summary["keys"].append(key)
                 except Exception as e:
                     logger.exception("Failed exporting centroid for parlimen=%s to key=%s", parlimen, key)
                     summary["failed"] += 1
@@ -105,7 +107,7 @@ def export_malaysia_centroids() -> Dict[str, Any]:
     db = client[settings.db_name]
     collection = db[settings.malaysia_polygon_collection]
 
-    summary: Dict[str, Any] = {"type": "malaysia", "success": 0, "failed": 0, "skipped": 0, "errors": []}
+    summary: Dict[str, Any] = {"type": "malaysia", "success": 0, "failed": 0, "skipped": 0, "errors": [], "keys": []}
 
     try:
         cursor = collection.find({}, {"_id": 0, "region": 1, "centroid": 1})
@@ -130,6 +132,7 @@ def export_malaysia_centroids() -> Dict[str, Any]:
                 try:
                     future.result()
                     summary["success"] += 1
+                    summary["keys"].append(key)
                 except Exception as e:
                     logger.exception("Failed exporting centroid for region=%s to key=%s", region, key)
                     summary["failed"] += 1
@@ -153,9 +156,32 @@ def export_all_centroids() -> Dict[str, Any]:
         future_parlimen = executor.submit(export_parlimen_centroids)
         future_malaysia = executor.submit(export_malaysia_centroids)
 
-        return {
-            "negeri": future_negeri.result(),
-            "parlimen": future_parlimen.result(),
-            "malaysia": future_malaysia.result(),
-        }
+        negeri_summary = future_negeri.result()
+        parlimen_summary = future_parlimen.result()
+        malaysia_summary = future_malaysia.result()
+
+    def strip_centroid_prefix(key: str) -> str:
+        prefix = "centroid/"
+        return key[len(prefix):] if key.startswith(prefix) else key
+
+    manifest = {
+        "negeri": [strip_centroid_prefix(k) for k in negeri_summary.get("keys", [])],
+        "parlimen": [strip_centroid_prefix(k) for k in parlimen_summary.get("keys", [])],
+        "malaysia": [strip_centroid_prefix(k) for k in malaysia_summary.get("keys", [])],
+    }
+
+    manifest_key = "centroid/index.json"
+
+    upload_json_to_s3(
+        payload=manifest,
+        bucket=settings.s3_bucket_public,
+        key=manifest_key,
+    )
+
+    return {
+        "negeri": negeri_summary,
+        "parlimen": parlimen_summary,
+        "malaysia": malaysia_summary,
+        "manifest_key": manifest_key,
+    }
 
