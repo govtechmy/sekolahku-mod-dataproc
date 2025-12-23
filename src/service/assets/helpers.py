@@ -11,6 +11,10 @@ from typing import Tuple, Optional
 
 from src.service.assets.logo_enum import LogoStatus, LogoReason
 
+from io import BytesIO
+from PIL import Image
+import base64
+
 
 def parse_image_data_url(data_url: str) -> Tuple[str, bytes]:
     """
@@ -51,3 +55,19 @@ def build_manifest(
         },
         "updatedAt": _utc_now().isoformat(),
     }
+
+def convert_to_png(data_url: str) -> bytes:
+    """
+    Convert any base64 image to PNG bytes.
+    """
+    if not data_url.startswith("data:image/") or ";base64," not in data_url:
+        raise ValueError("Invalid base64 image data URL")
+
+    header, encoded = data_url.split(",", 1)
+    img_bytes = base64.b64decode(encoded)
+
+    with Image.open(BytesIO(img_bytes)) as img:
+        img = img.convert("RGBA")
+        output = BytesIO()
+        img.save(output, format="PNG")
+        return output.getvalue()

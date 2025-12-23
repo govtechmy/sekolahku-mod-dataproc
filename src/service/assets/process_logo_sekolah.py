@@ -20,11 +20,13 @@ from pymongo import MongoClient
 from src.config.settings import Settings, get_settings
 from src.core.s3 import _read_csv_from_s3, get_s3_client
 from src.models.asset_sekolah import AssetSekolah, S3Urls
-from src.service.assets.helpers import parse_image_data_url, _utc_now, build_manifest
+from src.service.assets.helpers import convert_to_png, parse_image_data_url, _utc_now, build_manifest
 from src.service.assets.logo_enum import LogoReason, LogoStatus
-
+from PIL import Image
 
 settings = get_settings()
+
+Image.MAX_IMAGE_PIXELS = None
 
 logging.basicConfig(
     level=getattr(logging, settings.log_level.upper(), logging.INFO),
@@ -94,18 +96,18 @@ def load_csv_logo_map(*, settings: Settings, sekolah_col) -> Dict[str, Optional[
 
 def upload_logo_to_s3(*, logo_data_url: str, negeri: str, parlimen: str, kod_sekolah: str, settings: Settings) -> str:
     """
-    Decode base64 logo and upload to public S3.
+    Convert logo to PNG and upload to public S3.
     Returns public S3 URL.
     """
-    ext, img_bytes = parse_image_data_url(logo_data_url)
+    img_bytes = convert_to_png(logo_data_url)
 
-    key = f"{negeri}/{parlimen}/{kod_sekolah}/assets/logo.{ext}"
+    key = f"{negeri}/{parlimen}/{kod_sekolah}/assets/logo.png"
 
     s3.put_object(
         Bucket=settings.s3_bucket_public,
         Key=key,
         Body=img_bytes,
-        ContentType=f"image/{ext}",
+        ContentType="image/png",
     )
 
     return f"https://{settings.s3_bucket_public}.s3.amazonaws.com/{key}"
