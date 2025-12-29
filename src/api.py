@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import logging
 from typing import Any
-
 from botocore.exceptions import ClientError
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi_crons import Crons
+from pydantic import BaseModel
 from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
@@ -19,6 +19,7 @@ from src.service.exporters.export_centroids import export_all_centroids
 from src.service.builders.build_snap_routes import generate_and_upload_snap_routes
 from src.service.builders.build_school_list import generate_and_upload_school_list
 from src.pipeline.malaysia_polygon import run_malaysia_polygon_pipeline
+from src.service.assets import process_csv_assets
 
 logger = logging.getLogger(__name__)
 app = FastAPI()
@@ -28,7 +29,7 @@ settings = get_settings()
 
 if not logging.getLogger().handlers:
     logging.basicConfig(
-        level=logging.INFO,
+        level=getattr(logging, settings.log_level.upper(), logging.INFO),
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     )
 
@@ -179,6 +180,26 @@ def scrape_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict
     background_tasks.add_task(scrape_polygons_job)
 
     return {"status": "received request to scrape OpenDOSM Negeri & Parlimen data"}
+
+
+@app.post("/export-asset-logo", tags=["s3-publisher"])
+def export_asset_logo(background_tasks: BackgroundTasks) -> dict[str, str]:
+    """
+    Trigger processing of logo csv into S3 public & Mongodb AssetSekolah collection.
+    """
+
+    logger.info("Received request to process and export asset logo")
+    
+    def _run_csv_asset_logo_job():
+        try:
+            summary = process_csv_assets(settings)
+            logger.info("Successfully processed and export asset logo: uploaded=%s skipped=%s failed=%s", summary.get("uploaded"), summary.get("skipped"), summary.get("failed"),)
+        except Exception as e:
+            logger.exception(f"Failed to process asset logo export")
+    
+    background_tasks.add_task(_run_csv_asset_logo_job)
+
+    return {"status": "received"}
 
 
 @app.post("/load-negeri-parlimen-polygons", tags=["ingestion"])

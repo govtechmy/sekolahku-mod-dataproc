@@ -29,6 +29,7 @@ Configuration (source, paths, Mongo connection, etc.) is controlled entirely thr
 - `--entiti` triggers the EntitiSekolah aggregation pipeline.
 - `--analitik` triggers the AnalitikSekolah aggregation pipeline.
 - `--load-polygons` loads OpenDOSM polygon seed data from S3 into `NegeriPolygon` and `ParlimenPolygon` collections
+- `--process-csv-assets <path>` processes CSV with base64-encoded images, validates, decodes, and uploads to S3
 - `--log-level <LEVEL>` adjusts logging verbosity for the current process (choose from `DEBUG`, `INFO`, `WARNING`, `ERROR`).
 
 The `--entiti` flag writes to the `EntitiSekolah` collection. The `--analitik` flag writes to the `AnalitikSekolah` collection. The `--load-polygons` flag reads from S3 and writes to the `NegeriPolygon` and `ParlimenPolygon` collections.
@@ -188,6 +189,122 @@ uvicorn src.api:app --reload
 
 - **`GET /revalidate-school-entity`** - Trigger revalidation of school entities to S3
 
+- **`POST /export-asset-logo`** - Process base64-encoded images from CSV and upload to S3
+
+  - Reads CSV file with base64-encoded logo images from path configured in `ASSET_LOGO_SEKOLAH_CSV` environment variable
+  - Parses `data:image/<type>;base64,<encoded>` format
+  - Processes **ALL schools in MongoDB `Sekolah` collection** (regardless of CSV presence)
+  - Schools in CSV: Logo uploaded if base64 data exists
+  - Schools NOT in CSV: Asset record created with `logo: null`
+  - Uploads decoded images to S3 public bucket at path: `{negeri}/{parlimen}/{kodSekolah}/assets/logo.{ext}`
+  - Stores S3 URLs in MongoDB `AssetSekolah` collection
+
+  **Usage:**
+
+  ```bash
+  curl -X POST 'http://127.0.0.1:8000/export-asset-logo' \
+    -H 'accept: application/json' \
+    -d ''
+  ```
+
+  **Response:**
+  
+  The API endpoint returns immediately and processes in the background:
+  
+  ```json
+  {"status": "received"}
+  ```
+  
+  **Monitoring:**
+  
+  - Check the **Python terminal** where uvicorn is running for logs
+  
+  You'll see output like:
+  ```
+  CSV asset processing completed: uploaded=9253 skipped=70 failed=0
+  ```
+
+  #### Asset Logo CSV Constraints & Behaviour
+
+  - The logo CSV is typically loaded from the **dataproc S3 bucket** using settings:
+    - `s3_bucket_dataproc`
+    - `s3_prefix_assets`
+    - `asset_logo_csv_filename`
+  - Only rows whose `KOD_INSTITUSI` matches an existing `_id` in the `Sekolah` collection are considered.
+    - Rows for **upcoming schools not yet present in MongoDB are skipped by design**.
+  - The processor reads the CSV in **streaming chunks** using `pandas.read_csv` with a configurable `asset_logo_csv_batch_size`.
+  - During development, a `max_rows` safeguard may cap how many CSV rows are scanned; increase or remove this limit for full runs.
+
+  Log output summarizes:
+
+  - Total CSV rows scanned
+  - How many matched existing schools
+  - How many rows were skipped because the school does not yet exist in MongoDB
+
+- **`POST /export-asset-logo`** - Export logo assets from CSV to S3 public bucket and MongoDB `AssetSekolah`
+
+  - Loads the logo CSV from the dataproc S3 bucket using settings: `s3_bucket_dataproc`, `s3_prefix_assets`, and `asset_logo_csv_filename`
+  - Expects columns `KOD_INSTITUSI`, `NAMA_PENUH_INSTITUSI`, `LOGO`
+  - Matches `KOD_INSTITUSI` to `_id` in the `Sekolah` collection; rows whose codes are not in MongoDB are skipped
+  - Iterates over **all** schools in the `Sekolah` collection
+    - If `negeri` is missing, the school is counted as failed and skipped
+    - If `parlimen` is missing, no S3 upload happens but an `AssetSekolah` record is still created/updated
+    - If a valid `LOGO` data URL exists and both `negeri` and `parlimen` are present, uploads the decoded image to the public S3 bucket at `{negeri}/{parlimen}/{kodSekolah}/assets/logo.{ext}` and stores the full S3 URL in `s3Url.logo`
+    - If no logo is available, `s3Url.logo` is set to `null` but the document still exists
+  - Writes a grouped error/skip report to `src/service/assets/error.txt` for diagnostics
+
+  **Usage:**
+
+  ```bash
+  curl -X POST 'http://127.0.0.1:8000/export-asset-logo' \
+    -H 'accept: application/json' \
+    -d ''
+  ```
+
+  The endpoint returns immediately with:
+
+  ```json
+  {"status": "received"}
+  ```
+
+  #### Asset Logo Manifest JSON
+
+  As part of the export pipeline, a detailed manifest is generated and uploaded to the **public S3 bucket**:
+
+  - **Bucket**: `s3_bucket_public`
+  - **Key**: `manifest.json`
+
+  This file contains a per-school record of logo processing status and reasons (if skipped), for example:
+
+  ```jsonc
+  {
+    "generatedAt": "2025-12-18T10:30:00.000Z",
+    "totalSekolah": 10244,
+    "sekolah": [
+      {
+        "kodSekolah": "WBA0031",
+        "negeri": "PERAK",
+        "parlimen": "TAPAH",
+        "logoStatus": "UPLOADED",
+        "logoReason": null,
+        "logoUrl": "https://my.gov.digital.sekolahku-public-dev.s3.amazonaws.com/PERAK/TAPAH/WBA0031/assets/logo.jpg"
+      },
+      {
+        "kodSekolah": "ABC0001",
+        "negeri": "PERAK",
+        "parlimen": null,
+        "logoStatus": "SKIPPED",
+        "logoReason": "MISSING_PARLIMEN",
+        "logoUrl": null
+      }
+    ]
+  }
+  ```
+
+  Use this manifest for auditing runs, inspecting failure reasons (for example `NO_LOGO_IN_CSV`, `MISSING_NEGERI`, `MISSING_PARLIMEN`), and debugging logo data issues.
+
+  Processing continues in the background; check the application logs for `uploaded`, `skipped`, and `failed` counts, and inspect `src/service/assets/error.txt` for detailed school lists by reason.
+
 ### Scheduled Cron Jobs
 
 The FastAPI service includes **automated daily ingestion** via `fastapi-crons`:
@@ -334,6 +451,57 @@ Array of assistance/funding type statistics, each containing:
 | `jenis`   | str   | `Bantuan` type (e.g., "SK", "SBK")                    |
 | `peratus` | float | Percentage of total `sekolah`                         |
 | `total`   | int   | Absolute count of `sekolah` with this assistance type |
+
+---
+
+## AssetSekolah Collection
+
+The `AssetSekolah` collection stores S3 URLs for school assets (logos, images, JSON files). **Every school in the `Sekolah` collection gets an entry**, regardless of whether they have assets in the CSV.
+
+### AssetSekolah Document Structure
+
+| Field       | Type              | Notes                                                                    |
+| ----------- | ----------------- | ------------------------------------------------------------------------ |
+| `_id`       | str               | Document ID, set to `kodSekolah` (matches `Sekolah._id`)                |
+| `status`    | Optional[str]     | School status from `Sekolah` collection (e.g., "ACTIVE", "INACTIVE", null) |
+| `s3Url`   | object            | Contains S3 URLs for all asset types                                     |
+| `s3Url.logo`    | Optional[str] | S3 URL for logo image, or `null` if not available                       |
+| `s3Url.gallery` | Optional[str] | S3 URL for gallery images (reserved for future use)                     |
+| `s3Url.hero`    | Optional[str] | S3 URL for hero image (reserved for future use)                         |
+| `updatedAt` | datetime (string) | ISO 8601 timestamp when the record was last updated                      |
+
+
+### Example Documents
+
+**School with logo:**
+```json
+{
+  "_id": "WBA0031",
+  "status": "ACTIVE",
+  "s3Url": {
+    "logo": "https://my.gov.digital.sekolahku-public-dev.s3.amazonaws.com/PERAK/TAPAH/ABA0001/assets/logo.jpg",
+    "gallery": null,
+    "hero": null
+  },
+  "updatedAt": "2025-12-18T10:30:00.000Z"
+}
+```
+
+**School without logo (not in CSV or no logo data):**
+```json
+{
+  "_id": "ABC0001",
+  "status": "ACTIVE",
+  "s3Url": {
+    "logo": null,
+    "gallery": null,
+    "hero": null
+  },
+  "updatedAt": "2025-12-18T10:30:00.000Z"
+}
+```
+
+**Note:** The path format uses hyphens instead of underscores (e.g., `WILAYAH-PERSEKUTUAN-KUALA-LUMPUR` instead of `WILAYAH_PERSEKUTUAN_KUALA_LUMPUR`)
 
 ---
 
