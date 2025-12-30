@@ -7,6 +7,3 @@ def _utc_now() -> datetime:
     """Return timezone UTC datetime."""
     return datetime.now(timezone.utc)
 
-
-def utc_now() -> datetime:
-    return _utc_now()
