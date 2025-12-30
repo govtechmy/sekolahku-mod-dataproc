@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from src.config.settings import get_settings
 from src.models.negeri_enum import NegeriEnum
+from src.core.time import _utc_now
 
 
 MISSING_VALUES = {"TIADA", "", "NONE", "-", "--", "BELUM ADA"}
@@ -17,8 +18,6 @@ BOOL_YA_MAP = {"YA": True, "TIDAK": False, "": None}
 
 _settings = get_settings()
 
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
 
 class SekolahStatus(str, Enum):
     ACTIVE = "ACTIVE"

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from src.core.time import _utc_now
 from typing import ClassVar, List, Literal, Tuple
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -10,9 +11,6 @@ from src.config.settings import get_settings
 
 _settings = get_settings()
 
-
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 class GeoJSONPolygon(BaseModel):

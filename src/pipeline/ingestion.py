@@ -21,6 +21,7 @@ from src.core.gsheet import fetch_csv_data
 from src.core.s3 import (_upload_to_s3, _latest_csv_from_s3, _read_csv_from_s3)
 from src.models.sekolah import SekolahStatus
 from src.pipeline.status_sync import sync_entiti_statuses
+from src.core.time import _utc_now
 
 
 CHECKSUM_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt", "checksum", "status"}
@@ -35,8 +36,6 @@ def _compute_checksum(document: Dict[str, Any]) -> str:
     serialized = json.dumps(filtered, sort_keys=True, separators=(",", ":"), ensure_ascii=False,)
     return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
 
 def _merge_document(
     existing: dict[str, Any] | None,
