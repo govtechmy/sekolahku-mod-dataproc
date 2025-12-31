@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import ClassVar, Optional, TYPE_CHECKING
 
 from datetime import datetime, timezone
+from src.core.time import _utc_now
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 from pydantic import ConfigDict
@@ -15,8 +16,6 @@ from src.models.negeri_enum import NegeriEnum
 if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
     from src.models.sekolah import Sekolah
 
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
 
 class InfoSekolah(BaseModel):
     jenisLabel: Optional[str] = Field(default=None, description="Type of school label e.g SK, SMK, SMKA, etc.")

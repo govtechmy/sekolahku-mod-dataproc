@@ -3,7 +3,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 from src.config.settings import get_settings
-from src.service.assets.helpers import _utc_now
+from src.core.time import _utc_now
 
 
 _settings = get_settings()

@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from typing import ClassVar, Optional, TYPE_CHECKING
 from collections import defaultdict
-from datetime import datetime, timezone
-
 from pydantic import BaseModel, Field
 from src.config.settings import get_settings
 
@@ -11,9 +9,8 @@ if TYPE_CHECKING:  # pragma: no cover - imported for type checking only
     from src.models.sekolah import Sekolah
 
 
-def _utc_now() -> datetime:
-    """Return timezone-aware UTC datetime."""
-    return datetime.now(timezone.utc)
+from datetime import datetime, timezone
+from src.core.time import _utc_now
 
 
 class AnalitikItem(BaseModel):

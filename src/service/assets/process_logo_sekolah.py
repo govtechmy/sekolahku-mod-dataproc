@@ -20,7 +20,8 @@ from pymongo import MongoClient
 from src.config.settings import Settings, get_settings
 from src.core.s3 import _read_csv_from_s3, get_s3_client
 from src.models.asset_sekolah import AssetSekolah, S3Urls
-from src.service.assets.helpers import convert_to_png, parse_image_data_url, _utc_now, build_manifest
+from src.service.assets.helpers import convert_to_png, parse_image_data_url, build_manifest
+from src.core.time import _utc_now
 from src.service.assets.logo_enum import LogoReason, LogoStatus
 from PIL import Image
 

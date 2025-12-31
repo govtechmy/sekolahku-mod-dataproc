@@ -1,5 +1,6 @@
 from typing import List, Optional, Any, ClassVar, Dict
 from datetime import datetime, timezone
+from src.core.time import _utc_now
 
 from pydantic import BaseModel, Field
 from src.config.settings import get_settings
@@ -7,10 +8,6 @@ from src.models.negeri_enum import NegeriEnum
 
 
 _settings = get_settings()
-
-
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
 
 
 class NegeriPolygonCentroid(BaseModel):

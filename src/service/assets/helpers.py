@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import base64
 import mimetypes
-from datetime import datetime, timezone
+from src.core.time import _utc_now
 from typing import Tuple, Optional
 
 from src.service.assets.logo_enum import LogoStatus, LogoReason
@@ -30,10 +30,6 @@ def parse_image_data_url(data_url: str) -> Tuple[str, bytes]:
 
     return ext.lstrip("."), base64.b64decode(encoded)
 
-
-def _utc_now() -> datetime:
-    """Return timezone-aware UTC datetime."""
-    return datetime.now(timezone.utc)
 
 def build_manifest(
     *,
