@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import logging
 
+from src.core.logging_filter import configure_logging
 from src.config.settings import Settings, get_settings
 from src.pipeline import (
     run as run_pipeline,
@@ -55,6 +56,7 @@ def run_ingest(settings: Settings | None = None) -> dict:
     """
     if settings is None:
         settings = get_settings()
+        configure_logging(settings)
     
     # -------------------------
     # Run ingestion pipeline

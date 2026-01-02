@@ -10,6 +10,7 @@ from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
 from src.main import run_ingest
+from src.core.logging_filter import configure_logging
 from src.config.settings import get_settings
 from src.service.entiti_revalidate import revalidate_school_entity
 from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
@@ -26,6 +27,7 @@ app = FastAPI()
 crons = Crons()
 
 settings = get_settings()
+configure_logging(settings)
 
 if not logging.getLogger().handlers:
     logging.basicConfig(
