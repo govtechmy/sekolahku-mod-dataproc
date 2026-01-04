@@ -319,7 +319,3 @@ The pipeline creates and manages the following MongoDB collections:
 - **`NegeriParlimenKodSekolah`** - Lookup table for school code mappings
 
 ---
-
-## License
-
-TBD
