@@ -1,617 +1,321 @@
 # sekolahku-mod-dataproc
 
-```bash
-# Run the ingestion pipeline
-python -m src.main
+Data processing pipeline for Sekolahku - handles ingestion, transformation, and aggregation of school data from various sources into MongoDB collections.
 
-# Inline override example
-# Point to a different CSV file for one-off runs
-CSV_PATH=data/custom_sekolah.csv python -m src.main
+## Table of Contents
 
-# Run ingestion and EntitiSekolah aggregation
-python -m src.main --entiti
+- [Requirements](#requirements)
+- [Setup](#setup)
+- [Running the Application](#running-the-application)
+  - [CLI Usage](#cli-usage)
+  - [API Server](#api-server)
+- [API Endpoints](#api-endpoints)
+- [MongoDB Setup](#mongodb-setup)
 
-# Extract GeoJSON polygons from OPENDOSM to S3
-python -m src.service.polygons.scrape_opendosm_negeri
-python -m src.service.polygons.scrape_opendosm_parlimen
-
-# Load extracted polygons from S3 into MongoDB
-python -m src.main --load-polygons
-
-# Show verbosity for a single run
-python -m src.main --log-level DEBUG
-```
-
-### Command-line flags
-
-Configuration (source, paths, Mongo connection, etc.) is controlled entirely through environment variables. Define values in `.env` or export them before running the module. The CLI exposes a couple of runtime toggles:
-
-- `--entiti` triggers the EntitiSekolah aggregation pipeline.
-- `--analitik` triggers the AnalitikSekolah aggregation pipeline.
-- `--load-polygons` loads OpenDOSM polygon seed data from S3 into `NegeriPolygon` and `ParlimenPolygon` collections
-- `--process-csv-assets <path>` processes CSV with base64-encoded images, validates, decodes, and uploads to S3
-- `--log-level <LEVEL>` adjusts logging verbosity for the current process (choose from `DEBUG`, `INFO`, `WARNING`, `ERROR`).
-
-The `--entiti` flag writes to the `EntitiSekolah` collection. The `--analitik` flag writes to the `AnalitikSekolah` collection. The `--load-polygons` flag reads from S3 and writes to the `NegeriPolygon` and `ParlimenPolygon` collections.
-
-### Managing MongoDB Indexes
-
-MongoDB indexes for this project is managed in `src/db/indexes.py`.
-
-These indexes only need to be created once for your database.
-If you need to rerun the setup, simply execute:
-
-```bash
-python -m src.db.indexes
-```
-
-Running the command multiple times will skip any existing indexes with matching key definitions.
+---
 
 ## Requirements
 
-Python 3.11+
+- Python 3.11+
+- MongoDB instance (local or remote)
+- AWS S3 access (for polygon data and assets)
 
-### Environment setup
+## Setup
 
-Create and activate a virtual environment, then install dependencies:
+### 1. Clone and Navigate
+
+```bash
+git clone <repository-url>
+cd sekolahku-mod-dataproc
+```
+
+### 2. Create Virtual Environment
 
 ```bash
 python -m venv venv
-source venv/bin/activate  # On Windows use: venv\Scripts\activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+### 3. Install Dependencies
+
+```bash
 pip install -r requirements.txt
 ```
 
-The dependency list includes FastAPI for the API health check. Ensure your environment exports the Mongo-related variables (`MONGO_URI`, `DB_NAME`, etc.) before running CLI or API commands.
+### 4. Configure Environment Variables
 
-## Environment Variables
-
-Refer to .env.example.
-Create a `.env`.
-
-If your Mongo instance requires authentication, embed the `username:password@` portion and any `authSource` query params directly in `MONGO_URI`.
-
-## Running Ingestion
-
-Set the required variables through `.env` or inline exports, then launch the module:
+Create a `.env` file in the project root (refer to `.env.example` for reference):
 
 ```bash
+# MongoDB Configuration
+MONGO_URI=mongodb://localhost:27017
+DB_NAME=sekolahku
+
+# AWS S3 Configuration
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+S3_BUCKET_DATAPROC=your-dataproc-bucket
+S3_BUCKET_PUBLIC=your-public-bucket
+
+# CSV Data Path
+CSV_PATH=data/sekolah.csv
+
+# Asset Configuration (optional)
+ASSET_LOGO_SEKOLAH_CSV=assets/logo.csv
+```
+
+**Note:** If your MongoDB requires authentication, embed credentials in the `MONGO_URI`:
+```
+MONGO_URI=mongodb://username:password@host:port/?authSource=admin
+```
+
+---
+
+## Running the Application
+
+### CLI Usage
+
+The CLI provides various commands for data ingestion and processing:
+
+#### Basic Ingestion
+
+```bash
+# Run full ingestion pipeline
 python -m src.main
 
-# Inline override example
+# Use a different CSV file
 CSV_PATH=data/custom_sekolah.csv python -m src.main
 
-# Run EntitiSekolah pipeline
-python -m src.main --entiti
-
-# Run AnalitikSekolah pipeline
-python -m src.main --analitik
-
-# Load polygon seed collections from S3
-python -m src.main --load-polygons
-
-# Increase verbosity for a single run
+# Enable debug logging
 python -m src.main --log-level DEBUG
 ```
 
-The process reads configuration from environment variables.
-
-Each run prints a summary dictionary, for example:
+#### Aggregation Pipelines
 
 ```bash
-python -m src.main
-```
-
-`Ingestion summary: {'collection': 'Sekolah', 'total': 10245, 'processed': 10244, 'failed': 1, 'errors': [{'row': 1, 'error': 'kodSekolah is required'}], 'inserted': 10244}`
-
-```bash
+# Run EntitiSekolah aggregation
 python -m src.main --entiti
-```
 
-`Entiti summary: {'entiti': {'collection': 'EntitiSekolah', 'total': 10244, 'processed': 10244, 'failed': 0, 'errors': [], 'inserted': 10244}}`.
-
-```bash
+# Run AnalitikSekolah aggregation
 python -m src.main --analitik
 ```
 
-`Analitik summary: {'analitik': {'processed': 1, 'inserted': 1, 'collection': 'AnalitikSekolah'}}`
+#### Polygon Data Processing
 
 ```bash
+# Extract polygons from OpenDOSM to S3
+python -m src.service.polygons.scrape_opendosm_negeri
+python -m src.service.polygons.scrape_opendosm_parlimen
+
+# Load polygons from S3 into MongoDB
 python -m src.main --load-polygons
 ```
 
-`Negeri summary: {'negeri': {'processed': 16, 'succeeded': 16, 'failed': 0, 'collection': 'NegeriPolygon'}, 'total_negeri_files_scanned': 16}`
+#### Command-line Flags
 
-`Parlimen summary: {'parlimen': {'processed': 222, 'succeeded': 222, 'failed': 0, 'skipped': 0, 'collection': 'ParlimenPolygon'}, 'total_files_scanned': 222}`
+- `--entiti` - Trigger EntitiSekolah aggregation pipeline
+- `--analitik` - Trigger AnalitikSekolah aggregation pipeline
+- `--load-polygons` - Load OpenDOSM polygon data from S3 into MongoDB
+- `--log-level <LEVEL>` - Set logging level (`DEBUG`, `INFO`, `WARNING`, `ERROR`)
 
-```bash
-python -m src.service.polygons.scrape_opendosm_negeri
+---
 
-python -m src.service.polygons.scrape_opendosm_parlimen
-```
+### API Server
 
-```
-Extraction summary: {'extracted': 16, 'uploaded_to_s3': 16}
-Extraction summary: {'extracted': 222, 'uploaded_to_s3': 222}
-```
-
-## Running the API
-
-Serve the FastAPI application with an ASGI server such as `uvicorn` after activating your virtual environment:
+Start the FastAPI server using uvicorn:
 
 ```bash
 uvicorn src.api:app --reload
+
+# Run on a specific host and port
+uvicorn src.api:app --host 0.0.0.0 --port 8000
 ```
 
-### Available Endpoints
+The API will be available at `http://localhost:8000`
 
-- **`GET /health`** - Health check that verifies MongoDB connectivity
+#### Scheduled Jobs
 
-  - Returns `{"status": "ok", "database": "<DB_NAME>"}` when database is reachable
-  - Returns `503 Service Unavailable` if database is unreachable
+The API includes an automated daily ingestion job:
+- **Schedule:** Daily at midnight (`0 0 * * *`)
+- **Function:** Executes full ingestion pipeline (CSV ingestion, EntitiSekolah, NegeriParlimenKodSekolah, AnalitikSekolah)
 
-- **`POST /load-full-ingestion`** - Trigger the full ingestion pipeline on-demand
-
-  - Executes the complete data ingestion
-  - Independent from the scheduled daily job
-
-  **Usage :**
-
-  ```bash
-  # Trigger ingestion
-  curl -X POST http://localhost:8000/load-full-ingestion
-  ```
-
-  **Monitoring Job Status:**
-
-  Full logs including success/failure status are displayed in the terminal where the uvicorn server is running. After triggering the endpoint, check the server terminal for:
-
-  - `"Received request to trigger full ingestion"` - Job started
-  - `"Manual ingestion job completed successfully"` - Job succeeded
-  - `"MongoDB error while handling ingestion request"` - Job failed (database issue)
-  - `"Unexpected error while handling ingestion request"` - Job failed (other errors)
-
-  Full stack traces and detailed error information are logged for troubleshooting.
-
-- **`POST /scrape-opendosm-negeri-parlimen-polygons`** - Scrape OpenDOSM polygon data (Negeri and Parlimen) and upload to S3.
-
-  - Downloads GeoJSON files from OpenDOSM for all Negeri (states) and Parlimen (parliamentary constituencies)
-  - Uploads raw polygon data to S3 bucket for later processing
-  - Runs as a background task
-
-  **Usage:**
-
-  ```bash
-  # Trigger scraping
-  curl -X POST http://localhost:8000/scrape-opendosm-polygons
-  ```
-
-  The endpoint scrapes both Negeri and Parlimen data sequentially. If one fails, the other will still be attempted.
-
-- **`GET /revalidate-school-entity`** - Trigger revalidation of school entities to S3
-
-- **`POST /export-asset-logo`** - Process base64-encoded images from CSV and upload to S3
-
-  - Reads CSV file with base64-encoded logo images from path configured in `ASSET_LOGO_SEKOLAH_CSV` environment variable
-  - Parses `data:image/<type>;base64,<encoded>` format
-  - Processes **ALL schools in MongoDB `Sekolah` collection** (regardless of CSV presence)
-  - Schools in CSV: Logo uploaded if base64 data exists
-  - Schools NOT in CSV: Asset record created with `logo: null`
-  - Uploads decoded images to S3 public bucket at path: `{negeri}/{parlimen}/{kodSekolah}/assets/logo.{ext}`
-  - Stores S3 URLs in MongoDB `AssetSekolah` collection
-
-  **Usage:**
-
-  ```bash
-  curl -X POST 'http://127.0.0.1:8000/export-asset-logo' \
-    -H 'accept: application/json' \
-    -d ''
-  ```
-
-  **Response:**
-  
-  The API endpoint returns immediately and processes in the background:
-  
-  ```json
-  {"status": "received"}
-  ```
-  
-  **Monitoring:**
-  
-  - Check the **Python terminal** where uvicorn is running for logs
-  
-  You'll see output like:
-  ```
-  CSV asset processing completed: uploaded=9253 skipped=70 failed=0
-  ```
-
-  #### Asset Logo CSV Constraints & Behaviour
-
-  - The logo CSV is typically loaded from the **dataproc S3 bucket** using settings:
-    - `s3_bucket_dataproc`
-    - `s3_prefix_assets`
-    - `asset_logo_csv_filename`
-  - Only rows whose `KOD_INSTITUSI` matches an existing `_id` in the `Sekolah` collection are considered.
-    - Rows for **upcoming schools not yet present in MongoDB are skipped by design**.
-  - The processor reads the CSV in **streaming chunks** using `pandas.read_csv` with a configurable `asset_logo_csv_batch_size`.
-  - During development, a `max_rows` safeguard may cap how many CSV rows are scanned; increase or remove this limit for full runs.
-
-  Log output summarizes:
-
-  - Total CSV rows scanned
-  - How many matched existing schools
-  - How many rows were skipped because the school does not yet exist in MongoDB
-
-- **`POST /export-asset-logo`** - Export logo assets from CSV to S3 public bucket and MongoDB `AssetSekolah`
-
-  - Loads the logo CSV from the dataproc S3 bucket using settings: `s3_bucket_dataproc`, `s3_prefix_assets`, and `asset_logo_csv_filename`
-  - Expects columns `KOD_INSTITUSI`, `NAMA_PENUH_INSTITUSI`, `LOGO`
-  - Matches `KOD_INSTITUSI` to `_id` in the `Sekolah` collection; rows whose codes are not in MongoDB are skipped
-  - Iterates over **all** schools in the `Sekolah` collection
-    - If `negeri` is missing, the school is counted as failed and skipped
-    - If `parlimen` is missing, no S3 upload happens but an `AssetSekolah` record is still created/updated
-    - If a valid `LOGO` data URL exists and both `negeri` and `parlimen` are present, uploads the decoded image to the public S3 bucket at `{negeri}/{parlimen}/{kodSekolah}/assets/logo.{ext}` and stores the full S3 URL in `s3Url.logo`
-    - If no logo is available, `s3Url.logo` is set to `null` but the document still exists
-  - Writes a grouped error/skip report to `src/service/assets/error.txt` for diagnostics
-
-  **Usage:**
-
-  ```bash
-  curl -X POST 'http://127.0.0.1:8000/export-asset-logo' \
-    -H 'accept: application/json' \
-    -d ''
-  ```
-
-  The endpoint returns immediately with:
-
-  ```json
-  {"status": "received"}
-  ```
-
-  #### Asset Logo Manifest JSON
-
-  As part of the export pipeline, a detailed manifest is generated and uploaded to the **public S3 bucket**:
-
-  - **Bucket**: `s3_bucket_public`
-  - **Key**: `manifest.json`
-
-  This file contains a per-school record of logo processing status and reasons (if skipped), for example:
-
-  ```jsonc
-  {
-    "generatedAt": "2025-12-18T10:30:00.000Z",
-    "totalSekolah": 10244,
-    "sekolah": [
-      {
-        "kodSekolah": "WBA0031",
-        "negeri": "PERAK",
-        "parlimen": "TAPAH",
-        "logoStatus": "UPLOADED",
-        "logoReason": null,
-        "logoUrl": "https://my.gov.digital.sekolahku-public-dev.s3.amazonaws.com/PERAK/TAPAH/WBA0031/assets/logo.jpg"
-      },
-      {
-        "kodSekolah": "ABC0001",
-        "negeri": "PERAK",
-        "parlimen": null,
-        "logoStatus": "SKIPPED",
-        "logoReason": "MISSING_PARLIMEN",
-        "logoUrl": null
-      }
-    ]
-  }
-  ```
-
-  Use this manifest for auditing runs, inspecting failure reasons (for example `NO_LOGO_IN_CSV`, `MISSING_NEGERI`, `MISSING_PARLIMEN`), and debugging logo data issues.
-
-  Processing continues in the background; check the application logs for `uploaded`, `skipped`, and `failed` counts, and inspect `src/service/assets/error.txt` for detailed school lists by reason.
-
-### Scheduled Cron Jobs
-
-The FastAPI service includes **automated daily ingestion** via `fastapi-crons`:
-
-- **Schedule**: `0 0 * * *` (daily at midnight)
-- **Timezone**: Runs in server's local timezone
-- **Function**: Executes the full ingestion pipeline (CSV ingestion, EntitiSekolah, NegeriParlimenKodSekolah, AnalitikSekolah)
-
-**To adjust the schedule**, modify the cron expression in `src/api.py`:
-
+To modify the schedule, edit the cron expression in [src/api.py](src/api.py):
 ```python
 @crons.cron("0 2 * * *")  # Example: daily at 2 AM
 ```
 
-**To disable**, comment out the `@crons.cron()` decorator or remove the cron startup in `src/api.py`.
-
-#### Monitoring Scheduled Jobs
-
-The cron job produces detailed logs with start/end times, duration, and metrics for each pipeline stage (ingestion, EntitiSekolah, NegeriParlimenKodSekolah, AnalitikSekolah).
-
-**Important**: Failed jobs are logged but do **not** crash the server. The job retries at the next scheduled time.
-
-## Data Model
-
-### Sekolah (source dataset)
-
-| Field                | Source Column       | Type               | Notes          |
-| -------------------- | ------------------- | ------------------ | -------------- |
-| `negeri`             | NEGERI              | Optional[str]      |                |
-| `ppd`                | PPD                 | Optional[str]      |                |
-| `parlimen`           | PARLIMEN            | Optional[str]      |                |
-| `dun`                | DUN                 | Optional[str]      |                |
-| `peringkat`          | PERINGKAT           | Optional[str]      |                |
-| `jenisLabel`         | JENIS/LABEL         | Optional[str]      |                |
-| `kodSekolah`         | KODSEKOLAH          | str                | School code    |
-| `namaSekolah`        | NAMASEKOLAH         | Optional[str]      |                |
-| `alamatSurat`        | ALAMATSURAT         | Optional[str]      |                |
-| `poskodSurat`        | POSKODSURAT         | Optional[int]      |                |
-| `bandarSurat`        | BANDARSURAT         | Optional[str]      |                |
-| `noTelefon`          | NOTELEFON           | Optional[str]      | "TIADA" → None |
-| `noFax`              | NOFAX               | Optional[str]      | "TIADA" → None |
-| `email`              | EMAIL               | Optional[EmailStr] | Normalized     |
-| `lokasi`             | LOKASI              | Optional[str]      |                |
-| `gred`               | GRED                | Optional[str]      |                |
-| `bantuan`            | BANTUAN             | Optional[str]      |                |
-| `bilSesi`            | BILSESI             | Optional[str]      |                |
-| `sesi`               | SESI                | Optional[str]      |                |
-| `enrolmenPrasekolah` | ENROLMEN PRASEKOLAH | Optional[int]      |                |
-| `enrolmen`           | ENROLMEN            | Optional[int]      |                |
-| `enrolmenKhas`       | ENROLMEN KHAS       | Optional[int]      |                |
-| `guru`               | GURU                | Optional[int]      |                |
-| `prasekolah`         | PRASEKOLAH          | Optional[bool]     | ADA/TIADA      |
-| `integrasi`          | INTEGRASI           | Optional[bool]     | ADA/TIADA      |
-| `koordinatXX`        | KOORDINATXX         | Optional[float]    |                |
-| `koordinatYY`        | KOORDINATYY         | Optional[float]    |                |
-| `skmLEQ150`          | SKM<=150            | Optional[bool]     | YA → True      |
-
-### EntitiSekolah (aggregation output)
-
-Each aggregated document is stored in the `EntitiSekolah` collection with the shape below.
-
-`data` currently groups derived attributes into the following sub-documents:
-
-- `infoSekolah`
-- `infoKomunikasi`
-- `infoPentadbiran`
-- `infoLokasi`
-
-| Field         | Type          | Notes                                                           |
-| ------------- | ------------- | --------------------------------------------------------------- |
-| `namaSekolah` | Optional[str] | Mirrors `Sekolah.namaSekolah`                                   |
-| `kodSekolah`  | str           | Primary identifier (matches source `kodSekolah`)                |
-| `data`        | object        | Structured aggregates and derived attributes (see tables below) |
-| `updatedAt`   | datetime      | UTC timestamp when the entity snapshot was generated            |
-
-#### `data.infoSekolah`
-
-| Field           | Type          | Notes                                                 |
-| --------------- | ------------- | ----------------------------------------------------- |
-| `jenisLabel`    | Optional[str] | School type/label carried over from source            |
-| `jumlahPelajar` | Optional[int] | Sum of `enrolmenPrasekolah + enrolmen + enrolmenKhas` |
-| `jumlahGuru`    | Optional[int] | Mirrors source `guru`                                 |
-
-#### `data.infoKomunikasi`
-
-| Field         | Type               | Notes                          |
-| ------------- | ------------------ | ------------------------------ |
-| `noTelefon`   | Optional[str]      | Primary contact number         |
-| `noFax`       | Optional[str]      | Fax number                     |
-| `email`       | Optional[EmailStr] | General contact email          |
-| `alamatSurat` | Optional[str]      | Mailing address                |
-| `poskodSurat` | Optional[str]      | Postal code (stored as string) |
-| `bandarSurat` | Optional[str]      | Mailing city                   |
-
-#### `data.infoPentadbiran`
-
-| Field        | Type           | Notes                           |
-| ------------ | -------------- | ------------------------------- |
-| `negeri`     | Optional[str]  | State                           |
-| `ppd`        | Optional[str]  | District education office       |
-| `parlimen`   | Optional[str]  | Parliament constituency         |
-| `bantuan`    | Optional[str]  | Assistance classification       |
-| `bilSesi`    | Optional[str]  | Number of sessions              |
-| `sesi`       | Optional[str]  | Session descriptor              |
-| `prasekolah` | Optional[bool] | Indicates preschool programme   |
-| `integrasi`  | Optional[bool] | Indicates integration programme |
-
-#### `data.infoLokasi`
-
-| Field         | Type             | Notes                                        |
-| ------------- | ---------------- | -------------------------------------------- |
-| `koordinatXX` | Optional[float]  | Longitude                                    |
-| `koordinatYY` | Optional[float]  | Latitude                                     |
-| `location`    | Optional[object] | GeoJSON `Point` with `[longitude, latitude]` |
-
-### AnalitikSekolah (aggregation output)
-
-Each aggregated document is stored in the `AnalitikSekolah` collection with the shape below.
-
-| Field           | Type     | Notes                                                   |
-| --------------- | -------- | ------------------------------------------------------- |
-| `jumlahSekolah` | int      | Total number of `sekolah` in the dataset                |
-| `jumlahGuru`    | int      | Total number of `guru` across all schools               |
-| `jumlahPelajar` | int      | Total number of `pelajar` across all schools            |
-| `data`          | object   | Structured analytics and statistics (see tables below)  |
-| `updatedAt`     | datetime | UTC timestamp when the analytics snapshot was generated |
-
-#### `data.jenisLabel`
-
-Array of school type statistics, each containing:
-
-| Field     | Type  | Notes                                                 |
-| --------- | ----- | ----------------------------------------------------- |
-| `jenis`   | str   | School type/label (e.g., "SK", "SMK", "SJKC", "SJKT") |
-| `peratus` | float | Percentage of total `sekolah`                         |
-| `total`   | int   | Absolute count of `sekolah` of this type              |
-
-#### `data.bantuan`
-
-Array of assistance/funding type statistics, each containing:
-
-| Field     | Type  | Notes                                                 |
-| --------- | ----- | ----------------------------------------------------- |
-| `jenis`   | str   | `Bantuan` type (e.g., "SK", "SBK")                    |
-| `peratus` | float | Percentage of total `sekolah`                         |
-| `total`   | int   | Absolute count of `sekolah` with this assistance type |
-
 ---
 
-## AssetSekolah Collection
+## API Endpoints
 
-The `AssetSekolah` collection stores S3 URLs for school assets (logos, images, JSON files). **Every school in the `Sekolah` collection gets an entry**, regardless of whether they have assets in the CSV.
+### Health Check
 
-### AssetSekolah Document Structure
+**`GET /health`**
 
-| Field       | Type              | Notes                                                                    |
-| ----------- | ----------------- | ------------------------------------------------------------------------ |
-| `_id`       | str               | Document ID, set to `kodSekolah` (matches `Sekolah._id`)                |
-| `status`    | Optional[str]     | School status from `Sekolah` collection (e.g., "ACTIVE", "INACTIVE", null) |
-| `s3Url`   | object            | Contains S3 URLs for all asset types                                     |
-| `s3Url.logo`    | Optional[str] | S3 URL for logo image, or `null` if not available                       |
-| `s3Url.gallery` | Optional[str] | S3 URL for gallery images (reserved for future use)                     |
-| `s3Url.hero`    | Optional[str] | S3 URL for hero image (reserved for future use)                         |
-| `updatedAt` | datetime (string) | ISO 8601 timestamp when the record was last updated                      |
+Verifies MongoDB connectivity and API health.
 
-
-### Example Documents
-
-**School with logo:**
+**Response:**
 ```json
 {
-  "_id": "WBA0031",
-  "status": "ACTIVE",
-  "s3Url": {
-    "logo": "https://my.gov.digital.sekolahku-public-dev.s3.amazonaws.com/PERAK/TAPAH/ABA0001/assets/logo.jpg",
-    "gallery": null,
-    "hero": null
-  },
-  "updatedAt": "2025-12-18T10:30:00.000Z"
+  "status": "ok",
+  "database": "sekolahku"
 }
 ```
 
-**School without logo (not in CSV or no logo data):**
-```json
-{
-  "_id": "ABC0001",
-  "status": "ACTIVE",
-  "s3Url": {
-    "logo": null,
-    "gallery": null,
-    "hero": null
-  },
-  "updatedAt": "2025-12-18T10:30:00.000Z"
-}
-```
-
-**Note:** The path format uses hyphens instead of underscores (e.g., `WILAYAH-PERSEKUTUAN-KUALA-LUMPUR` instead of `WILAYAH_PERSEKUTUAN_KUALA_LUMPUR`)
+Returns `503 Service Unavailable` if database is unreachable.
 
 ---
 
-## Polygon Seed Collections
+### Data Ingestion
 
-The polygon loading pipeline extracts GeoJSON boundary data from OpenDOSM and populates MongoDB collections.
+**`POST /load-full-ingestion`**
 
-### Workflow
+Triggers the complete data ingestion pipeline on-demand.
 
-1. **Extract**: Download polygons from Kawasanku API and upload to S3
+**Usage:**
+```bash
+curl -X POST http://localhost:8000/load-full-ingestion
+```
 
-   ```bash
-   python -m src.service.polygons.scrape_opendosm_negeri
-   python -m src.service.polygons.scrape_opendosm_parlimen
-   ```
+**Monitoring:** Check the server terminal for detailed logs:
+- `"Received request to trigger full ingestion"` - Job started
+- `"Manual ingestion job completed successfully"` - Job succeeded
+- Error messages with stack traces for troubleshooting
 
-2. **Load**: Read from S3 and insert into MongoDB
-   ```bash
-   python -m src.main --load-polygons
-   # OR via API endpoint
-   curl -X POST http://localhost:8000/load-opendosm-polygons
-   ```
+---
 
-### NegeriPolygon
+### Polygon Data
 
-Each document represents a Negeri boundary..
+**`POST /scrape-opendosm-negeri-parlimen-polygons`**
 
-| Field       | Type     | Notes                                                                 |
-| ----------- | -------- | --------------------------------------------------------------------- |
-| `_id`       | str      | Negeri identifier (e.g., `JOHOR`, `WILAYAH_PERSEKUTUAN_KUALA_LUMPUR`) |
-| `negeri`    | str      | Negeri name matching `NegeriEnum`                                     |
-| `geometry`  | object   | GeoJSON `MultiPolygon` with state boundary coordinates                |
-| `updatedAt` | datetime | UTC timestamp when the polygon data was loaded                        |
+Scrapes OpenDOSM polygon data (Negeri and Parlimen) and uploads to S3.
 
-**Data source:** `s3://{S3_BUCKET_DATAPROC}/opendosm/raw/negeri/`
+**Usage:**
+```bash
+curl -X POST http://localhost:8000/scrape-opendosm-negeri-parlimen-polygons
+```
 
-### ParlimenPolygon
+Downloads GeoJSON files from OpenDOSM and stores them in S3 for later processing. Runs as a background task.
 
-Each document represents a parliamentary boundary.
+---
 
-| Field       | Type     | Notes                                                            |
-| ----------- | -------- | ---------------------------------------------------------------- |
-| `_id`       | str      | Composite key: `"{negeri}::{parlimen}"` (e.g., `JOHOR::SEGAMAT`) |
-| `negeri`    | str      | Negeri name matching `NegeriEnum`                                |
-| `parlimen`  | str      | Parliamentary name                                               |
-| `geometry`  | object   | GeoJSON `MultiPolygon` with constituency boundary coordinates    |
-| `updatedAt` | datetime | UTC timestamp when the polygon data was loaded                   |
+### Asset Management
 
-**Data source:** `s3://{S3_BUCKET_DATAPROC}/opendosm/raw/parlimen/`
+**`POST /export-asset-logo`**
 
-## Dataproc API
+Processes base64-encoded logo images from CSV and uploads to S3.
 
-The Dataproc API provides endpoints for generating static JSON files used by the Sekolahku web application on demand.
+**Behavior:**
+- Reads CSV with base64-encoded logo images
+- Processes **all schools** in MongoDB `Sekolah` collection
+- Schools in CSV: Logo uploaded if base64 data exists
+- Schools NOT in CSV: Asset record created with `logo: null`
+- Uploads to S3 at: `{negeri}/{parlimen}/{kodSekolah}/assets/logo.{ext}`
+- Stores URLs in `AssetSekolah` collection
 
-### Generate Snap Routes JSON
+**Usage:**
+```bash
+curl -X POST http://localhost:8000/export-asset-logo
+```
 
-**Endpoint:** `POST /generate-snap-routes`
+**Response:**
+```json
+{"status": "received"}
+```
 
-Generates the snap routes JSON file containing route mappings for all schools and uploads it to S3. This file is used by the frontend to provide quick navigation and school-specific routing.
+**Monitoring:** Check server logs for processing summary:
+```
+CSV asset processing completed: uploaded=9253 skipped=70 failed=0
+```
 
-#### Generated Output
+**Output Manifest:** A detailed manifest is generated at `s3://your-public-bucket/manifest.json` containing:
+```json
+{
+  "generatedAt": "2026-01-05T10:30:00.000Z",
+  "totalSekolah": 10244,
+  "sekolah": [
+    {
+      "kodSekolah": "WBA0031",
+      "negeri": "PERAK",
+      "parlimen": "TAPAH",
+      "logoStatus": "UPLOADED",
+      "logoUrl": "https://...logo.jpg"
+    }
+  ]
+}
+```
 
-The endpoint creates `common/snap-routes.json` in S3 with the following structure:
+---
 
+### School Entity Revalidation
+
+**`GET /revalidate-school-entity`**
+
+Triggers revalidation of school entities and exports to S3.
+
+---
+
+### Static JSON Generation
+
+**`POST /generate-snap-routes`**
+
+Generates `common/snap-routes.json` containing route mappings for all schools.
+
+**Output Structure:**
 ```json
 [
   "/",
   "/home",
-  "/about",
   "/carian-sekolah",
-  "/siaran",
   "/halaman-sekolah/AAA0001",
-  "/halaman-sekolah/AAA0002",
-  ...
+  "/halaman-sekolah/AAA0002"
 ]
 ```
 
-### Generate School Lists JSON
+---
 
-**Endpoint:** `POST /generate-school-list`
+**`POST /generate-school-list`**
 
-Generates the school lists JSON file containing categorized lists of schools (by negeri, parlimen, etc.) and uploads it to S3. This file is used by the frontend for school discovery and filtering.
+Generates `common/school-list.json` containing categorized lists of schools.
 
-#### Generated Output
-
-The endpoint creates `common/school-list.json` in S3 with the following structure:
-
+**Output Structure:**
 ```json
 [
   {
     "KODSEKOLAH": "AAA0001",
     "NAMASEKOLAH": "Sekolah Kebangsaan Example"
-  },
-  {
-    "KODSEKOLAH": "AAA0002",
-    "NAMASEKOLAH": "Sekolah Menengah Example"
-  },
-  ...
+  }
 ]
 ```
 
-**Response:**
-
-- `200 OK` - Successfully generated and uploaded school lists JSON
-- Returns a success message with the S3 path where the file was stored
-
-**Note:** Both endpoints trigger on-demand generation and upload to the configured S3 bucket. The generated files are immediately available for consumption by the web application.
+Both endpoints upload generated files to the configured S3 bucket for frontend consumption.
 
 ---
 
-## License
+## MongoDB Setup
 
-TBD
+### Creating Indexes
+
+MongoDB indexes are managed in [src/db/indexes.py](src/db/indexes.py).
+
+Run once to create all required indexes:
+
+```bash
+python -m src.db.indexes
+```
+
+Running multiple times is safe - existing indexes will be skipped.
+
+### Collections
+
+The pipeline creates and manages the following MongoDB collections:
+
+- **`Sekolah`** - Raw school data from CSV ingestion
+- **`EntitiSekolah`** - Aggregated school entities with structured data
+- **`AnalitikSekolah`** - Statistical analytics across all schools
+- **`AssetSekolah`** - S3 URLs for school assets (logos, images)
+- **`NegeriPolygon`** - State boundary GeoJSON polygons
+- **`ParlimenPolygon`** - Parliamentary constituency boundary GeoJSON polygons
+- **`NegeriParlimenKodSekolah`** - Lookup table for school code mappings
+
+---
