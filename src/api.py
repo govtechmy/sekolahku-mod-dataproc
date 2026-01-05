@@ -10,6 +10,7 @@ from pymongo import MongoClient
 from pymongo.errors import PyMongoError
 
 from src.main import run_ingest
+from src.core.logging_filter import configure_logging
 from src.config.settings import get_settings
 from src.service.entiti_revalidate import revalidate_school_entity
 from src.service.polygons import load_opendosm_negeri, load_opendosm_parlimen
@@ -26,12 +27,7 @@ app = FastAPI()
 crons = Crons()
 
 settings = get_settings()
-
-if not logging.getLogger().handlers:
-    logging.basicConfig(
-        level=getattr(logging, settings.log_level.upper(), logging.INFO),
-        format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-    )
+configure_logging(settings)
 
 @app.post("/generate-snap-routes", tags=["s3-publisher"])
 def generate_snap_routes_endpoint(background_tasks: BackgroundTasks) -> dict[str, str | int]:
