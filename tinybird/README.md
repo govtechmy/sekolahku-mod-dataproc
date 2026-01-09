@@ -13,13 +13,13 @@ Cli login to authenticate:
 tb login --host https://api.us-east.tinybird.co 
 ```
 
-# To create new datasource
+### To create new datasource
 
 ```
 tb datasource create
 ```
 
-# To push changes from local to Tinybird
+### To push changes from local to Tinybird
 Deploy datasources and pipes
 ```
 tb --cloud deploy 
