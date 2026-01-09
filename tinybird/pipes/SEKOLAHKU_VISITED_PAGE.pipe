@@ -1,6 +1,13 @@
-NODE analytics_events_pipe_0185_0
-SQL >
+TOKEN sekolahku_app_token READ
 
+NODE endpoint
+TYPE ENDPOINT
+SQL >
+  SELECT *
+  FROM VISITED_PAGE
+  
+NODE VISITED_PAGE
+SQL >
     SELECT 
       CASE 
         -- Handle root paths (empty, "/", "/en-GB", "/ms-MY")

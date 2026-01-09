@@ -1,4 +1,12 @@
-NODE analytics_events_pipe_6636_0
+TOKEN sekolahku_app_token READ
+
+NODE endpoint
+TYPE ENDPOINT
+SQL >
+  SELECT *
+  FROM REFERRERS
+
+NODE REFERRERS
 SQL >
 
     SELECT 

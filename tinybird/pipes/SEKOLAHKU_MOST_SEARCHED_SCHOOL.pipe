@@ -1,4 +1,12 @@
-NODE analytics_events_pipe_7744_0
+TOKEN sekolahku_app_token READ
+
+NODE endpoint
+TYPE ENDPOINT
+SQL >
+  SELECT *
+  FROM MOST_SEARCHED_SCHOOL
+
+NODE MOST_SEARCHED_SCHOOL
 SQL >
 
     SELECT 

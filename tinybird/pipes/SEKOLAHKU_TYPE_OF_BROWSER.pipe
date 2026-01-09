@@ -1,4 +1,12 @@
-NODE analytics_events_pipe_7189_0
+TOKEN sekolahku_app_token READ
+
+NODE endpoint
+TYPE ENDPOINT
+SQL >
+  SELECT *
+  FROM TYPE_OF_BROWSER
+
+NODE TYPE_OF_BROWSER
 SQL >
 
     SELECT 

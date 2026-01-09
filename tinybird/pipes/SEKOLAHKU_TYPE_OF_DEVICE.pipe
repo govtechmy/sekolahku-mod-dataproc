@@ -1,4 +1,12 @@
-NODE analytics_events_pipe_4345_0
+TOKEN sekolahku_app_token READ
+
+NODE endpoint
+TYPE ENDPOINT
+SQL >
+  SELECT *
+  FROM TYPE_OF_DEVICE
+  
+NODE TYPE_OF_DEVICE
 SQL >
 
     SELECT 

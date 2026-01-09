@@ -1,4 +1,10 @@
-NODE analytics_events_pipe_2028_0
+NODE endpoint
+TYPE ENDPOINT
+SQL >
+  SELECT *
+  FROM VISITORS_COUNTRY
+  
+NODE VISITORS_COUNTRY
 SQL >
 
     SELECT 

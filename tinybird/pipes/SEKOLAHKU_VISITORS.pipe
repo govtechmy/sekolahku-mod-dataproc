@@ -1,3 +1,11 @@
+TOKEN sekolahku_app_token READ
+
+NODE endpoint
+TYPE ENDPOINT
+SQL >
+  SELECT *
+  FROM Total_Visitors_Per_Day
+  
 NODE Total_Visitors_Per_Day
 SQL >
 
