@@ -6,34 +6,22 @@ SQL >
   SELECT *
   FROM MOST_SEARCHED_SCHOOL
 
+
 NODE MOST_SEARCHED_SCHOOL
 SQL >
-
-    SELECT 
-      CASE 
-        -- Extract the news slug from the path
-        WHEN JSONExtractString(payload, 'pathname') LIKE '/en-GB/siaran/%' THEN 
-          SUBSTRING(JSONExtractString(payload, 'pathname'), 15) -- Remove '/en-GB/siaran/'
-        WHEN JSONExtractString(payload, 'pathname') LIKE '/ms-MY/siaran/%' THEN 
-          SUBSTRING(JSONExtractString(payload, 'pathname'), 15) -- Remove '/ms-MY/siaran/'
-        WHEN JSONExtractString(payload, 'pathname') LIKE '/siaran/%' THEN 
-          SUBSTRING(JSONExtractString(payload, 'pathname'), 9) -- Remove '/siaran/'
-        ELSE JSONExtractString(payload, 'pathname')
-      END as news_slug,
-      COUNT(*) as hits
+  SELECT
+    school_code,
+    count() AS total_hits
+  FROM
+  (
+    SELECT
+      splitByChar('/', JSONExtractString(payload, 'pathname'))[-1] AS school_code
     FROM SEKOLAHKU_events
     WHERE action = 'page_hit'
-      AND JSONExtractString(payload, 'pathname') IS NOT NULL
-      AND JSONExtractString(payload, 'pathname') != 'null'
-      -- Only include inner news pages (exclude main siaran page)
-      AND (
-        JSONExtractString(payload, 'pathname') LIKE '/en-GB/siaran/%' OR
-        JSONExtractString(payload, 'pathname') LIKE '/ms-MY/siaran/%' OR
-        JSONExtractString(payload, 'pathname') LIKE '/siaran/%'
-      )
-      -- Exclude the main siaran page itself
-      AND JSONExtractString(payload, 'pathname') NOT IN ('/en-GB/siaran', '/ms-MY/siaran', '/siaran')
-    GROUP BY news_slug
-    ORDER BY hits DESC
-
-
+      AND JSONExtractString(payload, 'pathname') LIKE '%/halaman-sekolah/%'
+      AND timestamp >= now() - INTERVAL 90 DAY
+  )
+  WHERE school_code != ''
+  GROUP BY school_code
+  ORDER BY total_hits DESC
+  LIMIT 100
