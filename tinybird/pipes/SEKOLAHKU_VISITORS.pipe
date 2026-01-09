@@ -1,0 +1,11 @@
+NODE Total_Visitors_Per_Day
+SQL >
+
+    SELECT
+      toDate(timestamp) AS day,
+      count(DISTINCT session_id) AS total_visitors
+    FROM SEKOLAHKU_events
+    GROUP BY day
+    ORDER BY day
+
+

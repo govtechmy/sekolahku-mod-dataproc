@@ -1,0 +1,39 @@
+NODE analytics_events_pipe_2028_0
+SQL >
+
+    SELECT 
+      CASE 
+        WHEN JSONExtractString(payload, 'location') = 'MY' THEN 'Malaysia'
+        WHEN JSONExtractString(payload, 'location') = 'SG' THEN 'Singapore'
+        WHEN JSONExtractString(payload, 'location') = 'US' THEN 'United States'
+        WHEN JSONExtractString(payload, 'location') = 'IN' THEN 'India'
+        WHEN JSONExtractString(payload, 'location') = 'CN' THEN 'China'
+        WHEN JSONExtractString(payload, 'location') = 'TH' THEN 'Thailand'
+        WHEN JSONExtractString(payload, 'location') = 'ID' THEN 'Indonesia'
+        WHEN JSONExtractString(payload, 'location') = 'JP' THEN 'Japan'
+        WHEN JSONExtractString(payload, 'location') = 'GB' THEN 'United Kingdom'
+        WHEN JSONExtractString(payload, 'location') = 'ES' THEN 'Spain'
+        WHEN JSONExtractString(payload, 'location') = 'FR' THEN 'France'
+        WHEN JSONExtractString(payload, 'location') = 'PH' THEN 'Philippines'
+        WHEN JSONExtractString(payload, 'location') = 'KR' THEN 'South Korea'
+        WHEN JSONExtractString(payload, 'location') = 'HK' THEN 'Hong Kong'
+        WHEN JSONExtractString(payload, 'location') = 'BD' THEN 'Bangladesh'
+        WHEN JSONExtractString(payload, 'location') = 'DE' THEN 'Germany'
+        WHEN JSONExtractString(payload, 'location') = 'RU' THEN 'Russia'
+        WHEN JSONExtractString(payload, 'location') = 'TW' THEN 'Taiwan'
+        WHEN JSONExtractString(payload, 'location') = 'DK' THEN 'Denmark'
+        WHEN JSONExtractString(payload, 'location') = 'AU' THEN 'Australia'
+        ELSE CONCAT('Other (', JSONExtractString(payload, 'location'), ')')
+      END as country_name,
+      JSONExtractString(payload, 'location') as country_code,
+      COUNT(*) as visits,
+      ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) as percentage
+    FROM SEKOLAHKU_events
+    WHERE action = 'page_hit'
+      AND JSONExtractString(payload, 'location') IS NOT NULL
+      AND JSONExtractString(payload, 'location') != ''
+      AND JSONExtractString(payload, 'location') != 'null'
+    GROUP BY country_name, country_code
+    ORDER BY visits DESC
+
+

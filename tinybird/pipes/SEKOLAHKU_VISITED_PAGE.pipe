@@ -1,0 +1,30 @@
+NODE analytics_events_pipe_0185_0
+SQL >
+
+    SELECT 
+      CASE 
+        -- Handle root paths (empty, "/", "/en-GB", "/ms-MY")
+        WHEN JSONExtractString(payload, 'pathname') IN ('', '/', '/en-GB', '/ms-MY') THEN 'Home'
+    
+        -- Handle other paths by removing locale prefix and leading slash, then clean up
+        WHEN JSONExtractString(payload, 'pathname') LIKE '/en-GB/%' THEN 
+          TRIM(LEADING '/' FROM SUBSTRING(JSONExtractString(payload, 'pathname'), 7))
+        WHEN JSONExtractString(payload, 'pathname') LIKE '/ms-MY/%' THEN 
+          TRIM(LEADING '/' FROM SUBSTRING(JSONExtractString(payload, 'pathname'), 7))
+        WHEN JSONExtractString(payload, 'pathname') LIKE '/%' THEN 
+          TRIM(LEADING '/' FROM JSONExtractString(payload, 'pathname'))
+        ELSE JSONExtractString(payload, 'pathname')
+      END as page_path,
+      COUNT(*) as hits
+    FROM SEKOLAHKU_events
+    WHERE action = 'page_hit'
+      AND JSONExtractString(payload, 'pathname') IS NOT NULL
+      AND JSONExtractString(payload, 'pathname') != 'null'
+      -- Exclude inner news pages (like /siaran/some-news-title) but keep main siaran page
+      AND JSONExtractString(payload, 'pathname') NOT LIKE '/en-GB/siaran/%'
+      AND JSONExtractString(payload, 'pathname') NOT LIKE '/ms-MY/siaran/%'
+      AND JSONExtractString(payload, 'pathname') NOT LIKE '/siaran/%'
+    GROUP BY page_path
+    ORDER BY hits DESC
+
+

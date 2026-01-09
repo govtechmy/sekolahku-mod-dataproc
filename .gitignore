@@ -179,3 +179,5 @@ data_output/
 !example*.csv
 
 tests/
+
+.tinyb

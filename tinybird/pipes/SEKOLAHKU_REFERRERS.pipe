@@ -1,0 +1,22 @@
+NODE analytics_events_pipe_6636_0
+SQL >
+
+    SELECT 
+      CASE 
+        WHEN JSONExtractString(payload, 'referrer') LIKE '%google%' THEN 'Google Search'
+        WHEN JSONExtractString(payload, 'referrer') LIKE '%bing%' THEN 'Bing Search'
+        WHEN JSONExtractString(payload, 'referrer') LIKE '%facebook%' THEN 'Facebook'
+        WHEN JSONExtractString(payload, 'referrer') LIKE '%twitter%' THEN 'Twitter'
+        WHEN JSONExtractString(payload, 'referrer') LIKE '%linkedin%' THEN 'LinkedIn'
+        WHEN JSONExtractString(payload, 'referrer') LIKE '%digital.gov.my%' THEN 'Internal'
+        WHEN JSONExtractString(payload, 'referrer') = '' OR JSONExtractString(payload, 'referrer') = 'null' THEN 'Direct'
+        ELSE 'Other Referrals'
+      END as referrer_category,
+      COUNT(*) as visits,
+      ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) as percentage
+    FROM SEKOLAHKU_events
+    WHERE action = 'page_hit'
+    GROUP BY referrer_category
+    ORDER BY visits DESC
+
+

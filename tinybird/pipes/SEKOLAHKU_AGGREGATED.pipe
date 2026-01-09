@@ -1,0 +1,63 @@
+NODE SEKOLAHKU_FLATTEN_DATA
+SQL >
+
+    SELECT
+      timestamp,
+      session_id,
+      action,
+      version,
+      -- Extract fields from JSON payload
+      JSONExtractString(payload, 'user-agent') as user_agent,
+      JSONExtractString(payload, 'locale') as locale,
+      JSONExtractString(payload, 'location') as location,
+      JSONExtractString(payload, 'referrer') as referrer,
+      JSONExtractString(payload, 'pathname') as pathname,
+      JSONExtractString(payload, 'href') as href
+    FROM SEKOLAHKU_events
+    WHERE action = 'page_hit'
+      AND timestamp >= now() - INTERVAL 90 DAY
+    ORDER BY timestamp
+
+
+
+NODE SEKOLAHKU_AGGREGATED_ALL
+SQL >
+
+    SELECT
+      toDate(timestamp) as day,
+      -- Traffic Sources
+      countIf(referrer = '' OR referrer IS NULL) as direct_visits,
+      countIf(referrer LIKE '%google%') as google_visits,
+      countIf(referrer LIKE '%bing%') as bing_visits,
+      countIf(referrer LIKE '%facebook%') as facebook_visits,
+      countIf(referrer LIKE '%linkedin%') as linkedin_visits,
+      countIf(referrer LIKE '%digital.gov.my%') as internal_visits,
+      countIf(referrer != '' AND referrer IS NOT NULL AND referrer NOT LIKE '%google%' AND referrer NOT LIKE '%bing%' AND referrer NOT LIKE '%facebook%' AND referrer NOT LIKE '%linkedin%' AND referrer NOT LIKE '%digital.gov.my%') as other_referrals,
+  
+      -- Device Types
+      countIf(user_agent LIKE '%Mobile%' OR user_agent LIKE '%Android%' OR user_agent LIKE '%iPhone%') as mobile_visits,
+      countIf(user_agent LIKE '%Tablet%' OR user_agent LIKE '%iPad%') as tablet_visits,
+      countIf(user_agent NOT LIKE '%Mobile%' AND user_agent NOT LIKE '%Android%' AND user_agent NOT LIKE '%iPhone%' AND user_agent NOT LIKE '%Tablet%' AND user_agent NOT LIKE '%iPad%') as desktop_visits,
+  
+      -- Browsers
+      countIf(user_agent LIKE '%Chrome%') as chrome_visits,
+      countIf(user_agent LIKE '%Safari%' AND user_agent NOT LIKE '%Chrome%') as safari_visits,
+      countIf(user_agent LIKE '%Firefox%') as firefox_visits,
+      countIf(user_agent LIKE '%Edge%') as edge_visits,
+      countIf(user_agent NOT LIKE '%Chrome%' AND user_agent NOT LIKE '%Safari%' AND user_agent NOT LIKE '%Firefox%' AND user_agent NOT LIKE '%Edge%') as other_browser_visits,
+  
+      -- Countries
+      countIf(location = 'MY') as malaysia_visits,
+      countIf(location = 'SG') as singapore_visits,
+      countIf(location = 'US') as us_visits,
+      countIf(location = 'IN') as india_visits,
+      countIf(location = 'CN') as china_visits,
+      countIf(location NOT IN ('MY', 'SG', 'US', 'IN', 'CN') AND location != '' AND location IS NOT NULL) as other_country_visits,
+  
+      -- Total visits for reference
+      count() as total_visits
+    FROM SEKOLAHKU_FLATTEN_DATA
+    GROUP BY day
+    ORDER BY day
+
+

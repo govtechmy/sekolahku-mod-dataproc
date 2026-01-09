@@ -1,0 +1,27 @@
+NODE analytics_events_pipe_7189_0
+SQL >
+
+    SELECT 
+      CASE 
+        WHEN JSONExtractString(payload, 'user-agent') LIKE '%Chrome%' AND JSONExtractString(payload, 'user-agent') NOT LIKE '%Edg%' THEN 'Chrome'
+        WHEN JSONExtractString(payload, 'user-agent') LIKE '%Safari%' AND JSONExtractString(payload, 'user-agent') NOT LIKE '%Chrome%' AND JSONExtractString(payload, 'user-agent') NOT LIKE '%Edg%' THEN 'Safari'
+        WHEN JSONExtractString(payload, 'user-agent') LIKE '%Firefox%' THEN 'Firefox'
+        WHEN JSONExtractString(payload, 'user-agent') LIKE '%Edg%' THEN 'Edge'
+        WHEN JSONExtractString(payload, 'user-agent') LIKE '%Opera%' THEN 'Opera'
+        WHEN JSONExtractString(payload, 'user-agent') LIKE '%Brave%' THEN 'Brave'
+        WHEN JSONExtractString(payload, 'user-agent') LIKE '%SamsungBrowser%' THEN 'Samsung Browser'
+        WHEN JSONExtractString(payload, 'user-agent') LIKE '%UCBrowser%' THEN 'UC Browser'
+        WHEN JSONExtractString(payload, 'user-agent') LIKE '%Maxthon%' THEN 'Maxthon'
+        ELSE 'Other'
+      END as browser_name,
+      COUNT(*) as users,
+      ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER (), 2) as percentage
+    FROM SEKOLAHKU_events
+    WHERE action = 'page_hit'
+      AND JSONExtractString(payload, 'user-agent') IS NOT NULL
+      AND JSONExtractString(payload, 'user-agent') != ''
+      AND JSONExtractString(payload, 'user-agent') != 'null'
+    GROUP BY browser_name
+    ORDER BY users DESC
+
+

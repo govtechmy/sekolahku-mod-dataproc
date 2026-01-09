@@ -1,0 +1,13 @@
+
+SCHEMA >
+    `action` String `json:$.action`,
+    `domain` String `json:$.domain`,
+    `payload` String `json:$.payload`,
+    `session_id` String `json:$.session_id`,
+    `tenant_id` String `json:$.tenant_id`,
+    `timestamp` DateTime64(3) `json:$.timestamp`,
+    `version` String `json:$.version`
+
+ENGINE "MergeTree"
+ENGINE_PARTITION_KEY "toYear(timestamp)"
+ENGINE_SORTING_KEY "timestamp, session_id, tenant_id, version"
