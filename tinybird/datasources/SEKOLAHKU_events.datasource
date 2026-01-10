@@ -1,3 +1,4 @@
+TOKEN sekolahku_events_append APPEND
 
 SCHEMA >
     `action` String `json:$.action`,
