@@ -267,8 +267,8 @@ Generates `common/snap-routes.json` containing route mappings for all schools.
   "/",
   "/home",
   "/carian-sekolah",
-  "/halaman-sekolah/AAA0001",
-  "/halaman-sekolah/AAA0002"
+  "/ms/halaman-sekolah/AAA0001",
+  "/ms/halaman-sekolah/AAA0002"
 ]
 ```
 

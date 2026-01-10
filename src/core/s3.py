@@ -54,7 +54,8 @@ def upload_json_to_s3(payload: dict | list, bucket: Optional[str], key: str) -> 
     if not bucket:
         bucket = get_s3_bucket_name()
 
-    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    # minify JSON
+    body = json.dumps(payload, ensure_ascii=False, separators=(',', ':')).encode("utf-8")
 
     s3.put_object(
         Bucket=bucket,
