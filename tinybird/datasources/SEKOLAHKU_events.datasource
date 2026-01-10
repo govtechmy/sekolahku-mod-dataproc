@@ -1,4 +1,4 @@
-TOKEN sekolahku_events_append APPEND
+TOKEN sekolahku_datasource_token APPEND
 
 SCHEMA >
     `action` String `json:$.action`,

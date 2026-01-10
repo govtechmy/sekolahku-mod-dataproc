@@ -1,4 +1,4 @@
-TOKEN sekolahku_pipes_read READ
+TOKEN sekolahku_pipe_token READ
 
 NODE endpoint
 TYPE ENDPOINT
