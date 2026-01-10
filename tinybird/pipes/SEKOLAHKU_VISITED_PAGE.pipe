@@ -8,30 +8,52 @@ SQL >
   
 NODE VISITED_PAGE
 SQL >
-    SELECT 
-      CASE 
-        -- Handle root paths (empty, "/", "/en-GB", "/ms-MY")
-        WHEN JSONExtractString(payload, 'pathname') IN ('', '/', '/en-GB', '/ms-MY') THEN 'Home'
-    
-        -- Handle other paths by removing locale prefix and leading slash, then clean up
-        WHEN JSONExtractString(payload, 'pathname') LIKE '/en-GB/%' THEN 
-          TRIM(LEADING '/' FROM SUBSTRING(JSONExtractString(payload, 'pathname'), 7))
-        WHEN JSONExtractString(payload, 'pathname') LIKE '/ms-MY/%' THEN 
-          TRIM(LEADING '/' FROM SUBSTRING(JSONExtractString(payload, 'pathname'), 7))
-        WHEN JSONExtractString(payload, 'pathname') LIKE '/%' THEN 
-          TRIM(LEADING '/' FROM JSONExtractString(payload, 'pathname'))
-        ELSE JSONExtractString(payload, 'pathname')
-      END as page_path,
-      COUNT(*) as hits
-    FROM SEKOLAHKU_events
-    WHERE action = 'page_hit'
-      AND JSONExtractString(payload, 'pathname') IS NOT NULL
-      AND JSONExtractString(payload, 'pathname') != 'null'
-      -- Exclude inner news pages (like /siaran/some-news-title) but keep main siaran page
-      AND JSONExtractString(payload, 'pathname') NOT LIKE '/en-GB/siaran/%'
-      AND JSONExtractString(payload, 'pathname') NOT LIKE '/ms-MY/siaran/%'
-      AND JSONExtractString(payload, 'pathname') NOT LIKE '/siaran/%'
-    GROUP BY page_path
-    ORDER BY hits DESC
+  -- This query counts visits to main section pages only (for example: Home, siaran, acara, carian-sekolah). Visits to inner pages such as individual news articles, event details, or school pages are not included in the results.
+  SELECT
+    page_path,
+    COUNT(*) AS hits
+  FROM
+  (
+    SELECT
+      CASE
+        -- Home
+        WHEN pathname = '/' THEN 'Home'
 
+        -- EN top-level pages
+        WHEN pathname LIKE '/en/%'
+          THEN concat(
+            'en/',
+            splitByChar('/', trim(leading '/' from substring(pathname, 5)))[1]
+          )
 
+        -- MS top-level pages
+        WHEN pathname LIKE '/ms/%'
+          THEN concat(
+            'ms/',
+            splitByChar('/', trim(leading '/' from substring(pathname, 5)))[1]
+          )
+
+        -- fallback (should rarely hit)
+        ELSE splitByChar('/', trim(leading '/' from pathname))[1]
+      END AS page_path
+    FROM
+    (
+      SELECT
+        JSONExtractString(payload, 'pathname') AS pathname
+      FROM SEKOLAHKU_events
+      WHERE action = 'page_hit'
+        AND payload != ''
+    )
+  )
+  WHERE
+    page_path IS NOT NULL
+    AND page_path != ''
+
+    -- exclude inner pages
+    AND page_path NOT LIKE '%/halaman-sekolah'
+    AND page_path NOT LIKE '%/acara/%'
+    AND page_path NOT LIKE '%/siaran/%'
+
+  GROUP BY page_path
+  ORDER BY hits DESC
+  LIMIT 500

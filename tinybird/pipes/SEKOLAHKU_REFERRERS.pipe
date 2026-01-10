@@ -16,7 +16,7 @@ SQL >
         WHEN JSONExtractString(payload, 'referrer') LIKE '%facebook%' THEN 'Facebook'
         WHEN JSONExtractString(payload, 'referrer') LIKE '%twitter%' THEN 'Twitter'
         WHEN JSONExtractString(payload, 'referrer') LIKE '%linkedin%' THEN 'LinkedIn'
-        WHEN JSONExtractString(payload, 'referrer') LIKE '%digital.gov.my%' THEN 'Internal'
+        WHEN JSONExtractString(payload, 'referrer') LIKE '%sekolahku.gov.my%' THEN 'Internal' -- TODO: adjust domain as needed
         WHEN JSONExtractString(payload, 'referrer') = '' OR JSONExtractString(payload, 'referrer') = 'null' THEN 'Direct'
         ELSE 'Other Referrals'
       END as referrer_category,

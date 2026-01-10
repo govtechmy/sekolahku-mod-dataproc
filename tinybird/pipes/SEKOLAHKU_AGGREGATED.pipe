@@ -39,9 +39,9 @@ SQL >
       countIf(referrer LIKE '%bing%') as bing_visits,
       countIf(referrer LIKE '%facebook%') as facebook_visits,
       countIf(referrer LIKE '%linkedin%') as linkedin_visits,
-      countIf(referrer LIKE '%digital.gov.my%') as internal_visits,
-      countIf(referrer != '' AND referrer IS NOT NULL AND referrer NOT LIKE '%google%' AND referrer NOT LIKE '%bing%' AND referrer NOT LIKE '%facebook%' AND referrer NOT LIKE '%linkedin%' AND referrer NOT LIKE '%digital.gov.my%') as other_referrals,
-  
+      countIf(referrer LIKE '%sekolahku.gov.my%') as internal_visits, -- TODO: adjust domain as needed
+      countIf(referrer != '' AND referrer IS NOT NULL AND referrer NOT LIKE '%google%' AND referrer NOT LIKE '%bing%' AND referrer NOT LIKE '%facebook%' AND referrer NOT LIKE '%linkedin%' AND referrer NOT LIKE '%sekolahku.gov.my%') as other_referrals,
+
       -- Device Types
       countIf(user_agent LIKE '%Mobile%' OR user_agent LIKE '%Android%' OR user_agent LIKE '%iPhone%') as mobile_visits,
       countIf(user_agent LIKE '%Tablet%' OR user_agent LIKE '%iPad%') as tablet_visits,
