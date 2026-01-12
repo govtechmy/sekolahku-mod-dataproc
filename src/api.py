@@ -92,7 +92,7 @@ def _run_ingestion_job() -> None:
     except Exception:
         logger.exception("Unexpected error while handling ingestion request")
 
-@crons.cron("0 8 * * *")
+@crons.cron("0 16 * * *")
 async def daily_ingestion_job():
     """
     Run the full ingestion pipeline daily at midnight (00:00).
