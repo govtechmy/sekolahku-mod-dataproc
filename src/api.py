@@ -293,7 +293,7 @@ def load_malaysia_polygons_endpoint() -> dict[str, str | int]:
 def run_step(name: str, func, *args) -> None:
     try:
         result = func(*args)
-        logger.info("Step: %s completed: %s", name, result)
+        logger.info("Step: %s completed", name)
     except Exception:
         logger.exception("Step: %s failed", name)
 
