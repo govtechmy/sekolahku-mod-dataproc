@@ -88,10 +88,10 @@ def _run_ingestion_job() -> None:
     except Exception:
         logger.exception("Unexpected error while handling ingestion request")
 
-@crons.cron("0 0 * * *")
+@crons.cron("0 16 * * *")
 async def daily_ingestion_job():
     """
-    Run the full ingestion pipeline daily at midnight (00:00).
+    Run the full ingestion pipeline daily at midnight Malaysia Time (00:00).
     
     This cron job executes the complete data ingestion process including:
     - Main school data ingestion
