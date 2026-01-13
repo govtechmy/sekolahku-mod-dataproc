@@ -22,7 +22,7 @@ def export_negeri_centroids() -> Dict[str, Any]:
     try:
         cursor = collection.find({}, {"_id": 0, "negeri": 1, "centroid": 1}).batch_size(settings.polygon_export_batch_size)
 
-        with ThreadPoolExecutor(max_workers=settings.entiti_revalidate_max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=settings.export_centroid_max_workers) as executor:
             futures = []
 
             for doc in cursor:
@@ -35,6 +35,7 @@ def export_negeri_centroids() -> Dict[str, Any]:
 
                 key = f"centroid/NEGERI/{negeri}.json"
                 payload = {"negeri": negeri, "centroid": centroid}
+                logger.debug("Uploading %s", key)
 
                 futures.append((executor.submit(upload_json_to_s3, payload, settings.s3_bucket_public, key), negeri, key))
 
@@ -67,7 +68,7 @@ def export_parlimen_centroids() -> Dict[str, Any]:
     try:
         cursor = collection.find({}, {"_id": 0, "parlimen": 1, "centroid": 1}).batch_size(settings.polygon_export_batch_size)
 
-        with ThreadPoolExecutor(max_workers=settings.entiti_revalidate_max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=settings.export_centroid_max_workers) as executor:
             futures = []
 
             for doc in cursor:
@@ -80,6 +81,7 @@ def export_parlimen_centroids() -> Dict[str, Any]:
 
                 key = f"centroid/PARLIMEN/{parlimen}.json"
                 payload = {"parlimen": parlimen, "centroid": centroid}
+                logger.debug("Uploading %s", key)
 
                 futures.append((executor.submit(upload_json_to_s3, payload, settings.s3_bucket_public, key), parlimen, key))
 
@@ -112,7 +114,7 @@ def export_malaysia_centroids() -> Dict[str, Any]:
     try:
         cursor = collection.find({}, {"_id": 0, "region": 1, "centroid": 1})
 
-        with ThreadPoolExecutor(max_workers=settings.entiti_revalidate_max_workers) as executor:
+        with ThreadPoolExecutor(max_workers=settings.export_centroid_max_workers) as executor:
             futures = []
 
             for doc in cursor:
@@ -125,6 +127,7 @@ def export_malaysia_centroids() -> Dict[str, Any]:
 
                 key = f"centroid/MALAYSIA/{region}.json"
                 payload = {"region": region, "centroid": centroid}
+                logger.debug("Uploading %s", key)
 
                 futures.append((executor.submit(upload_json_to_s3, payload, settings.s3_bucket_public, key), region, key))
 
@@ -149,16 +152,9 @@ def export_malaysia_centroids() -> Dict[str, Any]:
 def export_all_centroids() -> Dict[str, Any]:
     logger.info("Starting centroid export for negeri, parlimen, and malaysia")
 
-    settings = get_settings()
-
-    with ThreadPoolExecutor(max_workers=settings.entiti_revalidate_max_workers) as executor:
-        future_negeri = executor.submit(export_negeri_centroids)
-        future_parlimen = executor.submit(export_parlimen_centroids)
-        future_malaysia = executor.submit(export_malaysia_centroids)
-
-        negeri_summary = future_negeri.result()
-        parlimen_summary = future_parlimen.result()
-        malaysia_summary = future_malaysia.result()
+    negeri_summary = export_negeri_centroids()
+    parlimen_summary = export_parlimen_centroids()
+    malaysia_summary = export_malaysia_centroids()
 
     def strip_centroid_prefix(key: str) -> str:
         prefix = "centroid/"
@@ -170,6 +166,7 @@ def export_all_centroids() -> Dict[str, Any]:
         "malaysia": [strip_centroid_prefix(k) for k in malaysia_summary.get("keys", [])],
     }
 
+    settings = get_settings()
     manifest_key = "centroid/index.json"
 
     upload_json_to_s3(
@@ -178,10 +175,11 @@ def export_all_centroids() -> Dict[str, Any]:
         key=manifest_key,
     )
 
+    logger.info("Centroid export completed")
+
     return {
         "negeri": negeri_summary,
         "parlimen": parlimen_summary,
         "malaysia": malaysia_summary,
         "manifest_key": manifest_key,
     }
-
