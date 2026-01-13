@@ -88,10 +88,10 @@ def _run_ingestion_job() -> None:
     except Exception:
         logger.exception("Unexpected error while handling ingestion request")
 
-@crons.cron("0 0 * * *")
+@crons.cron("0 16 * * *")
 async def daily_ingestion_job():
     """
-    Run the full ingestion pipeline daily at midnight (00:00).
+    Run the full ingestion pipeline daily at midnight Malaysia Time (00:00).
     
     This cron job executes the complete data ingestion process including:
     - Main school data ingestion
@@ -104,6 +104,10 @@ async def daily_ingestion_job():
     try:
         run_ingest()
         logger.info("Scheduled daily ingestion job completed successfully")
+
+        run_post_ingestion_pipeline(settings)
+        logger.info("Scheduled post-ingestion pipeline completed successfully")
+
     except PyMongoError as exc:
         logger.error("Scheduled ingestion job failed - database error: %s", str(exc))
         logger.exception("Full database error details:")
@@ -153,7 +157,6 @@ def revalidate_school_entity_endpoint(background_tasks: BackgroundTasks) -> dict
     background_tasks.add_task(_run_revalidate_school_entity_job, settings)
 
     return {"status": "received"}
-
 
 @app.post("/scrape-opendosm-negeri-parlimen-polygons", tags=["scraping"])
 def scrape_opendosm_polygons_endpoint(background_tasks: BackgroundTasks) -> dict[str, str]:
@@ -285,3 +288,50 @@ def load_malaysia_polygons_endpoint() -> dict[str, str | int]:
     except Exception as e:
         logger.exception("Unexpected error while loading Malaysia polygons: %s", e)
         raise HTTPException(status_code=500, detail="Unexpected error while loading Malaysia polygons")
+
+
+def run_step(name: str, func, *args) -> None:
+    try:
+        result = func(*args)
+        logger.info("Step: %s completed", name)
+    except Exception:
+        logger.exception("Step: %s failed", name)
+
+
+def run_post_ingestion_pipeline(settings):
+    logger.info("Starting post-ingestion pipeline")
+
+    steps = [
+        ("generate_snap_routes", generate_and_upload_snap_routes),
+        ("generate_school_list", generate_and_upload_school_list),
+        ("revalidate_school_entity", revalidate_school_entity, settings),
+        ("load_opendosm_negeri", load_opendosm_negeri.main),
+        ("load_opendosm_parlimen", load_opendosm_parlimen.main),
+        ("export_polygons", export_all_polygons),
+        ("export_centroids", export_all_centroids),
+        ("load_malaysia_polygons", run_malaysia_polygon_pipeline),
+        ("export_asset_logo", process_csv_assets, settings),
+    ]
+
+    for name, func, *args in steps:
+        run_step(name, func, *args)
+
+    logger.info("Successfully completed post-ingestion pipeline")
+
+
+@app.post("/run_post_ingestion_pipeline", tags=["orchestration"])
+def run_post_full_ingestion_pipeline(background_tasks: BackgroundTasks) -> dict[str, str]:
+    """Run all operations sequentially. The pipeline covers, in order:
+    1. generate-snap-routes
+    2. generate-school-list
+    3. revalidate-school-entity
+    4. load-negeri-parlimen-polygons
+    5. export-polygons
+    6. export-centroids
+    7. load-malaysia-polygons
+    8. export-asset-logo
+    """
+
+    background_tasks.add_task(run_post_ingestion_pipeline, settings)
+
+    return {"status": "received"}

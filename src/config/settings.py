@@ -110,6 +110,7 @@ class Settings(BaseSettings):
     asset_export_batch_size: int = get_env_int("ASSET_EXPORT_BATCH_SIZE", 100)
     asset_logo_csv_filename: str = get_env_str("ASSET_LOGO_CSV_FILENAME", "tbi_institusi_induk.csv")
     asset_logo_csv_batch_size: int = get_env_int("ASSET_LOGO_CSV_BATCH_SIZE", 500)
+    export_centroid_max_workers: int = get_env_int("EXPORT_CENTROID_MAX_WORKERS", 4)
 
     # Constants
     s3_prefix_sekolah: str = "sekolah/raw"
