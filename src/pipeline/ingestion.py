@@ -165,7 +165,7 @@ def _collect_documents(
             # Other validation errors behave as before
             messages_list = _format_validation_messages(exc)
             messages = "; ".join(messages_list)
-            errors.append({"row": index, "error": messages})
+            errors.append({"row": index, "detail": messages})
             continue
 
         documents.append(sekolah.to_document())
