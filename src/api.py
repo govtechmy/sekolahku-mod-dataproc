@@ -335,3 +335,24 @@ def run_post_full_ingestion_pipeline(background_tasks: BackgroundTasks) -> dict[
     background_tasks.add_task(run_post_ingestion_pipeline, settings)
 
     return {"status": "received"}
+
+@crons.cron("0 16 * * 6")
+async def schedule_scrape_opendosm_polygons_job():
+    """
+    Run the full scraping OpenDOSM pipeline weekly (Saturday at 00:00 Malaysia Time).
+    - scrape_opendosm_negeri
+    - scrape_opendosm_parlimen
+    """
+    logger.info("Starting scheduled weekly scraping job")
+
+    try:
+        scrape_opendosm_negeri.main()
+        logger.info("Negeri scraping completed successfully")
+    except Exception as e:
+        logger.exception("Error occurred while scraping Negeri data: %s", e)
+    
+    try:
+        scrape_opendosm_parlimen.main()
+        logger.info("Parlimen scraping completed successfully")
+    except Exception as e:
+        logger.exception("Error occurred while scraping Parlimen data: %s", e)
