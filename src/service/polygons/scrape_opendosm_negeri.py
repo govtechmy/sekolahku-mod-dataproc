@@ -62,7 +62,9 @@ def upload_to_s3(s3_client, local_path: str, s3_key: str) -> bool:
         logger.error(f"S3 upload failed: {e}")
         return False
 
-def check_s3_objects_created(s3_client) -> bool:
+def check_s3_objects_created() -> bool:
+    s3_client = boto3.client("s3")
+
     """Check if the expected number of objects exist in the S3 prefix."""
     try:
         paginator = s3_client.get_paginator('list_objects_v2')
