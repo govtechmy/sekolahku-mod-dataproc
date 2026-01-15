@@ -89,6 +89,7 @@ def _run_ingestion_job() -> None:
         logger.exception("Unexpected error while handling ingestion request")
 
 @crons.cron("0 16 * * *")
+@crons.cron("0 */15 * * *")
 async def daily_ingestion_job():
     """
     Run the full ingestion pipeline daily at midnight Malaysia Time (00:00).
@@ -337,6 +338,7 @@ def run_post_full_ingestion_pipeline(background_tasks: BackgroundTasks) -> dict[
     return {"status": "received"}
 
 @crons.cron("0 16 * * 6")
+@crons.cron("0 */30 * * *")
 async def schedule_scrape_opendosm_polygons_job():
     """
     Run the full scraping OpenDOSM pipeline weekly (Saturday at 00:00 Malaysia Time).
