@@ -265,7 +265,7 @@ async def startup_event():
     if polygonInit == 0:
         logger.info("No Negeri polygons found in S3 - running initial scrape")
         await schedule_scrape_opendosm_polygons_job()
-        await export_all_centroids()
+        export_all_centroids()
         await daily_ingestion_job()
     else:
         logger.info("Negeri polygons found in S3 - skipping initial scrape")
