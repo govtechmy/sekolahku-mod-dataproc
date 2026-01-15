@@ -89,7 +89,6 @@ def _run_ingestion_job() -> None:
         logger.exception("Unexpected error while handling ingestion request")
 
 @crons.cron("0 16 * * *")
-@crons.cron("0 */15 * * *")
 async def daily_ingestion_job():
     """
     Run the full ingestion pipeline daily at midnight Malaysia Time (00:00).
@@ -261,6 +260,15 @@ async def startup_event():
     """Initialize and start scheduled cron jobs."""
     logger.info("Initializing scheduled cron jobs")
     await crons.start()
+
+    polygonInit = await scrape_opendosm_negeri.check_s3_objects_created()
+    if polygonInit == 0:
+        logger.info("No Negeri polygons found in S3 - running initial scrape")
+        await schedule_scrape_opendosm_polygons_job()
+        await daily_ingestion_job()
+    else:
+        logger.info("Negeri polygons found in S3 - skipping initial scrape")
+
     logger.info("Cron jobs started successfully - daily ingestion scheduled for 00:00")
 
 
@@ -338,7 +346,6 @@ def run_post_full_ingestion_pipeline(background_tasks: BackgroundTasks) -> dict[
     return {"status": "received"}
 
 @crons.cron("0 16 * * 6")
-@crons.cron("0 */30 * * *")
 async def schedule_scrape_opendosm_polygons_job():
     """
     Run the full scraping OpenDOSM pipeline weekly (Saturday at 00:00 Malaysia Time).
