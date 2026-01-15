@@ -261,7 +261,7 @@ async def startup_event():
     logger.info("Initializing scheduled cron jobs")
     await crons.start()
 
-    polygonInit = await scrape_opendosm_negeri.check_s3_objects_created()
+    polygonInit = scrape_opendosm_negeri.check_s3_objects_created()
     if polygonInit == 0:
         logger.info("No Negeri polygons found in S3 - running initial scrape")
         await schedule_scrape_opendosm_polygons_job()
