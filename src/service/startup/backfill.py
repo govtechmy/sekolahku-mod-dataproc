@@ -22,6 +22,7 @@ async def run_startup_backfill(
     settings,
     schedule_scrape_opendosm_polygons_job: Callable,
     core_ingest: Callable,
+    run_post_ingestion_pipeline: Callable,
     load_opendosm_negeri_main: Callable,
     load_opendosm_parlimen_main: Callable,
     export_all_polygons: Callable,
@@ -43,6 +44,9 @@ async def run_startup_backfill(
     assets_manifest_missing = "assets_manifest" in missing
     assets_csv_missing = "assets_csv" in missing
     needs_core_ingestion = bool(common_missing or assets_manifest_missing)
+    needs_full_post_pipeline = bool(
+        polygon_raw_missing or polygon_exports_missing or centroid_missing
+    )
 
     if polygon_raw_missing:
         logger.info("Backfill: scraping OpenDOSM polygons")
@@ -63,7 +67,11 @@ async def run_startup_backfill(
 
     if needs_core_ingestion:
         logger.info("Backfill: running core ingestion before S3 uploads")
-        await _safe_to_thread("Run ingestion pipeline", core_ingest)
+        await _safe_to_thread("Run ingestion pipeline", core_ingest, settings)
+
+    if needs_full_post_pipeline:
+        logger.info("Backfill: running post-ingestion pipeline for polygons and aggregates")
+        await _safe_to_thread("Run post-ingestion pipeline", run_post_ingestion_pipeline, settings)
 
     if common_missing:
         logger.info("Backfill: regenerating common exports")

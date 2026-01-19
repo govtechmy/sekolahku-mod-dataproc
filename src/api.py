@@ -278,6 +278,7 @@ async def startup_event():
             settings=settings,
             schedule_scrape_opendosm_polygons_job=schedule_scrape_opendosm_polygons_job,
             core_ingest=run_ingest,
+            run_post_ingestion_pipeline=run_post_ingestion_pipeline,
             load_opendosm_negeri_main=load_opendosm_negeri.main,
             load_opendosm_parlimen_main=load_opendosm_parlimen.main,
             export_all_polygons=export_all_polygons,
