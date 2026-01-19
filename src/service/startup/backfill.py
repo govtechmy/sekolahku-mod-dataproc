@@ -43,10 +43,10 @@ async def run_startup_backfill(
     common_missing = {"common_snap_routes", "common_school_list"} & missing
     assets_manifest_missing = "assets_manifest" in missing
     assets_csv_missing = "assets_csv" in missing
-    needs_core_ingestion = bool(common_missing or assets_manifest_missing)
     needs_full_post_pipeline = bool(
         polygon_raw_missing or polygon_exports_missing or centroid_missing
     )
+    needs_core_ingestion = bool(common_missing or assets_manifest_missing or needs_full_post_pipeline)
 
     if polygon_raw_missing:
         logger.info("Backfill: scraping OpenDOSM polygons")
