@@ -62,6 +62,24 @@ def upload_to_s3(s3_client, local_path: str, s3_key: str) -> bool:
         logger.error(f"S3 upload failed: {e}")
         return False
 
+def check_s3_objects_created() -> bool:
+    s3_client = boto3.client("s3")
+
+    """Check if the expected number of objects exist in the S3 prefix."""
+    try:
+        paginator = s3_client.get_paginator('list_objects_v2')
+        page_iterator = paginator.paginate(Bucket=settings.s3_bucket_dataproc, Prefix=S3_PREFIX_OPENDOSM)
+
+        total_objects = 0
+        for page in page_iterator:
+            if 'Contents' in page:
+                total_objects += len(page['Contents'])
+
+        logger.info(f"Total objects found in s3://{settings.s3_bucket_dataproc}/{S3_PREFIX_OPENDOSM}: {total_objects}")
+        return total_objects
+    except Exception as e:
+        logger.error(f"Error checking S3 objects: {e}")
+        return 0
 
 def _fetch_and_upload(s3_client, url: str) -> tuple[bool, str]:
     """Fetch a single URL and upload its JSON to S3.

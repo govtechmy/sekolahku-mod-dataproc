@@ -21,6 +21,8 @@ from src.service.builders.build_snap_routes import generate_and_upload_snap_rout
 from src.service.builders.build_school_list import generate_and_upload_school_list
 from src.pipeline.malaysia_polygon import run_malaysia_polygon_pipeline
 from src.service.assets import process_csv_assets
+from src.service.startup.s3_bootstrap import evaluate_s3_bootstrap
+from src.service.startup.backfill import run_startup_backfill
 
 logger = logging.getLogger(__name__)
 app = FastAPI()
@@ -261,6 +263,34 @@ async def startup_event():
     """Initialize and start scheduled cron jobs."""
     logger.info("Initializing scheduled cron jobs")
     await crons.start()
+
+    try:
+        missing, results = evaluate_s3_bootstrap(settings)
+        for result in results:
+            logger.info("S3 check %s: found=%s required=%s", result.name, result.found, result.required)
+    except Exception:
+        logger.exception("Startup S3 bootstrap check failed; continuing without backfill")
+        missing = []
+
+    if missing:
+        logger.info("Missing S3 artifacts detected: %s", ", ".join(missing))
+        await run_startup_backfill(
+            missing=set(missing),
+            settings=settings,
+            schedule_scrape_opendosm_polygons_job=schedule_scrape_opendosm_polygons_job,
+            core_ingest=run_ingest,
+            run_post_ingestion_pipeline=run_post_ingestion_pipeline,
+            load_opendosm_negeri_main=load_opendosm_negeri.main,
+            load_opendosm_parlimen_main=load_opendosm_parlimen.main,
+            export_all_polygons=export_all_polygons,
+            export_all_centroids=export_all_centroids,
+            generate_and_upload_snap_routes=generate_and_upload_snap_routes,
+            generate_and_upload_school_list=generate_and_upload_school_list,
+            process_csv_assets=process_csv_assets,
+        )
+    else:
+        logger.info("All required S3 artifacts present - skipping bootstrap backfill")
+
     logger.info("Cron jobs started successfully - daily ingestion scheduled for 00:00")
 
 
@@ -336,3 +366,24 @@ def run_post_full_ingestion_pipeline(background_tasks: BackgroundTasks) -> dict[
     background_tasks.add_task(run_post_ingestion_pipeline, settings)
 
     return {"status": "received"}
+
+@crons.cron("0 16 * * 6")
+async def schedule_scrape_opendosm_polygons_job():
+    """
+    Run the full scraping OpenDOSM pipeline weekly (Saturday at 00:00 Malaysia Time).
+    - scrape_opendosm_negeri
+    - scrape_opendosm_parlimen
+    """
+    logger.info("Starting scheduled weekly scraping job")
+
+    try:
+        scrape_opendosm_negeri.main()
+        logger.info("Negeri scraping completed successfully")
+    except Exception as e:
+        logger.exception("Error occurred while scraping Negeri data: %s", e)
+    
+    try:
+        scrape_opendosm_parlimen.main()
+        logger.info("Parlimen scraping completed successfully")
+    except Exception as e:
+        logger.exception("Error occurred while scraping Parlimen data: %s", e)
