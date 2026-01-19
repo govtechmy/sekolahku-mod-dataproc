@@ -21,6 +21,8 @@ from src.service.builders.build_snap_routes import generate_and_upload_snap_rout
 from src.service.builders.build_school_list import generate_and_upload_school_list
 from src.pipeline.malaysia_polygon import run_malaysia_polygon_pipeline
 from src.service.assets import process_csv_assets
+from src.service.startup.s3_bootstrap import evaluate_s3_bootstrap
+from src.service.startup.backfill import run_startup_backfill
 
 logger = logging.getLogger(__name__)
 app = FastAPI()
@@ -261,14 +263,31 @@ async def startup_event():
     logger.info("Initializing scheduled cron jobs")
     await crons.start()
 
-    polygonInit = scrape_opendosm_negeri.check_s3_objects_created()
-    if polygonInit == 0:
-        logger.info("No Negeri polygons found in S3 - running initial scrape")
-        await schedule_scrape_opendosm_polygons_job()
-        export_all_centroids()
-        await daily_ingestion_job()
+    try:
+        missing, results = evaluate_s3_bootstrap(settings)
+        for result in results:
+            logger.info("S3 check %s: found=%s required=%s", result.name, result.found, result.required)
+    except Exception:
+        logger.exception("Startup S3 bootstrap check failed; continuing without backfill")
+        missing = []
+
+    if missing:
+        logger.info("Missing S3 artifacts detected: %s", ", ".join(missing))
+        await run_startup_backfill(
+            missing=set(missing),
+            settings=settings,
+            schedule_scrape_opendosm_polygons_job=schedule_scrape_opendosm_polygons_job,
+            core_ingest=run_ingest,
+            load_opendosm_negeri_main=load_opendosm_negeri.main,
+            load_opendosm_parlimen_main=load_opendosm_parlimen.main,
+            export_all_polygons=export_all_polygons,
+            export_all_centroids=export_all_centroids,
+            generate_and_upload_snap_routes=generate_and_upload_snap_routes,
+            generate_and_upload_school_list=generate_and_upload_school_list,
+            process_csv_assets=process_csv_assets,
+        )
     else:
-        logger.info("Negeri polygons found in S3 - skipping initial scrape")
+        logger.info("All required S3 artifacts present - skipping bootstrap backfill")
 
     logger.info("Cron jobs started successfully - daily ingestion scheduled for 00:00")
 
