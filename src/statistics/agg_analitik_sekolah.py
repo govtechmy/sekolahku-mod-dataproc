@@ -79,6 +79,11 @@ def _build_aggregation_pipeline() -> List[Dict[str, Any]]:
 
     return [
         {
+            "$match": {
+                "status": "ACTIVE"
+            }
+        },
+        {
             "$facet": {
                 "metadata": [
                     {

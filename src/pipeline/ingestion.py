@@ -140,28 +140,22 @@ def _format_validation_messages(exc: ValidationError) -> list[str]:
 
 def _collect_documents(
     settings: Settings,
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int, set[Any]]:
     documents: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
     total = 0
+    present_identifiers: set[Any] = set()
 
     for index, row in enumerate(_load_rows(settings), start=1):
         total += 1
+
+        raw_kod = str(row.get("KODSEKOLAH", "")).strip()
+        if raw_kod:
+            present_identifiers.add(raw_kod)
+
         try:
             sekolah = Sekolah.model_validate(row)
         except ValidationError as exc:
-            # Check if this is the case where kodSekolah is blank or missing
-            raw_kod = str(row.get("KODSEKOLAH", "")).strip()
-            if raw_kod == "":
-                # Create an INACTIVE school placeholder
-                documents.append({
-                    "_id": None,
-                    "kodSekolah": None,
-                    "status": SekolahStatus.INACTIVE.value,
-                })
-                # DO NOT add to active_identifiers later (it stays inactive)
-                continue
-
             # Other validation errors behave as before
             messages_list = _format_validation_messages(exc)
             messages = "; ".join(messages_list)
@@ -170,7 +164,7 @@ def _collect_documents(
 
         documents.append(sekolah.to_document())
 
-    return documents, errors, total
+    return documents, errors, total, present_identifiers
 
 
 def _replace_collection(
@@ -273,11 +267,11 @@ def _replace_collection(
 
 def _mark_missing_schools_inactive(
     collection: Collection,
-    active_identifiers: set[Any],
+    present_identifiers: set[Any],
 ) -> int:
     selector = {"status": SekolahStatus.ACTIVE.value}
-    if active_identifiers:
-        selector["_id"] = {"$nin": list(active_identifiers)}
+    if present_identifiers:
+        selector["_id"] = {"$nin": list(present_identifiers)}
 
     update_document = {
         "$set": {"status": SekolahStatus.INACTIVE.value},
@@ -302,20 +296,17 @@ def run(settings: Settings) -> dict[str, Any]:
     database = _get_database(settings)
     sekolah_collection = database[Sekolah.collection_name]
     entiti_collection = database[settings.entiti_sekolah_collection]
-    documents, errors, total = _collect_documents(settings)
+    documents, errors, total, present_identifiers = _collect_documents(settings)
 
-    active_identifiers: set[Any] = set()
     for document in documents:
+        # All schools present in raw file are ACTIVE
+        document["status"] = SekolahStatus.ACTIVE.value
         checksum = _compute_checksum(document)
         document["checksum"] = checksum
-        document["status"] = SekolahStatus.ACTIVE.value # All schools present in raw file are ACTIVE
 
         identifier = document.get("_id") or document.get("kodSekolah")
         if identifier is None:
             continue
-        # All schools present in raw file are ACTIVE
-        document["status"] = SekolahStatus.ACTIVE.value
-        active_identifiers.add(identifier)
 
     try:
         result = _replace_collection(
@@ -333,17 +324,9 @@ def run(settings: Settings) -> dict[str, Any]:
 
     inactivated = _mark_missing_schools_inactive(
         sekolah_collection,
-        active_identifiers,
+        present_identifiers,
     )
     logger.info("Marked %s sekolah as inactive", inactivated)
-
-    if errors:
-        inactivated = 0
-    else:
-        inactivated = _mark_missing_schools_inactive(
-            sekolah_collection,
-            active_identifiers,
-        )
 
     entiti_synced = sync_entiti_statuses(
         sekolah_collection,
