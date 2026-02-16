@@ -70,12 +70,8 @@ def run_ingest(settings: Settings | None = None) -> dict:
     negeri_parlimen_kod_sekolah_summary = run_negeri_parlimen_kod_sekolah(settings)
     logger.info("NegeriParlimenKodSekolah summary: %s", negeri_parlimen_kod_sekolah_summary)
 
-    if result["inserted"] == 0 and result["updated"] == 0 and result["inactivated"] == 0:
-        logger.info("No data changes detected; skipping Analitik run")
-        analitik = None
-    else:
-        analitik = run_analitik_dict(settings)
-        logger.info("Analitik summary: %s", analitik)
+    analitik = run_analitik_dict(settings)
+    logger.info("Analitik summary: %s", analitik)
     
     return {
         "ingestion": result,
