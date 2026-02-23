@@ -276,7 +276,7 @@ def run_institusi(settings: Settings) -> dict[str, Any]:
 
 def run_with_overrides(**overrides: Any) -> dict[str, Any]:
     settings = get_settings().model_copy(update=overrides)
-    return run(settings)
+    return run_institusi(settings)
 
 
-__all__ = ["run", "run_with_overrides"]
+__all__ = ["run_institusi", "run_with_overrides"]

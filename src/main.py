@@ -62,11 +62,11 @@ def run_ingest(settings: Settings | None = None) -> dict:
     # -------------------------
     # Run ingestion pipeline
     # -------------------------
-    result = run_pipeline(settings)
-    logger.info("Sekolah ingestion summary: %s", result)
+    sekolah_result = run_pipeline(settings)
+    logger.info("Sekolah ingestion summary: %s", sekolah_result)
 
-    result = run_institusi(settings)
-    logger.info("Institusi ingestion summary: %s", result)
+    institusi_result = run_institusi(settings)
+    logger.info("Institusi ingestion summary: %s", institusi_result)
 
     entiti = run_entiti_sekolah_dict(settings)
     logger.info("Entiti summary: %s", entiti)
@@ -78,7 +78,8 @@ def run_ingest(settings: Settings | None = None) -> dict:
     logger.info("Analitik summary: %s", analitik)
     
     return {
-        "ingestion": result,
+        "sekolah_ingestion": sekolah_result,
+        "institusi_ingestion": institusi_result,
         "entiti": entiti,
         "negeri_parlimen_kod_sekolah": negeri_parlimen_kod_sekolah_summary,
         "analitik": analitik,
