@@ -10,6 +10,7 @@ from src.pipeline import (
     run_entiti_sekolah_dict,
     run_analitik_dict,
     run_negeri_parlimen_kod_sekolah,
+    run_institusi,
 )
 from src.service.polygons.load_opendosm_negeri import main as load_negeri_polygons
 from src.service.polygons.load_opendosm_parlimen import main as load_parlimen_polygons
@@ -62,7 +63,10 @@ def run_ingest(settings: Settings | None = None) -> dict:
     # Run ingestion pipeline
     # -------------------------
     result = run_pipeline(settings)
-    logger.info("Ingestion summary: %s", result)
+    logger.info("Sekolah ingestion summary: %s", result)
+
+    result = run_institusi(settings)
+    logger.info("Institusi ingestion summary: %s", result)
 
     entiti = run_entiti_sekolah_dict(settings)
     logger.info("Entiti summary: %s", entiti)
