@@ -6,7 +6,7 @@ from enum import Enum
 
 from datetime import datetime, timezone
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 from src.config.settings import get_settings
 from src.models.negeri_enum import NegeriEnum
 from src.core.time import _utc_now
@@ -40,7 +40,7 @@ class Sekolah(BaseModel):
 
     noTelefon: Optional[str] = Field(default=None, alias="NOTELEFON")
     noFax: Optional[str] = Field(default=None, alias="NOFAX")
-    email: Optional[EmailStr] = Field(default=None, alias="EMAIL")
+    email: Optional[str] = Field(default=None, alias="EMAIL")
 
     lokasi: Optional[str] = Field(default=None, alias="LOKASI")
     gred: Optional[str] = Field(default=None, alias="GRED")
@@ -71,18 +71,6 @@ class Sekolah(BaseModel):
             return None
         text = str(value).strip().upper()
         return None if text in MISSING_VALUES else value
-
-    @field_validator("email", mode="before")
-    def normalize_email(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip()
-        if not text or text.upper() in MISSING_VALUES:
-            return None
-        text = text.rstrip(".")
-        while "@@" in text:
-            text = text.replace("@@", "@")
-        return text or None
 
     @field_validator("kodSekolah", mode="before")
     def validate_kod_sekolah(cls, value: str | None) -> str:
