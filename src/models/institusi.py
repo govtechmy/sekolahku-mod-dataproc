@@ -28,6 +28,7 @@ class Institusi(BaseModel):
     guru: Optional[int] = Field(default=None, alias="GURU")
     status: str | None = Field(default=None, description="Status of the institution (ACTIVE/INACTIVE)")
     createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
+    checksum: Optional[str] = Field(default=None, description="SHA-256 hash computed with certain fields excluded")
 
     @field_validator("ppd", "jenisLabel", "namaSekolah", mode="before")
     def empty_to_none(cls, value):
