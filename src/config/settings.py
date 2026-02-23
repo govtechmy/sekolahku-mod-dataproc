@@ -87,6 +87,7 @@ class Settings(BaseSettings):
     mongo_uri: str = get_env_str("MONGO_URI")
     db_name: str = get_env_str("DB_NAME")
     sekolah_collection: str = get_env_str("SEKOLAH_COLLECTION", "Sekolah")
+    institusi_collection: str = get_env_str("INSTITUSI_COLLECTION", "Institusi")
     entiti_sekolah_collection: str = get_env_str("ENTITI_SEKOLAH_COLLECTION", "EntitiSekolah")
     analitik_sekolah_collection: str = get_env_str("ANALITIK_SEKOLAH_COLLECTION", "AnalitikSekolah")
     asset_sekolah_collection: str = get_env_str("ASSET_SEKOLAH_COLLECTION", "AssetSekolah")
@@ -98,6 +99,8 @@ class Settings(BaseSettings):
     csv_path: str = get_env_str("CSV_PATH", "data/sekolah.csv")
     gsheet_id: str = get_env_str("GSHEET_ID")
     gsheet_gid: str = get_env_str("GSHEET_GID")
+    institusi_gsheet_id: str = get_env_str("GSHEET_ID")
+    institusi_gsheet_gid: str = get_env_str("INSTITUSI_GSHEET_GID")
     batch_size: int = get_env_int("BATCH_SIZE", 500)
     port: int = get_env_int("PORT", 8000)
     s3_bucket_public: str = get_env_str("S3_BUCKET_PUBLIC", "my.gov.digital.sekolahku-public-dev")
@@ -114,6 +117,7 @@ class Settings(BaseSettings):
 
     # Constants
     s3_prefix_sekolah: str = "sekolah/raw"
+    s3_prefix_institusi: str = "institusi/raw"
     s3_prefix_opendosm: str = "opendosm/raw"
     s3_prefix_common: str = "common"
     s3_prefix_polygon: str = "polygon"
