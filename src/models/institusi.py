@@ -24,7 +24,7 @@ class Institusi(BaseModel):
     jenisLabel: Optional[str] = Field(default=None, alias="JENIS/LABEL")
     kodInstitusi: str = Field(..., alias="KODINSTITUSI")
     namaSekolah: Optional[str] = Field(default=None, alias="NAMASEKOLAH")
-    enrolmenPraSekolah: Optional[int] = Field(default=None, alias="ENROLMEN PRA")
+    enrolmenPrasekolah: Optional[int] = Field(default=None, alias="ENROLMEN PRA")
     guru: Optional[int] = Field(default=None, alias="GURU")
     status: str | None = Field(default=None, description="Status of the institution (ACTIVE/INACTIVE)")
     createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
@@ -43,7 +43,7 @@ class Institusi(BaseModel):
             raise ValueError("kodInstitusi is required")
         return text
 
-    @field_validator("enrolmenPraSekolah", "guru", mode="before")
+    @field_validator("enrolmenPrasekolah", "guru", mode="before")
     def parse_ints(cls, value):
         if value is None:
             return None

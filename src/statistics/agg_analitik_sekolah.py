@@ -129,10 +129,10 @@ def _convert_buckets_to_items(buckets: List[Dict[str, Any]], total: int) -> List
 
 def _compute_institusi_totals(institusi_collection: Collection | None) -> dict[str, int]:
     """
-    Compute total guru and enrolmenPraSekolah counts from ACTIVE institusi.
+    Compute total guru and enrolmenPrasekolah counts from ACTIVE institusi.
     """
     if institusi_collection is None:
-        return {"guru": 0, "enrolmenPraSekolah": 0}
+        return {"guru": 0, "enrolmenPrasekolah": 0}
 
     pipeline = [
         {"$match": {"status": "ACTIVE"}},
@@ -140,18 +140,18 @@ def _compute_institusi_totals(institusi_collection: Collection | None) -> dict[s
             "$group": {
                 "_id": None,
                 "guru": {"$sum": {"$ifNull": ["$guru", 0]}},
-                "enrolmenPraSekolah": {"$sum": {"$ifNull": ["$enrolmenPraSekolah", 0]}},
+                "enrolmenPrasekolah": {"$sum": {"$ifNull": ["$enrolmenPrasekolah", 0]}},
             }
         },
     ]
 
     result = next(institusi_collection.aggregate(pipeline, allowDiskUse=False), None)
     if not result:
-        return {"guru": 0, "enrolmenPraSekolah": 0}
+        return {"guru": 0, "enrolmenPrasekolah": 0}
 
     return {
         "guru": int(result.get("guru") or 0),
-        "enrolmenPraSekolah": int(result.get("enrolmenPraSekolah") or 0),
+        "enrolmenPrasekolah": int(result.get("enrolmenPrasekolah") or 0),
     }
 
 
@@ -161,7 +161,7 @@ def compute_analitik_sekolah(
 ) -> List[Dict[str, Any]]:
     """Project sekolah collection into the AnalitikSekolah aggregation view.
 
-    When ``institusi_collection`` is provided, guru and enrolmenPraSekolah totals include ACTIVE
+    When ``institusi_collection`` is provided, guru and enrolmenPrasekolah totals include ACTIVE
     institusi documents as well as sekolah.
     """
 
@@ -184,8 +184,8 @@ def compute_analitik_sekolah(
 
     institusi_totals = _compute_institusi_totals(institusi_collection)
     jumlah_guru += institusi_totals.get("guru", 0)
-    # enrolmenPraSekolah contributes to overall pelajar total for institusi
-    jumlah_pelajar += institusi_totals.get("enrolmenPraSekolah", 0)
+    # enrolmenPrasekolah contributes to overall pelajar total for institusi
+    jumlah_pelajar += institusi_totals.get("enrolmenPrasekolah", 0)
 
     data = AnalitikSekolahData(
         jenisLabel=_convert_buckets_to_items(result.get("jenisLabel", []), jumlah_sekolah),
