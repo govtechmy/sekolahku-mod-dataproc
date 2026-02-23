@@ -127,11 +127,46 @@ def _convert_buckets_to_items(buckets: List[Dict[str, Any]], total: int) -> List
     return AnalitikSekolah._convert_to_analitik_items(counter, total)
 
 
-def compute_analitik_sekolah(collection: Collection) -> List[Dict[str, Any]]:
-    """Project sekolah collection into the AnalitikSekolah aggregation view."""
+def _compute_institusi_totals(institusi_collection: Collection | None) -> dict[str, int]:
+    """
+    Compute total guru and enrolmenPraSekolah counts from ACTIVE institusi.
+    """
+    if institusi_collection is None:
+        return {"guru": 0, "enrolmenPraSekolah": 0}
+
+    pipeline = [
+        {"$match": {"status": "ACTIVE"}},
+        {
+            "$group": {
+                "_id": None,
+                "guru": {"$sum": {"$ifNull": ["$guru", 0]}},
+                "enrolmenPraSekolah": {"$sum": {"$ifNull": ["$enrolmenPraSekolah", 0]}},
+            }
+        },
+    ]
+
+    result = next(institusi_collection.aggregate(pipeline, allowDiskUse=False), None)
+    if not result:
+        return {"guru": 0, "enrolmenPraSekolah": 0}
+
+    return {
+        "guru": int(result.get("guru") or 0),
+        "enrolmenPraSekolah": int(result.get("enrolmenPraSekolah") or 0),
+    }
+
+
+def compute_analitik_sekolah(
+    sekolah_collection: Collection,
+    institusi_collection: Collection | None = None,
+) -> List[Dict[str, Any]]:
+    """Project sekolah collection into the AnalitikSekolah aggregation view.
+
+    When ``institusi_collection`` is provided, guru and enrolmenPraSekolah totals include ACTIVE
+    institusi documents as well as sekolah.
+    """
 
     pipeline = _build_aggregation_pipeline()
-    result = next(collection.aggregate(pipeline, allowDiskUse=True), None)
+    result = next(sekolah_collection.aggregate(pipeline, allowDiskUse=True), None)
 
     if not result:
         logger.warning("No sekolah documents found in collection")
@@ -146,6 +181,11 @@ def compute_analitik_sekolah(collection: Collection) -> List[Dict[str, Any]]:
     
     jumlah_guru = int(metadata.get("jumlahGuru") or 0)
     jumlah_pelajar = int(metadata.get("jumlahPelajar") or 0)
+
+    institusi_totals = _compute_institusi_totals(institusi_collection)
+    jumlah_guru += institusi_totals.get("guru", 0)
+    # enrolmenPraSekolah contributes to overall pelajar total for institusi
+    jumlah_pelajar += institusi_totals.get("enrolmenPraSekolah", 0)
 
     data = AnalitikSekolahData(
         jenisLabel=_convert_buckets_to_items(result.get("jenisLabel", []), jumlah_sekolah),

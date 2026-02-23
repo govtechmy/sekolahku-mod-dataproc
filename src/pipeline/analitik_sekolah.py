@@ -47,9 +47,10 @@ def run_analitik_sekolah(settings: Optional[Settings] = None) -> PersistAnalitik
     settings = settings or get_settings()
     db = _get_db(settings)
     sekolah_collection = db[Sekolah.collection_name]
+    institusi_collection = db[settings.institusi_collection]
     analitik_collection = db[ANALITIK_SEKOLAH_COLLECTION]
 
-    documents = compute_analitik_sekolah(sekolah_collection)
+    documents = compute_analitik_sekolah(sekolah_collection, institusi_collection)
     if not documents:
         return {"collection": ANALITIK_SEKOLAH_COLLECTION, "processed": 0, "inserted": 0, "updated": 0, "skipped": 0}
 
