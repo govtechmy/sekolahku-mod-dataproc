@@ -5,7 +5,7 @@ from typing import ClassVar, Optional, TYPE_CHECKING
 from datetime import datetime, timezone
 from src.core.time import _utc_now
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import BaseModel, Field, field_validator
 from pydantic import ConfigDict
 from typing_extensions import Literal
 from src.config.settings import get_settings
@@ -25,7 +25,7 @@ class InfoSekolah(BaseModel):
 class InfoKomunikasi(BaseModel):
     noTelefon: Optional[str] = Field(default=None, description="Primary contact number")
     noFax: Optional[str] = Field(default=None, description="Fax number")
-    email: Optional[EmailStr] = Field(default=None, description="General contact email")
+    email: Optional[str] = Field(default=None, description="General contact email")
     alamatSurat: Optional[str] = Field(default=None, description="Mailing address")
     poskodSurat: Optional[str] = Field(default=None, description="Mailing postcode")
     bandarSurat: Optional[str] = Field(default=None, description="Mailing city")
