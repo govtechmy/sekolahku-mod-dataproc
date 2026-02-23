@@ -91,7 +91,6 @@ def _run_ingestion_job() -> None:
         logger.exception("Unexpected error while handling ingestion request")
 
 @crons.cron("0 16 * * *") # Every day at 00:00 Malaysia Time
-@crons.cron("*/30 * * * *") # Every 30 minutes - for testing purposes, can be removed in production
 async def daily_ingestion_job():
     """
     Run the full ingestion pipeline daily at midnight Malaysia Time (00:00).
