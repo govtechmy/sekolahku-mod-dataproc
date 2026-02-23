@@ -68,7 +68,7 @@ def _format_validation_messages(exc: ValidationError) -> list[str]:
 
 def _load_rows(settings: Settings) -> Iterable[Dict[str, Any]]:
     if not settings.institusi_gsheet_id or not settings.institusi_gsheet_gid:
-        raise RuntimeError("INSTITUSI_GSHEET_ID and INSTITUSI_GSHEET_GID must be set")
+        raise RuntimeError("GSHEET_ID and INSTITUSI_GSHEET_GID must be set")
 
     csv_bytes = fetch_csv_data(settings.institusi_gsheet_id, settings.institusi_gsheet_gid)
     logger.info("Uploading Institusi CSV data to S3 bucket %s", settings.s3_bucket_dataproc)
