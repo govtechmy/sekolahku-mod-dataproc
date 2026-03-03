@@ -88,27 +88,46 @@ def _get_collection(settings: Settings) -> Collection:
 def run_sekolah_angkat_madani(settings: Settings) -> dict[str, Any]:
 	logger.info("Starting Sekolah Angkat Madani ingestion")
 	collection = _get_collection(settings)
+	database = collection.database
 
 	documents, errors, total = _collect_documents(settings)
 
 	inserted = 0
 	deleted = 0
+	staging_name = f"{SekolahAngkatMadani.collection_name}_staging"
+	target_name = SekolahAngkatMadani.collection_name
+
 	try:
-		logger.info("Replacing collection '%s' with new data: total=%s, errors=%s", SekolahAngkatMadani.collection_name, total, len(errors))
-		delete_result = collection.delete_many({})
-		deleted = int(getattr(delete_result, "deleted_count", 0) or 0)
+		logger.info("Replacing collection '%s' via staging: total=%s, errors=%s", target_name, total, len(errors),)
+
+		# Prepare staging collection
+		if staging_name in database.list_collection_names():
+			database.drop_collection(staging_name)
+
+		staging = database[staging_name]
+		previous_count = collection.count_documents({})
+
 		if documents:
-			insert_result = collection.insert_many(documents, ordered=False)
+			insert_result = staging.insert_many(documents, ordered=False)
 			inserted = len(getattr(insert_result, "inserted_ids", []) or [])
+
+		# Atomically swap staging into place
+		staging.rename(target_name, dropTarget=True)
+		deleted = previous_count
+
 	except OperationFailure as exc:
 		if exc.code == 13:
 			logger.error("MongoDB authentication failed. Ensure your MONGO_URI includes the correct credentials and authSource if required.")
 			raise RuntimeError("MongoDB authentication failed; check credentials and auth source") from exc
 		logger.error("MongoDB operation failed: %s", exc)
 		raise
+	finally:
+		# Clean up any leftover staging collection on failure cases
+		if staging_name in database.list_collection_names() and staging_name != target_name:
+			database.drop_collection(staging_name)
 
 	summary = {
-		"collection": SekolahAngkatMadani.collection_name,
+		"collection": target_name,
 		"total": total,
 		"processed": total,
 		"failed": len(errors),
@@ -116,7 +135,7 @@ def run_sekolah_angkat_madani(settings: Settings) -> dict[str, Any]:
 		"inserted": inserted,
 		"deleted": deleted,
 	}
-	logger.info("Sekolah Angkat Madani ingestion completed: processed=%s, inserted=%s, deleted=%s, failed=%s", total, inserted, deleted, len(errors))
+	logger.info("Sekolah Angkat Madani ingestion completed: processed=%s, inserted=%s, deleted=%s, failed=%s", total, inserted, deleted, len(errors),)
 	return summary
 
 
