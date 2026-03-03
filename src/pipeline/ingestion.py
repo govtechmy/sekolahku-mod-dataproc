@@ -165,7 +165,7 @@ def _collect_documents(
 
         document = sekolah.to_document()
         canonical_kod = str(sekolah.kodSekolah).strip()
-        document["isSekolahAngkatMadani"] = canonical_kod in kodSekolah_madani
+        document["isSekolahAngkatMADANI"] = canonical_kod in kodSekolah_madani
         documents.append(document)
 
     return documents, errors, total, present_identifiers
