@@ -51,6 +51,9 @@ def _load_rows(settings: Settings) -> Iterable[Dict[str, Any]]:
 	else:
 		df = _read_excel_from_s3(bucket, key)
 
+	# Normalise column headers to avoid trailing spaces/mismatches (e.g. "NEGERI ")
+	df = df.rename(columns=lambda c: str(c).strip())
+
 	total_rows = df.shape[0]
 	logger.info(f"Sekolah Angkat Madani file loaded from s3://{bucket}/{key}: {total_rows} rows")
 	return df.to_dict(orient="records")
