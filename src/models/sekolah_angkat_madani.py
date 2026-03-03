@@ -22,7 +22,6 @@ class SekolahAngkatMadani(BaseModel):
 	kodSekolah: str = Field(..., alias="KOD SEKOLAH")
 	namaSekolah: Optional[str] = Field(default=None, alias="NAMA SEKOLAH")
 	createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
-	checksum: Optional[str] = Field(default=None, description="SHA-256 hash computed with certain fields excluded")
 
 	@field_validator("ppd", "namaSekolah", mode="before")
 	def empty_to_none(cls, value):

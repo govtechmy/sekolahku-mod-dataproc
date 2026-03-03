@@ -6,9 +6,7 @@ Columns: NEGERI, PPD, KOD SEKOLAH, NAMA SEKOLAH.
 
 from __future__ import annotations
 
-import hashlib
 import io
-import json
 import logging
 from typing import Any, Dict, Iterable
 
@@ -25,14 +23,6 @@ from src.models.sekolah_angkat_madani import SekolahAngkatMadani
 from src.pipeline.ingestion import _replace_collection
 
 logger = logging.getLogger(__name__)
-
-CHECKSUM_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt", "checksum"}
-
-
-def _compute_checksum(document: Dict[str, Any]) -> str:
-	filtered = {key: document[key] for key in sorted(document) if key not in CHECKSUM_EXCLUDE_KEYS}
-	serialized = json.dumps(filtered, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-	return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
 
 
 def _read_excel_from_s3(bucket: str, key: str) -> pd.DataFrame:
@@ -99,15 +89,15 @@ def run_sekolah_angkat_madani(settings: Settings) -> dict[str, Any]:
 
 	documents, errors, total = _collect_documents(settings)
 
-	for document in documents:
-		document["checksum"] = _compute_checksum(document)
-
+	inserted = 0
+	deleted = 0
 	try:
-		result = _replace_collection(
-			collection,
-			documents,
-			batch_size=settings.batch_size,
-		)
+		logger.info("Replacing collection '%s' with new data: total=%s, errors=%s", SekolahAngkatMadani.collection_name, total, len(errors))
+		delete_result = collection.delete_many({})
+		deleted = int(getattr(delete_result, "deleted_count", 0) or 0)
+		if documents:
+			insert_result = collection.insert_many(documents, ordered=False)
+			inserted = len(getattr(insert_result, "inserted_ids", []) or [])
 	except OperationFailure as exc:
 		if exc.code == 13:
 			logger.error("MongoDB authentication failed. Ensure your MONGO_URI includes the correct credentials and authSource if required.")
@@ -118,21 +108,13 @@ def run_sekolah_angkat_madani(settings: Settings) -> dict[str, Any]:
 	summary = {
 		"collection": SekolahAngkatMadani.collection_name,
 		"total": total,
-		"processed": result["processed"],
+		"processed": total,
 		"failed": len(errors),
 		"errors": errors,
-		"inserted": result["inserted"],
-		"updated": result["updated"],
-		"skipped": result["skipped"],
+		"inserted": inserted,
+		"deleted": deleted,
 	}
-	logger.info(
-		"Sekolah Angkat Madani ingestion completed: processed=%s, inserted=%s, updated=%s, unchanged=%s, failed=%s",
-		result["processed"],
-		result["inserted"],
-		result["updated"],
-		result["unchanged"],
-		len(errors),
-	)
+	logger.info("Sekolah Angkat Madani ingestion completed: processed=%s, inserted=%s, deleted=%s, failed=%s", total, inserted, deleted, len(errors))
 	return summary
 
 
