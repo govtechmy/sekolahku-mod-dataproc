@@ -8,7 +8,7 @@ import os
 from datetime import datetime, timezone
 import io 
 import pandas as pd
-from typing import Any, Dict, Iterable, Iterator
+from typing import Any, Dict, Iterable, Iterator, Set
 
 from pydantic import ValidationError
 from pymongo import MongoClient, UpdateOne
@@ -140,6 +140,7 @@ def _format_validation_messages(exc: ValidationError) -> list[str]:
 
 def _collect_documents(
     settings: Settings,
+    kodSekolah_madani: Set[str],
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int, set[Any]]:
     documents: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
@@ -162,9 +163,31 @@ def _collect_documents(
             errors.append({"row": index, "error": messages})
             continue
 
-        documents.append(sekolah.to_document())
+        document = sekolah.to_document()
+        document["isSekolahAngkatMADANI"] = raw_kod in kodSekolah_madani
+        documents.append(document)
 
     return documents, errors, total, present_identifiers
+
+
+def _load_kodSekolah_madani(database, settings: Settings) -> Set[str]:
+    collection = database[settings.sekolah_angkat_madani_collection]
+    codes: Set[str] = set()
+
+    try:
+        cursor = collection.find({}, {"_id": 1})
+        for doc in cursor:
+            identifier = doc.get("_id")
+            if identifier is None:
+                continue
+            text = str(identifier).strip()
+            if text:
+                codes.add(text)
+    except Exception as exc:
+        logger.warning("Unable to load kodSekolah for Sekolah Angkat Madani: %s", exc)
+
+    logger.info("Loaded %d kodSekolah of Sekolah Angkat Madani", len(codes))
+    return codes
 
 
 def _replace_collection(
@@ -296,7 +319,8 @@ def run(settings: Settings) -> dict[str, Any]:
     database = _get_database(settings)
     sekolah_collection = database[Sekolah.collection_name]
     entiti_collection = database[settings.entiti_sekolah_collection]
-    documents, errors, total, present_identifiers = _collect_documents(settings)
+    kodSekolah_madani = _load_kodSekolah_madani(database, settings)
+    documents, errors, total, present_identifiers = _collect_documents(settings, kodSekolah_madani)
 
     for document in documents:
         # All schools present in raw file are ACTIVE
