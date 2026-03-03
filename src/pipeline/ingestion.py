@@ -203,6 +203,7 @@ def _replace_collection(
     inserted = 0
     updated = 0
     skipped = 0
+    unchanged = 0
 
     for chunk in _chunked(documents, batch_size):
         identifiers: list[Any] = []
@@ -249,6 +250,7 @@ def _replace_collection(
                 }
 
             if existing is not None and not changes:
+                unchanged += 1
                 continue
 
             logger.debug("Updating %s: changed fields = %s", identifier, list(changes.keys()),)
@@ -284,6 +286,7 @@ def _replace_collection(
         "processed": processed,
         "inserted": inserted,
         "updated": updated,
+        "unchanged": unchanged,
         "skipped": skipped,
     }
 
@@ -367,6 +370,7 @@ def run(settings: Settings) -> dict[str, Any]:
         "errors": errors,
         "inserted": result["inserted"],
         "updated": result["updated"],
+        "unchanged": result["unchanged"],
         "skipped": result["skipped"],
         "inactivated": inactivated,
         "entiti_synced": entiti_synced,

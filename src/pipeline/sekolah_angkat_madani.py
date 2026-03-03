@@ -126,10 +126,11 @@ def run_sekolah_angkat_madani(settings: Settings) -> dict[str, Any]:
 		"skipped": result["skipped"],
 	}
 	logger.info(
-		"Sekolah Angkat Madani ingestion completed: processed=%s, inserted=%s, updated=%s, failed=%s",
+		"Sekolah Angkat Madani ingestion completed: processed=%s, inserted=%s, updated=%s, unchanged=%s, failed=%s",
 		result["processed"],
 		result["inserted"],
 		result["updated"],
+		result["unchanged"],
 		len(errors),
 	)
 	return summary
