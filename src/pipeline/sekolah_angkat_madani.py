@@ -107,9 +107,12 @@ def run_sekolah_angkat_madani(settings: Settings) -> dict[str, Any]:
 		staging = database[staging_name]
 		previous_count = collection.count_documents({})
 
-		if documents:
-			insert_result = staging.insert_many(documents, ordered=False)
-			inserted = len(getattr(insert_result, "inserted_ids", []) or [])
+		if not documents:
+			# Avoid wiping the collection when every row failed validation or the file is empty
+			raise RuntimeError("No valid Sekolah Angkat Madani documents to ingest; aborting swap")
+
+		insert_result = staging.insert_many(documents, ordered=False)
+		inserted = len(getattr(insert_result, "inserted_ids", []) or [])
 
 		# Atomically swap staging into place
 		staging.rename(target_name, dropTarget=True)
