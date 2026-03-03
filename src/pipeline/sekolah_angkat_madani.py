@@ -20,7 +20,6 @@ from pymongo.errors import OperationFailure
 from src.config import Settings, get_settings
 from src.core.s3 import _read_csv_from_s3
 from src.models.sekolah_angkat_madani import SekolahAngkatMadani
-from src.pipeline.ingestion import _replace_collection
 
 logger = logging.getLogger(__name__)
 
