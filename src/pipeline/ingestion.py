@@ -185,7 +185,8 @@ def _load_kodSekolah_madani(database, settings: Settings) -> Set[str]:
             if text:
                 codes.add(text)
     except Exception as exc:
-        logger.warning("Unable to load kodSekolah for Sekolah Angkat Madani: %s", exc)
+        logger.error("Unable to load kodSekolah for Sekolah Angkat Madani: %s", exc, exc_info=True)
+        raise
 
     logger.info("Loaded %d kodSekolah of Sekolah Angkat Madani", len(codes))
     return codes
