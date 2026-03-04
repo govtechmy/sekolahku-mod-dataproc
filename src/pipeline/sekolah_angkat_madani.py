@@ -13,12 +13,11 @@ from typing import Any, Dict, Iterable
 import pandas as pd
 from botocore.exceptions import ClientError, ResponseStreamingError
 from pydantic import ValidationError
-from pymongo import MongoClient
-from pymongo.collection import Collection
 from pymongo.errors import OperationFailure
 
 from src.config import Settings, get_settings
 from src.core.s3 import _read_csv_from_s3
+from src.utils.db.get_db_collection import get_db_collection
 from src.models.sekolah_angkat_madani import SekolahAngkatMadani
 
 logger = logging.getLogger(__name__)
@@ -79,15 +78,9 @@ def _collect_documents(settings: Settings) -> tuple[list[dict[str, Any]], list[d
 	return documents, errors, total
 
 
-def _get_collection(settings: Settings) -> Collection:
-	client = MongoClient(settings.mongo_uri)
-	db = client[settings.db_name]
-	return db[SekolahAngkatMadani.collection_name]
-
-
 def run_sekolah_angkat_madani(settings: Settings) -> dict[str, Any]:
 	logger.info("Starting Sekolah Angkat Madani ingestion")
-	collection = _get_collection(settings)
+	collection = get_db_collection(settings, name=settings.sekolah_angkat_madani_collection)
 	database = collection.database
 
 	documents, errors, total = _collect_documents(settings)
