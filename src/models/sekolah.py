@@ -61,6 +61,8 @@ class Sekolah(BaseModel):
 
     skmLEQ150: Optional[bool] = Field(default=None, alias="SKM<=150")
 
+    isSekolahAngkatMADANI: Optional[bool] = Field(default=None, description="Flag indicating Sekolah Angkat MADANI participation")
+
     status: SekolahStatus | None = Field(default=None, description="Status of the school")
     checksum: Optional[str] = Field(default=None, description="SHA-256 hash computed with certain fields excluded")
     createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")

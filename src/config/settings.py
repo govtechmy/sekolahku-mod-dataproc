@@ -88,6 +88,7 @@ class Settings(BaseSettings):
     db_name: str = get_env_str("DB_NAME")
     sekolah_collection: str = get_env_str("SEKOLAH_COLLECTION", "Sekolah")
     institusi_collection: str = get_env_str("INSTITUSI_COLLECTION", "Institusi")
+    sekolah_angkat_madani_collection: str = get_env_str("SEKOLAH_ANGKAT_MADANI_COLLECTION", "SekolahAngkatMadani")
     entiti_sekolah_collection: str = get_env_str("ENTITI_SEKOLAH_COLLECTION", "EntitiSekolah")
     analitik_sekolah_collection: str = get_env_str("ANALITIK_SEKOLAH_COLLECTION", "AnalitikSekolah")
     asset_sekolah_collection: str = get_env_str("ASSET_SEKOLAH_COLLECTION", "AssetSekolah")
@@ -115,6 +116,7 @@ class Settings(BaseSettings):
     asset_logo_csv_filename: str = get_env_str("ASSET_LOGO_CSV_FILENAME", "tbi_institusi_induk.csv")
     asset_logo_csv_batch_size: int = get_env_int("ASSET_LOGO_CSV_BATCH_SIZE", 500)
     export_centroid_max_workers: int = get_env_int("EXPORT_CENTROID_MAX_WORKERS", 4)
+    sekolah_angkat_madani_filename: str = get_env_str("SEKOLAH_ANGKAT_MADANI_FILENAME", "SENARAI SEKOLAH ANGKAT MADANI.xlsx")
 
     # Constants
     s3_prefix_sekolah: str = "sekolah/raw"
@@ -123,6 +125,7 @@ class Settings(BaseSettings):
     s3_prefix_common: str = "common"
     s3_prefix_polygon: str = "polygon"
     s3_prefix_assets: str = "assets/raw"
+    s3_prefix_sekolah_angkat_madani: str = "sekolah_angkat_madani/raw"
 
 
 def get_settings() -> Settings:
