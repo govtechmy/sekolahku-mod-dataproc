@@ -22,6 +22,7 @@ from src.core.s3 import (_upload_to_s3, _latest_csv_from_s3, _read_csv_from_s3)
 from src.models.sekolah import SekolahStatus
 from src.pipeline.status_sync import sync_entiti_statuses
 from src.core.time import _utc_now
+from src.pipeline.dataset_status import upsert_dataset_status
 
 
 CHECKSUM_EXCLUDE_KEYS = {"_id", "createdAt", "updatedAt", "checksum", "status"}
@@ -347,6 +348,7 @@ def run(settings: Settings) -> dict[str, Any]:
         "inactivated": inactivated,
         "entiti_synced": entiti_synced,
     }
+    upsert_dataset_status("sekolah", settings)
     return summary
 
 def run_with_overrides(**overrides: Any) -> dict[str, Any]:

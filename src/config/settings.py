@@ -91,6 +91,7 @@ class Settings(BaseSettings):
     entiti_sekolah_collection: str = get_env_str("ENTITI_SEKOLAH_COLLECTION", "EntitiSekolah")
     analitik_sekolah_collection: str = get_env_str("ANALITIK_SEKOLAH_COLLECTION", "AnalitikSekolah")
     asset_sekolah_collection: str = get_env_str("ASSET_SEKOLAH_COLLECTION", "AssetSekolah")
+    dataset_status_collection: str = get_env_str("DATASET_STATUS_COLLECTION", "DatasetStatus")
     negeri_parlimen_kod_sekolah_collection: str = get_env_str("NEGERI_PARLIMEN_KOD_SEKOLAH_COLLECTION", "NegeriParlimenKodSekolah")
     negeri_polygon_collection: str = get_env_str("NEGERI_POLYGON_COLLECTION", "NegeriPolygon")
     parlimen_polygon_collection: str = get_env_str("PARLIMEN_POLYGON_COLLECTION", "ParlimenPolygon")
