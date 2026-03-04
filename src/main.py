@@ -11,6 +11,7 @@ from src.pipeline import (
     run_analitik_dict,
     run_negeri_parlimen_kod_sekolah,
     run_institusi,
+    run_sekolah_angkat_madani,
 )
 from src.service.polygons.load_opendosm_negeri import main as load_negeri_polygons
 from src.service.polygons.load_opendosm_parlimen import main as load_parlimen_polygons
@@ -60,6 +61,12 @@ def run_ingest(settings: Settings | None = None) -> dict:
         configure_logging(settings)
     
     # -------------------------
+    # Refresh Sekolah Angkat MADANI source in database before main ingestion
+    # -------------------------
+    madani_result = run_sekolah_angkat_madani(settings)
+    logger.info("Sekolah Angkat Madani ingestion summary: %s", madani_result)
+
+    # -------------------------
     # Run ingestion pipeline
     # -------------------------
     sekolah_result = run_pipeline(settings)
@@ -80,6 +87,7 @@ def run_ingest(settings: Settings | None = None) -> dict:
     return {
         "sekolah_ingestion": sekolah_result,
         "institusi_ingestion": institusi_result,
+        "sekolah_angkat_madani": madani_result,
         "entiti": entiti,
         "negeri_parlimen_kod_sekolah": negeri_parlimen_kod_sekolah_summary,
         "analitik": analitik,

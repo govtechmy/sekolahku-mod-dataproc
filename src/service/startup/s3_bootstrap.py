@@ -124,6 +124,12 @@ def _build_checks(settings: Settings) -> List[S3Check]:
             key_or_prefix="manifest.json",
             is_exact_key=True,
         ),
+        S3Check(
+            name="sekolah_angkat_madani",
+            bucket=settings.s3_bucket_dataproc,
+            key_or_prefix=f"{settings.s3_prefix_sekolah_angkat_madani}/{settings.sekolah_angkat_madani_filename}",
+            is_exact_key=True,
+        ),
     ]
 
 

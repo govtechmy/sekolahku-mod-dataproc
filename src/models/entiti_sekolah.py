@@ -68,6 +68,7 @@ class EntitiSekolah(BaseModel):
     namaSekolah: Optional[str] = Field(default=None, description="Name of the school")
     kodSekolah: str = Field(..., description="Unique school code identifier")
     status: SekolahStatus | None = Field(default=None, description="Status of the school")
+    isSekolahAngkatMADANI: Optional[bool] = Field(default=None, description="Flag indicating Sekolah Angkat MADANI participation")
     data: EntitiSekolahData
     createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
 
@@ -153,6 +154,7 @@ class EntitiSekolah(BaseModel):
             namaSekolah=sekolah.namaSekolah,
             kodSekolah=sekolah.kodSekolah,
             status=status,
+            isSekolahAngkatMADANI=getattr(sekolah, "isSekolahAngkatMADANI", None),
             data=data,
             createdAt=_utc_now(),
         )

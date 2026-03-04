@@ -138,6 +138,7 @@ def load_full_ingestion_endpoint(background_tasks: BackgroundTasks) -> dict[str,
     """
     Trigger the full ingestion & processing pipeline from raw data source into MongoDB.
     The pipeline includes:
+    - Sekolah Angkat MADANI ingestion
     - Sekolah raw data ingestion
     - Institusi raw data ingestion
     - EntitiSekolah aggregation
