@@ -15,7 +15,7 @@ _settings = get_settings()
 class DatasetStatus(BaseModel):
 	"""Represents the last refresh timestamp for a dataset ingestion."""
 
-	model_config = ConfigDict(populate_by_name=True, protected_namespaces=())
+	model_config = ConfigDict(populate_by_name=True)
 
 	collection_name: ClassVar[str] = _settings.dataset_status_collection
 
