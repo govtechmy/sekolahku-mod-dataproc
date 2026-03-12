@@ -21,6 +21,8 @@ class InfoSekolah(BaseModel):
     jenisLabel: Optional[str] = Field(default=None, description="Type of school label e.g SK, SMK, SMKA, etc.")
     jumlahPelajar: Optional[int] = Field(default=0, description="Total students (enrolmenPrasekolah + enrolmen + enrolmenKhas)")
     jumlahGuru: Optional[int] = Field(default=0, description="Total number of teachers")
+    jumlahPelajarEnrolmenKhas: Optional[int] = Field(default=0, description="Number of students in enrolmenKhas category")
+    jumlahPelajarTanpaEnrolmenKhas: Optional[int] = Field(default=0, description="Number of students excluding enrolmenKhas category")
 
 class InfoKomunikasi(BaseModel):
     noTelefon: Optional[str] = Field(default=None, description="Primary contact number")
@@ -105,6 +107,9 @@ class EntitiSekolah(BaseModel):
             if value is not None
         )
 
+        jumlah_pelajar_enrolmen_khas = sekolah.enrolmenKhas if sekolah.enrolmenKhas is not None else 0
+        jumlah_pelajar_tanpa_enrolmen_khas = jumlah_pelajar - jumlah_pelajar_enrolmen_khas
+
         location = None
         if sekolah.koordinatXX is not None and sekolah.koordinatYY is not None:
             location = GeoJSONPoint(coordinates=(sekolah.koordinatXX, sekolah.koordinatYY))
@@ -112,6 +117,8 @@ class EntitiSekolah(BaseModel):
         info_sekolah = InfoSekolah(
             jenisLabel=sekolah.jenisLabel,
             jumlahPelajar=jumlah_pelajar,
+            jumlahPelajarEnrolmenKhas=jumlah_pelajar_enrolmen_khas,
+            jumlahPelajarTanpaEnrolmenKhas=jumlah_pelajar_tanpa_enrolmen_khas,
             jumlahGuru=sekolah.guru,
         )
 
