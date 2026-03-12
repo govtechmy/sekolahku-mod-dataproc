@@ -168,7 +168,7 @@ class EntitiSekolah(BaseModel):
 
     def to_document(self) -> dict:
         """Convert the entity to a Mongo-ready document, omitting ``None`` fields."""
-        document = self.model_dump(exclude_none=True, by_alias=True)
+        document = self.model_dump(by_alias=True)
 
         try:
             location = document["data"]["infoLokasi"]["location"]
