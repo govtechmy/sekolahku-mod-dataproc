@@ -91,22 +91,22 @@ def _read_csv(path: str) -> Iterable[Dict[str, Any]]:
 def _read_google_sheet(sheet_id: str, gid: str) -> Iterable[Dict[str, Any]]:
     logger.info("Scraping Google Sheet directly (sheet_id=%s, gid=%s)", sheet_id, gid,)
 
-    csv_bytes = fetch_csv_data(sheet_id, gid)
+    csv_bytes, _ = fetch_csv_data(sheet_id, gid)
     df = pd.read_csv(io.BytesIO(csv_bytes), dtype=str).fillna("")
 
     logger.info("Google Sheet loaded: %d rows, %d columns", df.shape[0], df.shape[1])
     return df.to_dict(orient="records")
 
 
-def _load_rows(settings: Settings) -> Iterable[Dict[str, Any]]:
-    csv_bytes = fetch_csv_data(settings.gsheet_id, settings.gsheet_gid)
+def _load_rows(settings: Settings) -> tuple[Iterable[Dict[str, Any]], str | None]:
+    csv_bytes, file_name = fetch_csv_data(settings.gsheet_id, settings.gsheet_gid)
     logger.info("Uploading CSV data to S3 bucket %s", settings.s3_bucket_dataproc)
-    s3_key = _upload_to_s3(csv_bytes, settings.s3_bucket_dataproc, settings.s3_prefix_sekolah)
+    s3_key = _upload_to_s3(csv_bytes, settings.s3_bucket_dataproc, settings.s3_prefix_sekolah, file_name)
     logger.info("CSV uploaded to S3 at key: %s", s3_key)
 
     df = _read_csv_from_s3(settings.s3_bucket_dataproc, s3_key)
     logger.info("CSV loaded from S3: %d rows, %d columns", df.shape[0], df.shape[1])
-    return df.to_dict(orient="records")
+    return df.to_dict(orient="records"), file_name
 
 
 def _chunked(rows: Iterable[Dict[str, Any]], size: int) -> Iterator[list[Dict[str, Any]]]:
@@ -148,7 +148,8 @@ def _collect_documents(
     total = 0
     present_identifiers: set[Any] = set()
 
-    for index, row in enumerate(_load_rows(settings), start=1):
+    rows, file_name = _load_rows(settings)
+    for index, row in enumerate(rows, start=1):
         total += 1
 
         raw_kod = str(row.get("KODSEKOLAH", "")).strip()
@@ -169,7 +170,7 @@ def _collect_documents(
         document["isSekolahAngkatMADANI"] = canonical_kod in kodSekolah_madani
         documents.append(document)
 
-    return documents, errors, total, present_identifiers
+    return documents, errors, total, present_identifiers, file_name
 
 
 def _load_kodSekolah_madani(database, settings: Settings) -> Set[str]:
@@ -326,7 +327,7 @@ def run(settings: Settings) -> dict[str, Any]:
     sekolah_collection = database[Sekolah.collection_name]
     entiti_collection = database[settings.entiti_sekolah_collection]
     kodSekolah_madani = _load_kodSekolah_madani(database, settings)
-    documents, errors, total, present_identifiers = _collect_documents(settings, kodSekolah_madani)
+    documents, errors, total, present_identifiers, file_name = _collect_documents(settings, kodSekolah_madani)
 
     for document in documents:
         # All schools present in raw file are ACTIVE
@@ -378,7 +379,12 @@ def run(settings: Settings) -> dict[str, Any]:
         "inactivated": inactivated,
         "entiti_synced": entiti_synced,
     }
-    upsert_dataset_status("sekolah", settings)
+
+    if not file_name:
+        logger.warning("File name not found in Content-Disposition header; using 'unknown' as file version")
+    file_version = file_name.split(" - ")[0].replace(".xlsx", "").replace(".csv", "") if file_name else "unknown"
+
+    upsert_dataset_status("sekolah", settings, file_version)
     return summary
 
 def run_with_overrides(**overrides: Any) -> dict[str, Any]:

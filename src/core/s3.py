@@ -3,6 +3,7 @@ import logging
 import time
 from typing import Optional, List
 import pandas as pd
+import re
 from botocore.exceptions import ClientError, ResponseStreamingError
 
 from src.core.aws import get_s3_client, get_s3_bucket_name
@@ -10,12 +11,13 @@ from src.core.aws import get_s3_client, get_s3_bucket_name
 s3 = get_s3_client()
 logger = logging.getLogger(__name__)
 
-def _upload_to_s3(csv_bytes: bytes, bucket: str, prefix: str) -> str:
+def _upload_to_s3(csv_bytes: bytes, bucket: str, prefix: str, source_filename: str) -> str:
     if not bucket:
         bucket = get_s3_bucket_name()
 
     timestamp = int(time.time())
-    s3_key = f"{prefix}/{timestamp}.csv"
+    version = source_filename.split(" - ")[0].replace(".xlsx", "").replace(".csv", "") if source_filename else "unknown"
+    s3_key = f"{prefix}/{version}/{timestamp}.csv"
 
     s3.put_object(
         Bucket=bucket,
