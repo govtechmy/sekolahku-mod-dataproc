@@ -380,8 +380,9 @@ def run(settings: Settings) -> dict[str, Any]:
         "entiti_synced": entiti_synced,
     }
 
+    file_version = None
     if not file_name:
-        logger.warning("File name not found in Content-Disposition header; skipping dataset status upsert")
+        logger.warning("File name not found in Content-Disposition header; dataset status will be upserted without fileVersion")
     else:
         file_version = (
             file_name.strip()
@@ -390,7 +391,8 @@ def run(settings: Settings) -> dict[str, Any]:
             .replace(".xlsx", "")
             .replace(".csv", "")
         )
-        upsert_dataset_status("sekolah", settings, file_version)
+
+    upsert_dataset_status("sekolah", settings, file_version)
     return summary
 
 def run_with_overrides(**overrides: Any) -> dict[str, Any]:
