@@ -17,7 +17,7 @@ from pymongo.errors import OperationFailure
 
 from src.config import Settings, get_settings
 from src.models import Sekolah
-from src.core.gsheet import fetch_csv_data
+from src.core.gsheet import fetch_csv_data, _extract_file_version
 from src.core.s3 import (_upload_to_s3, _latest_csv_from_s3, _read_csv_from_s3)
 from src.models.sekolah import SekolahStatus
 from src.pipeline.status_sync import sync_entiti_statuses
@@ -142,7 +142,7 @@ def _format_validation_messages(exc: ValidationError) -> list[str]:
 def _collect_documents(
     settings: Settings,
     kodSekolah_madani: Set[str],
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int, set[Any]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], int, set[Any], str | None]:
     documents: list[dict[str, Any]] = []
     errors: list[dict[str, Any]] = []
     total = 0
@@ -380,17 +380,10 @@ def run(settings: Settings) -> dict[str, Any]:
         "entiti_synced": entiti_synced,
     }
 
-    file_version = None
-    if not file_name:
-        logger.warning("File name not found in Content-Disposition header; dataset status will be upserted without fileVersion")
-    else:
-        file_version = (
-            file_name.strip()
-            .split(" - ")[0]      # remove " - Sheet1"
-            .split("_")[-1]       # get "Mac2026"
-            .replace(".xlsx", "")
-            .replace(".csv", "")
-        )
+    file_version = _extract_file_version(file_name)
+
+    if not file_version:
+        logger.warning("File name not found or failed to extract fileVersion. filename=%s", file_name)
 
     upsert_dataset_status("sekolah", settings, file_version)
     return summary

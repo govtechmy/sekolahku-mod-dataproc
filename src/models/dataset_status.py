@@ -21,7 +21,7 @@ class DatasetStatus(BaseModel):
 
 	id: str = Field(..., alias="_id", description="Dataset identifier (e.g. sekolah, institusi, analitik)")
 	lastUpdatedAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp of last successful ingestion")
-	fileVersion: str = Field(..., description="Version of the file name e.g SenaraiSekolahWeb_Mac2026")
+	fileVersion: str | None = Field(default=None, description="Cleaned version of the file name e.g SenaraiSekolahWeb_Mac2026")
 
 	def to_document(self) -> dict:
 		return self.model_dump(by_alias=True)

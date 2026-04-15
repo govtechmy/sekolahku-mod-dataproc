@@ -6,16 +6,41 @@ import urllib.parse
 logger = logging.getLogger(__name__)
 
 def _extract_filename(content_disp: str) -> str | None:
-    match_star = re.search(r"filename\*\=UTF-8''(.+)", content_disp)
+    if not content_disp:
+        return None
+
+    # RFC 5987 format: filename*=UTF-8''encoded_name.csv
+    match_star = re.search(r"filename\*=UTF-8''([^;]+)(?:;|$)", content_disp, re.IGNORECASE,)
     if match_star:
-        return urllib.parse.unquote(match_star.group(1))
+        filename = urllib.parse.unquote(match_star.group(1))
+        logger.info("Extracted filename: %s", filename)
+        return filename
 
-    match = re.search(r'filename="(.+)"', content_disp)
+    # Standard format: filename="file.csv" OR filename=file.csv
+    match = re.search(r'filename=(?:"([^"]*)"|([^;]+))(?:;|$)', content_disp, re.IGNORECASE,)
     if match:
-        return match.group(1)
+        filename = match.group(1) if match.group(1) is not None else match.group(2).strip()
+        logger.info("Extracted filename (standard): %s", filename)
+        return filename
 
+    logger.warning("Failed to extract filename from Content-Disposition: %s", content_disp)
     return None
 
+def _extract_file_version(file_name: str | None) -> str | None:
+    if not file_name:
+        return None
+
+    name = file_name.strip().rsplit(".", 1)[0]
+    name = name.split(" - ")[0]
+    parts = name.split("_")
+
+    if len(parts) >= 2:
+        file_version = parts[-1]
+        logger.info("Extracted fileVersion: %s", file_version)
+        return file_version
+
+    logger.warning("Failed to extract fileVersion from filename: %s", file_name)
+    return None
 
 def fetch_csv_data(gsheet_id: str, gid: str) -> tuple[bytes, str | None]:
     url = f"https://docs.google.com/spreadsheets/d/{gsheet_id}/export?format=csv&gid={gid}"
