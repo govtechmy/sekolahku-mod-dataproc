@@ -381,10 +381,16 @@ def run(settings: Settings) -> dict[str, Any]:
     }
 
     if not file_name:
-        logger.warning("File name not found in Content-Disposition header; using 'unknown' as file version")
-    file_version = file_name.split(" - ")[0].replace(".xlsx", "").replace(".csv", "") if file_name else "unknown"
-
-    upsert_dataset_status("sekolah", settings, file_version)
+        logger.warning("File name not found in Content-Disposition header; skipping dataset status upsert")
+    else:
+        file_version = (
+            file_name.strip()
+            .split(" - ")[0]      # remove " - Sheet1"
+            .split("_")[-1]       # get "Mac2026"
+            .replace(".xlsx", "")
+            .replace(".csv", "")
+        )
+        upsert_dataset_status("sekolah", settings, file_version)
     return summary
 
 def run_with_overrides(**overrides: Any) -> dict[str, Any]:
