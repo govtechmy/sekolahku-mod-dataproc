@@ -3,7 +3,6 @@ import logging
 import time
 from typing import Optional, List
 import pandas as pd
-import re
 from botocore.exceptions import ClientError, ResponseStreamingError
 
 from src.core.aws import get_s3_client, get_s3_bucket_name
