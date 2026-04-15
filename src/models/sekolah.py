@@ -171,6 +171,21 @@ class Sekolah(BaseModel):
         except ValueError as exc:
             raise ValueError(f"Invalid negeri value: {text}") from exc
 
+    @field_validator("noTelefon", "noFax", mode="before")
+    def normalize_phone(cls, value):
+        if value is None:
+            return None
+
+        text = str(value).strip()
+
+        if not text or text.upper() in MISSING_VALUES:
+            return None
+
+        if text.startswith("0") or text.startswith("+"):
+            return text
+
+        return "0" + text
+
     model_config = {
         "populate_by_name": True,
         "extra": "ignore",
