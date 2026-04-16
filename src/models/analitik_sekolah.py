@@ -232,9 +232,9 @@ class AnalitikSekolah(BaseModel):
     def _display_peringkat(cls, value: str) -> str:
         normalized = cls._normalize_peringkat_value(value)
         if normalized == "RENDAH":
-            return "Rendah"
+            return "RENDAH"
         if normalized == "MENENGAH":
-            return "Menengah"
+            return "MENENGAH"
         return "TIADA MAKLUMAT"
 
     def to_document(self) -> dict:
