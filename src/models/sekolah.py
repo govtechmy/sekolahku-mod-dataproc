@@ -67,13 +67,6 @@ class Sekolah(BaseModel):
     checksum: Optional[str] = Field(default=None, description="SHA-256 hash computed with certain fields excluded")
     createdAt: datetime = Field(default_factory=_utc_now, description="UTC timestamp when the document was created")
 
-    @field_validator("noTelefon", "noFax", mode="before")
-    def empty_to_none(cls, value):
-        if value is None:
-            return None
-        text = str(value).strip().upper()
-        return None if text in MISSING_VALUES else value
-
     @field_validator("kodSekolah", mode="before")
     def validate_kod_sekolah(cls, value: str | None) -> str:
         text = "" if value is None else str(value).strip()
