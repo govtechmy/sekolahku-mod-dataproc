@@ -168,24 +168,24 @@ def _build_aggregation_pipeline() -> List[Dict[str, Any]]:
     ]
 
 
-def _convert_buckets_to_items(
-    buckets: List[Dict[str, Any]],
+def _convert_docs_to_items(
+    docs: List[Dict[str, Any]],
     total: int,
     jenis_peringkat_counts: dict[str, dict[str, int]] | None = None,
     include_peringkat_breakdown: bool = False,
 ) -> List[Any]:
-    """Convert aggregation buckets into analytics entries."""
+    """Convert aggregation docs into analytics entries."""
 
     counter: defaultdict[str, int] = defaultdict(int)
-    for bucket in buckets:
-        jenis = bucket.get("jenis")
+    for doc in docs:
+        jenis = doc.get("jenis")
         if not jenis:
             continue
 
         try:
-            counter[str(jenis)] = int(bucket.get("total", 0) or 0)
+            counter[str(jenis)] += int(doc.get("total", 0) or 0)
         except (TypeError, ValueError):
-            logger.debug("Skipping bucket %s due to invalid total", bucket)
+            logger.debug("Skipping doc %s due to invalid total", doc)
             continue
 
     if include_peringkat_breakdown:
@@ -198,20 +198,20 @@ def _convert_buckets_to_items(
     return AnalitikSekolah._convert_to_analitik_bantuan_items(counter, total)
 
 
-def _build_jenis_peringkat_counts_from_buckets(buckets: List[Dict[str, Any]]) -> dict[str, dict[str, int]]:
-    """Build jenis_peringkat_counts structure from jenisLabelPeringkat buckets."""
+def _build_jenis_peringkat_counts_from_docs(docs: List[Dict[str, Any]]) -> dict[str, dict[str, int]]:
+    """Build jenis_peringkat_counts structure from jenisLabelPeringkat docs."""
     jenis_peringkat_counts: dict[str, dict[str, int]] = {}
 
-    for bucket in buckets:
-        jenis = bucket.get("jenis")
-        peringkat = bucket.get("peringkat")
+    for doc in docs:
+        jenis = doc.get("jenis")
+        peringkat = doc.get("peringkat")
         if not jenis or not peringkat:
             continue
 
         try:
-            count = int(bucket.get("total", 0) or 0)
+            count = int(doc.get("total", 0) or 0)
         except (TypeError, ValueError):
-            logger.debug("Skipping jenisLabel-peringkat bucket %s due to invalid total", bucket)
+            logger.debug("Skipping jenisLabel-peringkat doc %s due to invalid total", doc)
             continue
 
         jenis_str = str(jenis)
@@ -285,16 +285,16 @@ def compute_analitik_sekolah(
     # enrolmenPrasekolah contributes to overall pelajar total for institusi
     jumlah_pelajar += institusi_totals.get("enrolmenPrasekolah", 0)
 
-    jenis_peringkat_counts = _build_jenis_peringkat_counts_from_buckets(result.get("jenisLabelPeringkat", []))
+    jenis_peringkat_counts = _build_jenis_peringkat_counts_from_docs(result.get("jenisLabelPeringkat", []))
 
     data = AnalitikSekolahData(
-        jenisLabel=_convert_buckets_to_items(
+        jenisLabel=_convert_docs_to_items(
             result.get("jenisLabel", []),
             jumlah_sekolah,
             jenis_peringkat_counts=jenis_peringkat_counts,
             include_peringkat_breakdown=True,
         ),
-        bantuan=_convert_buckets_to_items(result.get("bantuan", []), jumlah_sekolah),
+        bantuan=_convert_docs_to_items(result.get("bantuan", []), jumlah_sekolah),
     )
 
     try:
