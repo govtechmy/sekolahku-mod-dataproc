@@ -44,6 +44,36 @@ def _normalize_field_expression(field: str) -> Dict[str, Any]:
     }
 
 
+def _normalize_peringkat_expression() -> Dict[str, Any]:
+    """Return normalization expression for peringkat limited to RENDAH/MENENGAH."""
+
+    return {
+        "$let": {
+            "vars": {"raw": {"$ifNull": ["$peringkat", ""]}},
+            "in": {
+                "$let": {
+                    "vars": {
+                        "text": {
+                            "$toUpper": {
+                                "$trim": {
+                                    "input": {"$toString": "$$raw"}
+                                }
+                            }
+                        }
+                    },
+                    "in": {
+                        "$cond": [
+                            {"$in": ["$$text", ["RENDAH", "MENENGAH"]]},
+                            "$$text",
+                            "TIADA MAKLUMAT",
+                        ]
+                    },
+                }
+            },
+        }
+    }
+
+
 def _dimension_facet(field: str) -> List[Dict[str, Any]]:
     """Build facet stages that aggregate counts for a specific field."""
 
@@ -63,6 +93,33 @@ def _dimension_facet(field: str) -> List[Dict[str, Any]]:
             }
         },
         {"$sort": {"total": -1, "jenis": 1}},
+    ]
+
+
+def _jenis_label_peringkat_facet() -> List[Dict[str, Any]]:
+    """Build facet stages that aggregate peringkat distribution per jenisLabel."""
+
+    jenis_expr = _normalize_field_expression("jenisLabel")
+    peringkat_expr = _normalize_peringkat_expression()
+    return [
+        {
+            "$group": {
+                "_id": {
+                    "jenis": jenis_expr,
+                    "peringkat": peringkat_expr,
+                },
+                "total": {"$sum": 1},
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "jenis": "$_id.jenis",
+                "peringkat": "$_id.peringkat",
+                "total": 1,
+            }
+        },
+        {"$sort": {"jenis": 1, "total": -1, "peringkat": 1}},
     ]
 
 
@@ -96,6 +153,7 @@ def _build_aggregation_pipeline() -> List[Dict[str, Any]]:
                     }
                 ],
                 "jenisLabel": _dimension_facet("jenisLabel"),
+                "jenisLabelPeringkat": _jenis_label_peringkat_facet(),
                 "bantuan": _dimension_facet("bantuan"),
             }
         },
@@ -103,28 +161,68 @@ def _build_aggregation_pipeline() -> List[Dict[str, Any]]:
             "$project": {
                 "metadata": {"$ifNull": [{"$arrayElemAt": ["$metadata", 0]}, {}]},
                 "jenisLabel": 1,
+                "jenisLabelPeringkat": 1,
                 "bantuan": 1,
             }
         },
     ]
 
 
-def _convert_buckets_to_items(buckets: List[Dict[str, Any]], total: int) -> List[Any]:
-    """Convert aggregation buckets into AnalitikItem entries."""
+def _convert_docs_to_items(
+    docs: List[Dict[str, Any]],
+    total: int,
+    jenis_peringkat_counts: dict[str, dict[str, int]] | None = None,
+    include_peringkat_breakdown: bool = False,
+) -> List[Any]:
+    """Convert aggregation docs into analytics entries."""
 
     counter: defaultdict[str, int] = defaultdict(int)
-    for bucket in buckets:
-        jenis = bucket.get("jenis")
+    for doc in docs:
+        jenis = doc.get("jenis")
         if not jenis:
             continue
 
         try:
-            counter[str(jenis)] = int(bucket.get("total", 0) or 0)
+            counter[str(jenis)] += int(doc.get("total", 0) or 0)
         except (TypeError, ValueError):
-            logger.debug("Skipping bucket %s due to invalid total", bucket)
+            logger.debug("Skipping doc %s due to invalid total", doc)
             continue
 
-    return AnalitikSekolah._convert_to_analitik_items(counter, total)
+    if include_peringkat_breakdown:
+        return AnalitikSekolah._convert_to_analitik_jenis_items(
+            counter,
+            total,
+            jenis_peringkat_counts=jenis_peringkat_counts,
+        )
+
+    return AnalitikSekolah._convert_to_analitik_bantuan_items(counter, total)
+
+
+def _build_jenis_peringkat_counts_from_docs(docs: List[Dict[str, Any]]) -> dict[str, dict[str, int]]:
+    """Build jenis_peringkat_counts structure from jenisLabelPeringkat docs."""
+    jenis_peringkat_counts: dict[str, dict[str, int]] = {}
+
+    for doc in docs:
+        jenis = doc.get("jenis")
+        peringkat = doc.get("peringkat")
+        if not jenis or not peringkat:
+            continue
+
+        try:
+            count = int(doc.get("total", 0) or 0)
+        except (TypeError, ValueError):
+            logger.debug("Skipping jenisLabel-peringkat doc %s due to invalid total", doc)
+            continue
+
+        jenis_str = str(jenis)
+        peringkat_str = str(peringkat)
+        
+        if jenis_str not in jenis_peringkat_counts:
+            jenis_peringkat_counts[jenis_str] = {}
+        
+        jenis_peringkat_counts[jenis_str][peringkat_str] = count
+
+    return jenis_peringkat_counts
 
 
 def _compute_institusi_totals(institusi_collection: Collection | None) -> dict[str, int]:
@@ -187,9 +285,16 @@ def compute_analitik_sekolah(
     # enrolmenPrasekolah contributes to overall pelajar total for institusi
     jumlah_pelajar += institusi_totals.get("enrolmenPrasekolah", 0)
 
+    jenis_peringkat_counts = _build_jenis_peringkat_counts_from_docs(result.get("jenisLabelPeringkat", []))
+
     data = AnalitikSekolahData(
-        jenisLabel=_convert_buckets_to_items(result.get("jenisLabel", []), jumlah_sekolah),
-        bantuan=_convert_buckets_to_items(result.get("bantuan", []), jumlah_sekolah),
+        jenisLabel=_convert_docs_to_items(
+            result.get("jenisLabel", []),
+            jumlah_sekolah,
+            jenis_peringkat_counts=jenis_peringkat_counts,
+            include_peringkat_breakdown=True,
+        ),
+        bantuan=_convert_docs_to_items(result.get("bantuan", []), jumlah_sekolah),
     )
 
     try:

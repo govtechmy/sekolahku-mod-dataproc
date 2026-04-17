@@ -15,6 +15,7 @@ from src.core.time import _utc_now
 MISSING_VALUES = {"TIADA", "", "NONE", "-", "--", "BELUM ADA"}
 BOOL_ADA_MAP = {"ADA": True, "TIADA": False, "": None}
 BOOL_YA_MAP = {"YA": True, "TIDAK": False, "": None}
+PERINGKAT_VALUES = {"RENDAH", "MENENGAH"}
 
 _settings = get_settings()
 
@@ -23,6 +24,13 @@ class SekolahStatus(str, Enum):
     ACTIVE = "ACTIVE"
     INACTIVE = "INACTIVE"
 
+
+class PeringkatEnum(str, Enum):
+    """Enum for school tier (Rendah/Menengah)."""
+    RENDAH = "RENDAH"
+    MENENGAH = "MENENGAH"
+
+
 class Sekolah(BaseModel):
     collection_name: ClassVar[str] = _settings.sekolah_collection
 
@@ -30,7 +38,7 @@ class Sekolah(BaseModel):
     ppd: Optional[str] = Field(default=None, alias="PPD")
     parlimen: Optional[str] = Field(default=None, alias="PARLIMEN")
     dun: Optional[str] = Field(default=None, alias="DUN")
-    peringkat: Optional[str] = Field(default=None, alias="PERINGKAT")
+    peringkat: PeringkatEnum | None = Field(default=None, alias="PERINGKAT")
     jenisLabel: Optional[str] = Field(default=None, alias="JENIS/LABEL")
     kodSekolah: str = Field(..., alias="KODSEKOLAH")
     namaSekolah: Optional[str] = Field(default=None, alias="NAMASEKOLAH")
@@ -97,6 +105,19 @@ class Sekolah(BaseModel):
             return None
         text = str(value).strip()
         return text or None
+
+    @field_validator("peringkat", mode="before")
+    def normalize_peringkat(cls, value):
+        if value is None:
+            return None
+        if isinstance(value, PeringkatEnum):
+            return value
+        text = str(value).strip().upper()
+        if not text or text in MISSING_VALUES:
+            return None
+        if text in {"RENDAH", "MENENGAH"}:
+            return PeringkatEnum(text)
+        return None
 
     @field_validator(
         "poskodSurat",
@@ -182,6 +203,9 @@ class Sekolah(BaseModel):
         status_value = data.get("status")
         if isinstance(status_value, SekolahStatus):
             data["status"] = status_value.value
+        peringkat_value = data.get("peringkat")
+        if isinstance(peringkat_value, PeringkatEnum):
+            data["peringkat"] = peringkat_value.value
         if self.koordinatXX is not None and self.koordinatYY is not None:
             data["location"] = {
                 "type": "Point",
@@ -192,4 +216,4 @@ class Sekolah(BaseModel):
         return data
 
 
-__all__ = ["Sekolah"]
+__all__ = ["Sekolah", "PeringkatEnum"]

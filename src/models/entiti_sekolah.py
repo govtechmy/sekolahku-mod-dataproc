@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, field_validator
 from pydantic import ConfigDict
 from typing_extensions import Literal
 from src.config.settings import get_settings
-from src.models.sekolah import SekolahStatus
+from src.models.sekolah import SekolahStatus, PeringkatEnum
 from src.models.negeri_enum import NegeriEnum
 
 
@@ -21,6 +21,8 @@ class InfoSekolah(BaseModel):
     jenisLabel: Optional[str] = Field(default=None, description="Type of school label e.g SK, SMK, SMKA, etc.")
     jumlahPelajar: Optional[int] = Field(default=0, description="Total students (enrolmenPrasekolah + enrolmen + enrolmenKhas)")
     jumlahGuru: Optional[int] = Field(default=0, description="Total number of teachers")
+    jumlahPelajarEnrolmenKhas: Optional[int] = Field(default=0, description="Number of students in enrolmenKhas category")
+    jumlahPelajarTanpaEnrolmenKhas: Optional[int] = Field(default=0, description="Number of students excluding enrolmenKhas category")
 
 class InfoKomunikasi(BaseModel):
     noTelefon: Optional[str] = Field(default=None, description="Primary contact number")
@@ -34,6 +36,7 @@ class InfoPentadbiran(BaseModel):
     negeri: NegeriEnum | None = Field(default=None, description="State the school is located in")
     ppd: Optional[str] = Field(default=None, description="Pejabat Pendidikan Daerah (district office)")
     parlimen: Optional[str] = Field(default=None, description="Parliament constituency")
+    peringkat: PeringkatEnum | None = Field(default=None, description="School tier (RENDAH/MENENGAH)")
     bantuan: Optional[str] = Field(default=None, description="Bantuan classification")
     bilSesi: Optional[str] = Field(default=None, description="Number of school sessions")
     sesi: Optional[str] = Field(default=None, description="School session")
@@ -105,6 +108,9 @@ class EntitiSekolah(BaseModel):
             if value is not None
         )
 
+        jumlah_pelajar_enrolmen_khas = sekolah.enrolmenKhas if sekolah.enrolmenKhas is not None else 0
+        jumlah_pelajar_tanpa_enrolmen_khas = jumlah_pelajar - jumlah_pelajar_enrolmen_khas
+
         location = None
         if sekolah.koordinatXX is not None and sekolah.koordinatYY is not None:
             location = GeoJSONPoint(coordinates=(sekolah.koordinatXX, sekolah.koordinatYY))
@@ -112,6 +118,8 @@ class EntitiSekolah(BaseModel):
         info_sekolah = InfoSekolah(
             jenisLabel=sekolah.jenisLabel,
             jumlahPelajar=jumlah_pelajar,
+            jumlahPelajarEnrolmenKhas=jumlah_pelajar_enrolmen_khas,
+            jumlahPelajarTanpaEnrolmenKhas=jumlah_pelajar_tanpa_enrolmen_khas,
             jumlahGuru=sekolah.guru,
         )
 
@@ -128,6 +136,7 @@ class EntitiSekolah(BaseModel):
             negeri=sekolah.negeri,
             ppd=sekolah.ppd,
             parlimen=sekolah.parlimen,
+            peringkat=sekolah.peringkat,
             bantuan=sekolah.bantuan,
             bilSesi=sekolah.bilSesi,
             sesi=sekolah.sesi,
@@ -161,7 +170,7 @@ class EntitiSekolah(BaseModel):
 
     def to_document(self) -> dict:
         """Convert the entity to a Mongo-ready document, omitting ``None`` fields."""
-        document = self.model_dump(exclude_none=True, by_alias=True)
+        document = self.model_dump(by_alias=True)
 
         try:
             location = document["data"]["infoLokasi"]["location"]
