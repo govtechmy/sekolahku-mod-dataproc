@@ -70,7 +70,7 @@ def _load_rows(settings: Settings) -> Iterable[Dict[str, Any]]:
     if not settings.institusi_gsheet_id or not settings.institusi_gsheet_gid:
         raise RuntimeError("GSHEET_ID and INSTITUSI_GSHEET_GID must be set")
 
-    csv_bytes = fetch_csv_data(settings.institusi_gsheet_id, settings.institusi_gsheet_gid)
+    csv_bytes, _ = fetch_csv_data(settings.institusi_gsheet_id, settings.institusi_gsheet_gid)
     logger.info("Uploading Institusi CSV data to S3 bucket %s", settings.s3_bucket_dataproc)
     s3_key = _upload_to_s3(csv_bytes, settings.s3_bucket_dataproc, settings.s3_prefix_institusi)
     logger.info("Institusi CSV uploaded to S3 at key: %s", s3_key)
