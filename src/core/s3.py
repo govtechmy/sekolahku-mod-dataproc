@@ -6,16 +6,18 @@ import pandas as pd
 from botocore.exceptions import ClientError, ResponseStreamingError
 
 from src.core.aws import get_s3_client, get_s3_bucket_name
+from src.core.gsheet import _extract_file_version
 
 s3 = get_s3_client()
 logger = logging.getLogger(__name__)
 
-def _upload_to_s3(csv_bytes: bytes, bucket: str, prefix: str) -> str:
+def _upload_to_s3(csv_bytes: bytes, bucket: str, prefix: str, source_filename: str | None = None,) -> str:
     if not bucket:
         bucket = get_s3_bucket_name()
 
     timestamp = int(time.time())
-    s3_key = f"{prefix}/{timestamp}.csv"
+    version = _extract_file_version(source_filename) or "unknown"
+    s3_key = f"{prefix}/{version}/{timestamp}.csv"
 
     s3.put_object(
         Bucket=bucket,
