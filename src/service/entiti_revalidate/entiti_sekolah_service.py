@@ -44,7 +44,7 @@ def revalidate_school_entity(settings: Settings) -> dict[str, Any]:
             settings.db_name,
             settings.entiti_sekolah_collection,
         )
-        cursor = collection.find({}, {"_id": 0}).batch_size(batch_size)
+        cursor = collection.find({"status": "ACTIVE"}, {"_id": 0}).batch_size(batch_size)
 
         with ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = []
