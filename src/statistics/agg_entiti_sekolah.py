@@ -28,7 +28,7 @@ def compute_entiti_sekolah(collection: Collection) -> List[Dict[str, Any]]:
     """Project sekolah collection into the EntitiSekolah aggregation view."""
 
     documents: List[Dict[str, Any]] = []
-    for raw in collection.find({}):
+    for raw in collection.find({"status": "ACTIVE"}):
         try:
             sekolah = Sekolah.model_validate(raw)
         except ValidationError as exc:  # pragma: no cover - defensive logging
