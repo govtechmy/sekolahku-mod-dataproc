@@ -20,7 +20,7 @@ from src.models import Sekolah
 from src.core.gsheet import fetch_csv_data, _extract_file_version
 from src.core.s3 import (_upload_to_s3, _latest_csv_from_s3, _read_csv_from_s3)
 from src.models.sekolah import SekolahStatus
-from src.pipeline.status_sync import sync_entiti_statuses
+from src.pipeline.status_sync import sync_entiti_statuses, delete_inactive_entiti
 from src.core.time import _utc_now
 from src.pipeline.dataset_status import upsert_dataset_status
 
@@ -365,6 +365,9 @@ def run(settings: Settings) -> dict[str, Any]:
         batch_size=settings.batch_size,
     )
     logger.info("Synced %s EntitiSekolah statuses", entiti_synced)
+
+    entiti_deleted = delete_inactive_entiti(entiti_collection)
+    logger.info("Deleted %s INACTIVE records from EntitiSekolah", entiti_deleted)
 
     summary = {
         "collection": Sekolah.collection_name,
