@@ -14,6 +14,12 @@ def _normalize_status(value: Any) -> Any:
     return value
 
 
+def delete_inactive_entiti(entiti_collection: Collection) -> int:
+    """Delete INACTIVE records from EntitiSekolah collection."""
+    result = entiti_collection.delete_many({"status": SekolahStatus.INACTIVE.value})
+    return result.deleted_count
+
+
 def sync_entiti_statuses(
     sekolah_collection: Collection,
     entiti_collection: Collection,
@@ -75,4 +81,4 @@ def sync_entiti_statuses(
     return total_synced
 
 
-__all__ = ["sync_entiti_statuses"]
+__all__ = ["sync_entiti_statuses", "delete_inactive_entiti"]
