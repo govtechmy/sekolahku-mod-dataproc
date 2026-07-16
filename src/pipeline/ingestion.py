@@ -17,8 +17,8 @@ from pymongo.errors import OperationFailure
 
 from src.config import Settings, get_settings
 from src.models import Sekolah
-from src.core.gsheet import fetch_csv_data, _extract_file_version
-from src.core.s3 import (_upload_to_s3, _latest_csv_from_s3, _read_csv_from_s3)
+from src.core.gsheet import fetch_xlsx_data, _extract_file_version
+from src.core.s3 import (_upload_xlsx_to_s3, _read_xlsx_from_s3)
 from src.models.sekolah import SekolahStatus
 from src.pipeline.status_sync import sync_entiti_statuses, delete_inactive_entiti
 from src.core.time import _utc_now
@@ -99,13 +99,13 @@ def _read_google_sheet(sheet_id: str, gid: str) -> Iterable[Dict[str, Any]]:
 
 
 def _load_rows(settings: Settings) -> tuple[Iterable[Dict[str, Any]], str | None]:
-    csv_bytes, file_name = fetch_csv_data(settings.gsheet_id, settings.gsheet_gid)
-    logger.info("Uploading CSV data to S3 bucket %s", settings.s3_bucket_dataproc)
-    s3_key = _upload_to_s3(csv_bytes, settings.s3_bucket_dataproc, settings.s3_prefix_sekolah, file_name)
-    logger.info("CSV uploaded to S3 at key: %s", s3_key)
+    xlsx_bytes, file_name = fetch_xlsx_data(settings.gsheet_id, settings.gsheet_gid)
+    logger.info("Uploading XLSX data to S3 bucket %s", settings.s3_bucket_dataproc)
+    s3_key = _upload_xlsx_to_s3(xlsx_bytes, settings.s3_bucket_dataproc, settings.s3_prefix_sekolah, file_name)
+    logger.info("XLSX uploaded to S3 at key: %s", s3_key)
 
-    df = _read_csv_from_s3(settings.s3_bucket_dataproc, s3_key)
-    logger.info("CSV loaded from S3: %d rows, %d columns", df.shape[0], df.shape[1])
+    df = _read_xlsx_from_s3(settings.s3_bucket_dataproc, s3_key)
+    logger.info("XLSX loaded from S3: %d rows, %d columns", df.shape[0], df.shape[1])
     return df.to_dict(orient="records"), file_name
 
 
