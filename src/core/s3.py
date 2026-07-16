@@ -28,6 +28,23 @@ def _upload_to_s3(csv_bytes: bytes, bucket: str, prefix: str, source_filename: s
 
     return s3_key
 
+def _upload_xlsx_to_s3(xlsx_bytes: bytes, bucket: str, prefix: str, source_filename: str | None = None,) -> str:
+    if not bucket:
+        bucket = get_s3_bucket_name()
+
+    timestamp = int(time.time())
+    version = _extract_file_version(source_filename) or "unknown"
+    s3_key = f"{prefix}/{version}/{timestamp}.xlsx"
+
+    s3.put_object(
+        Bucket=bucket,
+        Key=s3_key,
+        Body=xlsx_bytes,
+        ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+    return s3_key
+
 def _list_csv_files_in_s3(bucket: str, prefix: str) -> list[str]:
     response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix)
 
@@ -45,6 +62,11 @@ def _latest_csv_from_s3(bucket: str, prefix: str) -> Optional[str]:
 def _read_csv_from_s3(bucket: str, s3_key: str) -> pd.DataFrame:
     response = s3.get_object(Bucket=bucket, Key=s3_key)
     return pd.read_csv(response["Body"], dtype=str).fillna("")
+
+def _read_xlsx_from_s3(bucket: str, s3_key: str) -> pd.DataFrame:
+    import io
+    response = s3.get_object(Bucket=bucket, Key=s3_key)
+    return pd.read_excel(io.BytesIO(response["Body"].read()), dtype=str).fillna("")
 
 def upload_json_to_s3(payload: dict | list, bucket: Optional[str], key: str) -> str:
     """

@@ -57,3 +57,16 @@ def fetch_csv_data(gsheet_id: str, gid: str) -> tuple[bytes, str | None]:
     filename = _extract_filename(content_disp)
 
     return response.content, filename
+
+def fetch_xlsx_data(gsheet_id: str, gid: str) -> tuple[bytes, str | None]:
+    """Fetch Google Sheet as XLSX to preserve actual cell values (not display format)."""
+    url = f"https://docs.google.com/spreadsheets/d/{gsheet_id}/export?format=xlsx&gid={gid}"
+    logger.info("Fetching XLSX data from URL: %s", url)
+
+    response = requests.get(url)
+    response.raise_for_status()
+
+    content_disp = response.headers.get("Content-Disposition", "")
+    filename = _extract_filename(content_disp)
+
+    return response.content, filename
