@@ -27,5 +27,12 @@ EXPOSE 8000
 # Copy project source code
 COPY src /app/src
 
+# Run as an unprivileged user (security assessment F-08). The app only reads
+# /app and sends its output to S3/MongoDB, so the root-owned source stays
+# read-only to it; libraries that need scratch space use the world-writable /tmp.
+RUN groupadd --system --gid 10001 app \
+    && useradd --system --uid 10001 --gid app --create-home --home-dir /home/app --shell /usr/sbin/nologin app
+USER 10001:10001
+
 # Default command runs the FastAPI server
 CMD ["uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "8000"]
