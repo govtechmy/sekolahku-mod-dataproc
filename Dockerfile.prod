@@ -32,6 +32,10 @@ COPY src /app/src
 # read-only to it; libraries that need scratch space use the world-writable /tmp.
 RUN groupadd --system --gid 10001 app \
     && useradd --system --uid 10001 --gid app --create-home --home-dir /home/app --shell /usr/sbin/nologin app
+# fastapi-crons keeps job state in SQLite, by default ./cron_state.db (= /app,
+# read-only for uid 10001); without this every job fails with "unable to open
+# database file" when it comes due. The file was already per-container before.
+ENV CRON_SQLITE_DB_PATH=/tmp/cron_state.db
 USER 10001:10001
 
 # Default command runs the FastAPI server
