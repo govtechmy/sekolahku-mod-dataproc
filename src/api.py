@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 from botocore.exceptions import ClientError
 from fastapi import BackgroundTasks, FastAPI, HTTPException
@@ -25,7 +27,24 @@ from src.service.startup.s3_bootstrap import evaluate_s3_bootstrap
 from src.service.startup.backfill import run_startup_backfill
 
 logger = logging.getLogger(__name__)
-app = FastAPI()
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    """Start the cron scheduler and S3 bootstrap on startup; stop crons on shutdown.
+
+    Replaces the @app.on_event("startup"/"shutdown") hooks, which Starlette 1.x
+    removed. startup_event/shutdown_event are defined further down and looked
+    up when the app starts, so their behaviour is unchanged.
+    """
+    await startup_event()
+    try:
+        yield
+    finally:
+        await shutdown_event()
+
+
+app = FastAPI(lifespan=lifespan)
 crons = Crons()
 
 settings = get_settings()
@@ -259,7 +278,6 @@ def export_centroids_endpoint() -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Unexpected error while exporting centroids")
 
 
-@app.on_event("startup")
 async def startup_event():
     """Initialize and start scheduled cron jobs."""
     logger.info("Initializing scheduled cron jobs")
@@ -295,7 +313,6 @@ async def startup_event():
     logger.info("Cron jobs started successfully - daily ingestion scheduled for 00:00")
 
 
-@app.on_event("shutdown")
 async def shutdown_event():
     """Stop cron jobs on application shutdown."""
     logger.info("Stopping scheduled cron jobs")
